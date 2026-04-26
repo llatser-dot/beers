@@ -1,0 +1,39 @@
+name: LlatserListen
+options:
+  bundleIdPrefix: com.llatser
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+  generateEmptyDirectories: true
+
+packages:
+  FluidAudio:
+    url: https://github.com/FluidInference/FluidAudio
+    from: "0.13.6"
+  WhisperKit:
+    url: https://github.com/argmaxinc/WhisperKit
+    from: "0.9.0"
+
+targets:
+  LlatserListen:
+    type: application
+    platform: macOS
+    sources:
+      - LlatserListen
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.llatser.listen
+        PRODUCT_NAME: "Llatser Listen"
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        INFOPLIST_FILE: LlatserListen/Info.plist
+        CODE_SIGN_ENTITLEMENTS: LlatserListen/LlatserListen.entitlements
+        ENABLE_HARDENED_RUNTIME: true
+        CODE_SIGN_IDENTITY: "-"
+        SWIFT_VERSION: "5.9"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+    dependencies:
+      - package: FluidAudio
+      - package: WhisperKit
+    entitlements:
+      path: LlatserListen/LlatserListen.entitlements
