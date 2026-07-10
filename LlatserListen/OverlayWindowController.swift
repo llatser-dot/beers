@@ -60,7 +60,7 @@ final class OverlayWindowController {
         let workItem = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.presentation.isVisible = false
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.38) { [weak self] in
                 guard let self, self.hideGeneration == generation else { return }
                 self.window?.orderOut(nil)
             }

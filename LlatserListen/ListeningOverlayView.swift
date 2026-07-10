@@ -1,11 +1,8 @@
 import SwiftUI
 
 enum ListeningOverlayLayout {
-    static let canvasSize = CGSize(width: 1000, height: 72)
-    static let notchWidth: CGFloat = 220
-    static let sideGap: CGFloat = 8
-    static let dotSize = CGSize(width: 32, height: 24)
-    static let waveformSize = CGSize(width: 104, height: 24)
+    static let canvasSize = CGSize(width: 480, height: 88)
+    static let pillSize = CGSize(width: 168, height: 40)
 }
 
 @MainActor
@@ -19,120 +16,130 @@ struct ListeningOverlayView: View {
     @ObservedObject var presentation: OverlayPresentationState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// Occasional UI: ease-out, under 300ms. Never scale(0) — start at 0.95.
     private var animation: Animation? {
-        reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.34, dampingFraction: 0.78)
+        if reduceMotion {
+            return .easeOut(duration: 0.12)
+        }
+        // Critically damped spring (Apple-style): snappy, no bounce.
+        return .spring(response: 0.28, dampingFraction: 1.0)
     }
 
     var body: some View {
         GeometryReader { proxy in
-            let centerX = proxy.size.width / 2
-            let topBandHeight = min(proxy.size.height, max(24, presentation.menuBarHeight))
-            let dotVisibleX = centerX - ListeningOverlayLayout.notchWidth / 2 - ListeningOverlayLayout.sideGap - ListeningOverlayLayout.dotSize.width / 2
-            let dotHiddenX = centerX - ListeningOverlayLayout.notchWidth / 2 + ListeningOverlayLayout.dotSize.width / 2
-            let waveformVisibleX = centerX + ListeningOverlayLayout.notchWidth / 2 + ListeningOverlayLayout.sideGap + ListeningOverlayLayout.waveformSize.width / 2
-            let waveformHiddenX = centerX + ListeningOverlayLayout.notchWidth / 2 - ListeningOverlayLayout.waveformSize.width / 2
-            let y = max(3, floor((topBandHeight - ListeningOverlayLayout.dotSize.height) / 2)) + ListeningOverlayLayout.dotSize.height / 2
+            let topInset = min(proxy.size.height, max(24, presentation.menuBarHeight))
+            let y = topInset + 8 + ListeningOverlayLayout.pillSize.height / 2
 
             ZStack {
-                dotIndicator
-                    .frame(width: ListeningOverlayLayout.dotSize.width, height: ListeningOverlayLayout.dotSize.height)
-                    .position(x: presentation.isVisible ? dotVisibleX : dotHiddenX, y: y)
-                    .opacity(presentation.isVisible ? 1 : 0)
-
-                waveformIndicator
-                    .frame(width: ListeningOverlayLayout.waveformSize.width, height: ListeningOverlayLayout.waveformSize.height)
-                    .position(x: presentation.isVisible ? waveformVisibleX : waveformHiddenX, y: y)
-                    .opacity(presentation.isVisible ? 1 : 0)
+                FlowPill(
+                    mode: presentation.mode,
+                    isVisible: presentation.isVisible,
+                    reduceMotion: reduceMotion
+                )
+                .frame(
+                    width: ListeningOverlayLayout.pillSize.width,
+                    height: ListeningOverlayLayout.pillSize.height
+                )
+                .scaleEffect(presentation.isVisible ? 1 : 0.95, anchor: .center)
+                .opacity(presentation.isVisible ? 1 : 0)
+                .position(x: proxy.size.width / 2, y: y)
             }
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
             .animation(animation, value: presentation.isVisible)
-            .animation(animation, value: presentation.mode)
+            .animation(.easeOut(duration: 0.18), value: presentation.mode)
         }
         .environment(\.colorScheme, .dark)
     }
+}
 
-    private var dotIndicator: some View {
-        Capsule()
-            .fill(.black.opacity(0.82))
-            .overlay {
-                TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 20.0, paused: reduceMotion || !presentation.isVisible)) { timeline in
-                    let pulse = reduceMotion ? 1 : 0.78 + 0.22 * ((sin(timeline.date.timeIntervalSinceReferenceDate * 5.8) + 1) / 2)
+private struct FlowPill: View {
+    let mode: OverlayMode
+    let isVisible: Bool
+    let reduceMotion: Bool
 
-                    Circle()
-                        .fill(Color(red: 1.0, green: 0.22, blue: 0.18))
-                        .frame(width: 7, height: 7)
-                        .scaleEffect(pulse)
-                        .shadow(color: Color(red: 1.0, green: 0.22, blue: 0.18).opacity(0.45), radius: 5)
+    var body: some View {
+        ZStack {
+            Capsule(style: .continuous)
+                .fill(.ultraThinMaterial)
+                .environment(\.colorScheme, .dark)
+
+            Capsule(style: .continuous)
+                .fill(Color.black.opacity(0.45))
+
+            Capsule(style: .continuous)
+                .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+
+            HStack(spacing: 10) {
+                Circle()
+                    .fill(mode == .listening ? LlatserTheme.accent : LlatserTheme.accent.opacity(0.7))
+                    .frame(width: 7, height: 7)
+
+                Group {
+                    switch mode {
+                    case .listening:
+                        QuietWaveform(active: isVisible && !reduceMotion)
+                            .frame(width: 96, height: 18)
+                    case .processing:
+                        QuietDots(active: isVisible && !reduceMotion)
+                            .frame(width: 96, height: 18)
+                    }
                 }
             }
-    }
-
-    @ViewBuilder
-    private var waveformIndicator: some View {
-        Capsule()
-            .fill(.black.opacity(0.82))
-            .overlay {
-                switch presentation.mode {
-                case .listening:
-                    CompactWaveform(active: presentation.isVisible && !reduceMotion)
-                        .frame(width: 72, height: 17)
-                case .processing:
-                    ProcessingDots(active: presentation.isVisible && !reduceMotion)
-                        .frame(width: 58, height: 17)
-                }
-            }
+            .padding(.horizontal, 14)
+        }
+        .shadow(color: .black.opacity(isVisible ? 0.35 : 0), radius: 12, y: 6)
     }
 }
 
-private struct CompactWaveform: View {
+/// Soft waveform — state feedback only, not decoration overload.
+private struct QuietWaveform: View {
     let active: Bool
     private let barCount = 12
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: active ? 1.0 / 20.0 : 1.0, paused: !active)) { timeline in
+        TimelineView(.animation(minimumInterval: active ? 1.0 / 24.0 : 1.0, paused: !active)) { timeline in
             let time = timeline.date.timeIntervalSinceReferenceDate
 
-            HStack(alignment: .center, spacing: 2.2) {
+            HStack(alignment: .center, spacing: 2.4) {
                 ForEach(0..<barCount, id: \.self) { index in
-                    RoundedRectangle(cornerRadius: 1.2)
-                        .fill(LlatserTheme.accent.opacity(0.95))
-                        .frame(width: 2.5, height: active ? height(for: index, time: time) : 4)
+                    Capsule()
+                        .fill(Color.white.opacity(0.88))
+                        .frame(width: 2.2, height: active ? height(for: index, time: time) : 3)
                 }
             }
-            .frame(height: 17)
+            .frame(height: 18)
         }
     }
 
     private func height(for index: Int, time: TimeInterval) -> CGFloat {
         let center = Double(barCount - 1) / 2.0
-        let distance = abs(Double(index) - center) / center
-        let peak = 1.0 - distance * 0.56
-        let phase = Double(index) * 0.55
-        let wave = (sin(time * 7.2 + phase) + 1.0) / 2.0
-        return CGFloat(3.0 + peak * (4.0 + wave * 8.5))
+        let distance = abs(Double(index) - center) / max(center, 1)
+        let envelope = 1.0 - distance * 0.55
+        let phase = Double(index) * 0.48
+        let wave = (sin(time * 7.6 + phase) + 1.0) / 2.0
+        return CGFloat(3.0 + envelope * (3.5 + wave * 9.0))
     }
 }
 
-private struct ProcessingDots: View {
+private struct QuietDots: View {
     let active: Bool
 
     var body: some View {
         TimelineView(.animation(minimumInterval: active ? 1.0 / 20.0 : 1.0, paused: !active)) { timeline in
             let time = timeline.date.timeIntervalSinceReferenceDate
 
-            HStack(spacing: 5) {
+            HStack(spacing: 6) {
                 ForEach(0..<3, id: \.self) { index in
                     Circle()
-                        .fill(LlatserTheme.accent.opacity(0.95))
+                        .fill(Color.white.opacity(active ? opacity(for: index, time: time) : 0.35))
                         .frame(width: 5, height: 5)
-                        .scaleEffect(active ? scale(for: index, time: time) : 0.8)
                 }
             }
         }
     }
 
-    private func scale(for index: Int, time: TimeInterval) -> CGFloat {
-        let phase = time * 5.0 - Double(index) * 0.52
-        return CGFloat(0.68 + 0.32 * ((sin(phase) + 1) / 2))
+    private func opacity(for index: Int, time: TimeInterval) -> Double {
+        let phase = time * 4.2 - Double(index) * 0.55
+        return 0.28 + 0.72 * ((sin(phase) + 1) / 2)
     }
 }

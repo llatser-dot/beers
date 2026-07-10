@@ -3,16 +3,23 @@ import Foundation
 
 final class ParakeetTranscriber {
     private var manager: AsrManager?
+    private let version: AsrModelVersion
+    private let label: String
+
+    init(version: AsrModelVersion, label: String) {
+        self.version = version
+        self.label = label
+    }
 
     func load(onProgress: @escaping @Sendable (Double, String) -> Void) async throws {
-        onProgress(0.05, "Preparing Parakeet v3...")
-        let models = try await AsrModels.downloadAndLoad(version: .v3) { progress in
+        onProgress(0.05, "Preparing \(label)...")
+        let models = try await AsrModels.downloadAndLoad(version: version) { progress in
             let message: String
             switch progress.phase {
             case .listing:
-                message = "Checking Parakeet files..."
+                message = "Checking \(self.label) files..."
             case .downloading:
-                message = "Downloading Parakeet v3..."
+                message = "Downloading \(self.label)..."
             case .compiling(let modelName):
                 message = "Compiling \(modelName)..."
             }
@@ -22,7 +29,7 @@ final class ParakeetTranscriber {
         let asrManager = AsrManager(config: .default)
         try await asrManager.loadModels(models)
         manager = asrManager
-        onProgress(1, "Parakeet v3 ready")
+        onProgress(1, "\(label) ready")
     }
 
     func transcribe(_ audio: [Float]) async throws -> String {
@@ -34,7 +41,7 @@ final class ParakeetTranscriber {
             return ""
         }
 
-        llog("ParakeetTranscriber: transcribing \(audio.count) samples")
+        llog("ParakeetTranscriber: \(label) transcribing \(audio.count) samples")
         var decoderState = TdtDecoderState.make(decoderLayers: await manager.decoderLayerCount)
         let result = try await manager.transcribe(audio, decoderState: &decoderState, language: .english)
         let cleanedText = sanitize(result.text)

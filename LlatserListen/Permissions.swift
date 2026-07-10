@@ -1,21 +1,23 @@
-import AVFoundation
+import AVFAudio
 import AppKit
 import ApplicationServices
 
 enum Permissions {
-    enum MicrophoneStatus {
+    enum MicrophoneStatus: String {
         case authorized
         case notDetermined
         case denied
     }
 
     static func microphoneStatus() -> MicrophoneStatus {
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
-        case .authorized:
+        switch AVAudioApplication.shared.recordPermission {
+        case .granted:
             return .authorized
-        case .notDetermined:
+        case .undetermined:
             return .notDetermined
-        default:
+        case .denied:
+            return .denied
+        @unknown default:
             return .denied
         }
     }
@@ -25,13 +27,24 @@ enum Permissions {
     }
 
     static func requestMicrophone() async -> Bool {
-        guard microphoneStatus() == .notDetermined else {
+        let status = microphoneStatus()
+        llog("Permissions: microphone status before request=\(status.rawValue)")
+
+        guard status == .notDetermined else {
             return isMicrophoneGranted()
         }
-        return await AVCaptureDevice.requestAccess(for: .audio)
+
+        return await withCheckedContinuation { continuation in
+            AVAudioApplication.requestRecordPermission { granted in
+                llog("Permissions: microphone request returned granted=\(granted)")
+                continuation.resume(returning: granted)
+            }
+        }
     }
 
     static func isInputMonitoringGranted() -> Bool {
+        // macOS often keeps this false until the process is fully relaunched
+        // after the System Settings toggle is flipped.
         CGPreflightListenEventAccess()
     }
 
@@ -41,6 +54,7 @@ enum Permissions {
     }
 
     static func isAccessibilityGranted() -> Bool {
+        // Prefer the AX trust bit; PostEvent is a useful secondary signal for paste.
         AXIsProcessTrusted() || CGPreflightPostEventAccess()
     }
 
@@ -57,6 +71,23 @@ enum Permissions {
         return axGranted || postGranted
     }
 
+    /// Input Monitoring / Accessibility grants frequently do not apply to the
+    /// already-running process. Relaunch so TCC re-evaluates this binary.
+    static func relaunchApp() {
+        let url = Bundle.main.bundleURL
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+
+        NSWorkspace.shared.openApplication(at: url, configuration: configuration) { _, error in
+            if let error {
+                llog("Permissions: relaunch failed: \(error.localizedDescription)")
+            }
+            DispatchQueue.main.async {
+                NSApp.terminate(nil)
+            }
+        }
+    }
+
     static func openMicrophoneSettings() {
         openSystemSettingsPane("Privacy_Microphone")
     }
@@ -70,9 +101,15 @@ enum Permissions {
     }
 
     private static func openSystemSettingsPane(_ pane: String) {
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)") else {
-            return
+        // Prefer modern System Settings deep links; fall back to legacy pref pane URLs.
+        let candidates = [
+            "x-apple.systempreferences:com.apple.preference.security?\(pane)",
+            "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?\(pane)"
+        ]
+        for candidate in candidates {
+            if let url = URL(string: candidate), NSWorkspace.shared.open(url) {
+                return
+            }
         }
-        NSWorkspace.shared.open(url)
     }
 }

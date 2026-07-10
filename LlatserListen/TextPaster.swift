@@ -2,13 +2,25 @@ import AppKit
 import ApplicationServices
 
 final class TextPaster {
+    private enum Timing {
+        static let keyUpDelay: TimeInterval = 0.02
+        static let restoreDelay: TimeInterval = 5.0
+    }
+
+    private struct PasteboardSnapshot {
+        let items: [NSPasteboardItem]
+        let changeCount: Int
+    }
+
     @discardableResult
     func paste(_ text: String) -> Bool {
         let pasteboard = NSPasteboard.general
+        let snapshot = captureSnapshot(from: pasteboard)
         pasteboard.clearContents()
 
         guard pasteboard.setString(text, forType: .string) else {
             llog("TextPaster: failed to write text to pasteboard")
+            restoreSnapshot(snapshot, to: pasteboard)
             return false
         }
 
@@ -18,10 +30,38 @@ final class TextPaster {
         }
 
         llog("TextPaster: copied text to pasteboard, posting Cmd+V")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            self.simulatePaste()
+        simulatePaste()
+        DispatchQueue.main.asyncAfter(deadline: .now() + Timing.restoreDelay) {
+            let currentPasteboard = NSPasteboard.general
+            if currentPasteboard.string(forType: .string) == text {
+                self.restoreSnapshot(snapshot, to: currentPasteboard)
+                llog("TextPaster: restored previous pasteboard")
+            }
         }
         return true
+    }
+
+    private func captureSnapshot(from pasteboard: NSPasteboard) -> PasteboardSnapshot {
+        let items: [NSPasteboardItem] = pasteboard.pasteboardItems?.map { item -> NSPasteboardItem in
+            let copy = NSPasteboardItem()
+            for type in item.types {
+                if let data = item.data(forType: type) {
+                    copy.setData(data, forType: type)
+                } else if let string = item.string(forType: type) {
+                    copy.setString(string, forType: type)
+                }
+            }
+            return copy
+        } ?? []
+
+        return PasteboardSnapshot(items: items, changeCount: pasteboard.changeCount)
+    }
+
+    private func restoreSnapshot(_ snapshot: PasteboardSnapshot, to pasteboard: NSPasteboard) {
+        guard snapshot.items.isEmpty == false else { return }
+        pasteboard.clearContents()
+        let objects = snapshot.items.map { $0 as NSPasteboardWriting }
+        pasteboard.writeObjects(objects)
     }
 
     private func simulatePaste() {
@@ -34,8 +74,10 @@ final class TextPaster {
 
         keyDown.flags = .maskCommand
         keyUp.flags = .maskCommand
-        keyDown.post(tap: .cghidEventTap)
-        keyUp.post(tap: .cghidEventTap)
-        llog("TextPaster: posted Cmd+V to HID tap")
+        keyDown.post(tap: .cgSessionEventTap)
+        DispatchQueue.main.asyncAfter(deadline: .now() + Timing.keyUpDelay) {
+            keyUp.post(tap: .cgSessionEventTap)
+            llog("TextPaster: posted Cmd+V to session tap")
+        }
     }
 }
