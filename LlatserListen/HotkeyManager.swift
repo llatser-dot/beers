@@ -8,9 +8,19 @@ final class HotkeyManager {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var isKeyHeld = false
-    private let targetKeyCode: UInt16 = 61 // Right Option
+    private var option: HotkeyOption = .leftCommand
 
     var isRegistered: Bool { eventTap != nil }
+
+    func setOption(_ newOption: HotkeyOption) {
+        guard newOption != option else { return }
+        option = newOption
+        isKeyHeld = false
+        if isRegistered {
+            register()
+        }
+        llog("HotkeyManager: hotkey set to \(newOption.shortName)")
+    }
 
     func register() {
         unregister()
@@ -21,6 +31,8 @@ final class HotkeyManager {
         }
 
         let eventMask: CGEventMask = (1 << CGEventType.flagsChanged.rawValue)
+            | (1 << CGEventType.keyDown.rawValue)
+            | (1 << CGEventType.keyUp.rawValue)
         let userInfo = Unmanaged.passUnretained(self).toOpaque()
 
         guard let tap = CGEvent.tapCreate(
@@ -40,7 +52,7 @@ final class HotkeyManager {
                     return Unmanaged.passUnretained(event)
                 }
 
-                manager.handleCGEvent(event)
+                manager.handleCGEvent(type: type, event)
                 return Unmanaged.passUnretained(event)
             },
             userInfo: userInfo
@@ -55,7 +67,7 @@ final class HotkeyManager {
         if let runLoopSource {
             CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
             CGEvent.tapEnable(tap: tap, enable: true)
-            llog("HotkeyManager: registered Right Option")
+            llog("HotkeyManager: registered \(option.shortName)")
         }
     }
 
@@ -71,17 +83,29 @@ final class HotkeyManager {
         isKeyHeld = false
     }
 
-    private func handleCGEvent(_ event: CGEvent) {
+    private func handleCGEvent(type: CGEventType, _ event: CGEvent) {
         let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
-        guard keyCode == targetKeyCode else { return }
+        guard keyCode == option.keyCode else { return }
 
-        let optionDown = event.flags.contains(.maskAlternate)
-        if optionDown && !isKeyHeld {
+        let pressed: Bool
+        if option.isModifier {
+            guard type == .flagsChanged, let mask = option.modifierMask else { return }
+            pressed = event.flags.contains(mask)
+        } else if type == .keyDown {
+            guard event.getIntegerValueField(.keyboardEventAutorepeat) == 0 else { return }
+            pressed = true
+        } else if type == .keyUp {
+            pressed = false
+        } else {
+            return
+        }
+
+        if pressed && !isKeyHeld {
             isKeyHeld = true
             DispatchQueue.main.async { [weak self] in
                 self?.onKeyDown?()
             }
-        } else if !optionDown && isKeyHeld {
+        } else if !pressed && isKeyHeld {
             isKeyHeld = false
             DispatchQueue.main.async { [weak self] in
                 self?.onKeyUp?()

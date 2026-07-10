@@ -1,13 +1,32 @@
+import ServiceManagement
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        showSettingsWindow()
+        // Menu-bar-only: never take a Dock icon, even while a window is open.
+        NSApp.setActivationPolicy(.accessory)
+
+        if Permissions.isMicrophoneGranted()
+            && Permissions.isInputMonitoringGranted()
+            && Permissions.isAccessibilityGranted() {
+            closeRestoredWindows()
+        } else {
+            // First run / missing grants: surface the permission checklist.
+            showSettingsWindow()
+        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showSettingsWindow()
         return true
+    }
+
+    private func closeRestoredWindows() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            for window in NSApp.windows where window.identifier?.rawValue.contains("main") == true {
+                window.close()
+            }
+        }
     }
 
     private func showSettingsWindow() {
@@ -39,13 +58,11 @@ struct LlatserListenApp: App {
                 .environmentObject(appState)
         } label: {
             if appState.status == .recording {
-                Image(systemName: "waveform.circle.fill")
-                    .symbolRenderingMode(.palette)
-                    .foregroundStyle(.red, .primary)
+                Image(systemName: "waveform")
             } else if appState.status == .transcribing {
-                Image(systemName: "waveform.circle")
+                Image(systemName: "ellipsis.circle")
             } else {
-                Image(systemName: "mic.circle")
+                Image(systemName: "mic")
             }
         }
         .menuBarExtraStyle(.window)

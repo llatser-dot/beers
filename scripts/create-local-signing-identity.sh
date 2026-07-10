@@ -43,21 +43,43 @@ EOF
     -out "$CERT_FILE" \
     -config "$CONFIG_FILE"
 
+# Modern OpenSSL + macOS reject empty PKCS12 passwords. Use a fixed local passphrase.
+P12_PASS="llatser-local-codesign"
 /usr/bin/openssl pkcs12 \
     -export \
     -out "$P12_FILE" \
     -inkey "$KEY_FILE" \
     -in "$CERT_FILE" \
-    -passout pass:
+    -passout "pass:$P12_PASS" \
+    -legacy 2>/dev/null \
+|| /usr/bin/openssl pkcs12 \
+    -export \
+    -out "$P12_FILE" \
+    -inkey "$KEY_FILE" \
+    -in "$CERT_FILE" \
+    -passout "pass:$P12_PASS"
 
 security import "$P12_FILE" \
     -k "$KEYCHAIN" \
-    -P "" \
+    -P "$P12_PASS" \
     -T /usr/bin/codesign \
     -T /usr/bin/security
 
+# Allow codesign to use the key without UI prompts in agent/CI contexts.
+security set-key-partition-list \
+    -S apple-tool:,apple:,codesign: \
+    -s \
+    -k "" \
+    "$KEYCHAIN" >/dev/null 2>&1 || true
+
 security add-trusted-cert \
+    -d \
     -r trustRoot \
+    -p codeSign \
+    -k "$KEYCHAIN" \
+    "$CERT_FILE" 2>/dev/null \
+|| security add-trusted-cert \
+    -r trustAsRoot \
     -p codeSign \
     -k "$KEYCHAIN" \
     "$CERT_FILE"

@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 import SwiftUI
 
 @MainActor
@@ -13,17 +14,17 @@ final class AppState: ObservableObject {
         var label: String {
             switch self {
             case .loading: return "Preparing"
-            case .ready: return "Ready"
+            case .ready: return "Online"
             case .recording: return "Listening"
-            case .transcribing: return "Transcribing"
-            case .error: return "Needs attention"
+            case .transcribing: return "Processing"
+            case .error: return "Attention"
             }
         }
     }
 
     private enum PermissionCopy {
         static let microphone = "Microphone permission is required."
-        static let inputMonitoring = "Enable Input Monitoring for the Right Option hotkey."
+        static let inputMonitoring = "Enable Input Monitoring for the push-to-talk hotkey."
         static let accessibility = "Enable Accessibility to paste automatically."
         static let clipboardFallback = "Text copied to clipboard. Enable Accessibility to auto-paste."
     }
@@ -38,6 +39,100 @@ final class AppState: ObservableObject {
     @Published var loadingMessage = "Preparing Parakeet..."
     @Published var modelProgress: Double = 0
     @Published var lastTranscription = ""
+    @Published var lastTargetApp = "Current app"
+    @Published var polishBeforePaste: Bool {
+        didSet {
+            UserDefaults.standard.set(polishBeforePaste, forKey: "polishBeforePaste")
+        }
+    }
+    @Published var writingMode: WritingMode {
+        didSet {
+            UserDefaults.standard.set(writingMode.rawValue, forKey: "writingMode")
+        }
+    }
+    @Published var cleanSpeechScaffolding: Bool {
+        didSet {
+            UserDefaults.standard.set(cleanSpeechScaffolding, forKey: "cleanSpeechScaffolding")
+        }
+    }
+    @Published var collapseRepeats: Bool {
+        didSet {
+            UserDefaults.standard.set(collapseRepeats, forKey: "collapseRepeats")
+        }
+    }
+    @Published var smartCapitalization: Bool {
+        didSet {
+            UserDefaults.standard.set(smartCapitalization, forKey: "smartCapitalization")
+        }
+    }
+    @Published var normalizeLinks: Bool {
+        didSet {
+            UserDefaults.standard.set(normalizeLinks, forKey: "normalizeLinks")
+        }
+    }
+    @Published var removeTrailingFullStop: Bool {
+        didSet {
+            UserDefaults.standard.set(removeTrailingFullStop, forKey: "removeTrailingFullStop")
+        }
+    }
+    @Published var adaptiveTone: Bool {
+        didSet {
+            UserDefaults.standard.set(adaptiveTone, forKey: "adaptiveTone")
+        }
+    }
+    @Published var addSpaceAfterPaste: Bool {
+        didSet {
+            UserDefaults.standard.set(addSpaceAfterPaste, forKey: "addSpaceAfterPaste")
+        }
+    }
+    @Published var aiRewriteEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(aiRewriteEnabled, forKey: "aiRewriteEnabled")
+        }
+    }
+    @Published var aiRewriteEndpoint: String {
+        didSet {
+            UserDefaults.standard.set(aiRewriteEndpoint, forKey: "aiRewriteEndpoint")
+        }
+    }
+    @Published var aiRewriteModel: String {
+        didSet {
+            UserDefaults.standard.set(aiRewriteModel, forKey: "aiRewriteModel")
+        }
+    }
+    @Published var suppressComputerAudio: Bool {
+        didSet {
+            UserDefaults.standard.set(suppressComputerAudio, forKey: "suppressComputerAudio")
+            audioRecorder.setSuppressComputerAudio(suppressComputerAudio)
+        }
+    }
+    @Published var launchAtLogin: Bool {
+        didSet {
+            guard launchAtLogin != (SMAppService.mainApp.status == .enabled) else { return }
+            do {
+                if launchAtLogin {
+                    try SMAppService.mainApp.register()
+                } else {
+                    try SMAppService.mainApp.unregister()
+                }
+                llog("AppState: launch at login \(launchAtLogin ? "enabled" : "disabled")")
+            } catch {
+                llog("AppState: launch at login change failed: \(error.localizedDescription)")
+                launchAtLogin = SMAppService.mainApp.status == .enabled
+            }
+        }
+    }
+    @Published var hotkeyChoice: HotkeyOption {
+        didSet {
+            UserDefaults.standard.set(hotkeyChoice.rawValue, forKey: "hotkeyChoice")
+            hotkeyManager.setOption(hotkeyChoice)
+        }
+    }
+    @Published var vocabularyCorrections: [VocabularyCorrection] {
+        didSet {
+            VocabularyCorrections.save(vocabularyCorrections)
+        }
+    }
     @Published var microphoneGranted: Bool
     @Published var inputMonitoringGranted: Bool
     @Published var accessibilityGranted: Bool
@@ -62,13 +157,62 @@ final class AppState: ObservableObject {
         transcriptionEngine.loadedEngine == engineChoice
     }
 
+    var writingPreferences: WritingPreferences {
+        WritingPreferences(
+            mode: writingMode,
+            cleanSpeechScaffolding: cleanSpeechScaffolding,
+            collapseRepeats: collapseRepeats,
+            smartCapitalization: smartCapitalization,
+            normalizeLinks: normalizeLinks,
+            removeTrailingFullStop: removeTrailingFullStop,
+            adaptiveTone: adaptiveTone,
+            addSpaceAfterPaste: addSpaceAfterPaste,
+            aiRewrite: AIRewriteSettings(
+                isEnabled: aiRewriteEnabled,
+                endpoint: aiRewriteEndpoint,
+                model: aiRewriteModel
+            )
+        )
+    }
+
     init() {
+        VocabularyCorrections.ensureSeeded()
+
         let savedEngine = UserDefaults.standard.string(forKey: "engineChoice")
-        self.engineChoice = DictationEngine(rawValue: savedEngine ?? "") ?? .parakeet
+        self.engineChoice = DictationEngine.savedValue(savedEngine)
+        self.polishBeforePaste = Self.boolDefaultTrue(forKey: "polishBeforePaste")
+        let savedWritingMode = UserDefaults.standard.string(forKey: "writingMode")
+        self.writingMode = WritingMode(rawValue: savedWritingMode ?? "") ?? WritingPreferences.defaults.mode
+        self.cleanSpeechScaffolding = Self.boolDefaultTrue(forKey: "cleanSpeechScaffolding")
+        self.collapseRepeats = Self.boolDefaultTrue(forKey: "collapseRepeats")
+        self.smartCapitalization = Self.boolDefaultTrue(forKey: "smartCapitalization")
+        self.normalizeLinks = Self.boolDefaultTrue(forKey: "normalizeLinks")
+        self.removeTrailingFullStop = Self.boolDefaultTrue(forKey: "removeTrailingFullStop")
+        self.adaptiveTone = Self.boolDefaultTrue(forKey: "adaptiveTone")
+        self.addSpaceAfterPaste = UserDefaults.standard.bool(forKey: "addSpaceAfterPaste")
+        self.aiRewriteEnabled = UserDefaults.standard.bool(forKey: "aiRewriteEnabled")
+        self.aiRewriteEndpoint = UserDefaults.standard.string(forKey: "aiRewriteEndpoint") ?? AIRewriteSettings.defaults.endpoint
+        self.aiRewriteModel = UserDefaults.standard.string(forKey: "aiRewriteModel") ?? AIRewriteSettings.defaults.model
+        self.suppressComputerAudio = Self.boolDefaultTrue(forKey: "suppressComputerAudio")
+        self.hotkeyChoice = HotkeyOption.savedValue(UserDefaults.standard.string(forKey: "hotkeyChoice"))
+
+        // Register as a login item once by default; the toggle stays in control after that.
+        if !UserDefaults.standard.bool(forKey: "didAutoRegisterLoginItem"), SMAppService.mainApp.status != .enabled {
+            UserDefaults.standard.set(true, forKey: "didAutoRegisterLoginItem")
+            do {
+                try SMAppService.mainApp.register()
+                llog("AppState: auto-registered launch at login")
+            } catch {
+                llog("AppState: launch at login auto-registration failed: \(error.localizedDescription)")
+            }
+        }
+        self.launchAtLogin = SMAppService.mainApp.status == .enabled
+        self.vocabularyCorrections = VocabularyCorrections.load()
         self.microphoneGranted = Permissions.isMicrophoneGranted()
         self.inputMonitoringGranted = Permissions.isInputMonitoringGranted()
         self.accessibilityGranted = Permissions.isAccessibilityGranted()
 
+        audioRecorder.setSuppressComputerAudio(suppressComputerAudio)
         setupHotkey()
         startPermissionMonitor()
         loadSelectedEngine(showLoadingUI: false)
@@ -98,19 +242,30 @@ final class AppState: ObservableObject {
     func requestInputMonitoringPermission() {
         let granted = Permissions.requestInputMonitoring()
         reconcilePermissions()
-        if granted {
-            hotkeyManager.register()
-        } else if !inputMonitoringGranted {
-            Permissions.openInputMonitoringSettings()
+        if granted || inputMonitoringGranted {
+            // Even when System Settings already shows ON, the running process
+            // often still sees false until relaunch. Prefer relaunch over a
+            // half-working hotkey registration.
+            if hotkeyManager.isRegistered {
+                return
+            }
+            Permissions.relaunchApp()
+            return
         }
+        Permissions.openInputMonitoringSettings()
     }
 
     func requestAccessibilityPermission() {
         let granted = Permissions.requestAccessibility(prompt: true)
         reconcilePermissions()
-        if !granted && !accessibilityGranted {
-            Permissions.openAccessibilitySettings()
+        if granted || accessibilityGranted {
+            return
         }
+        Permissions.openAccessibilitySettings()
+    }
+
+    func relaunchToApplyPermissions() {
+        Permissions.relaunchApp()
     }
 
     func manualRecordToggle() {
@@ -119,6 +274,40 @@ final class AppState: ObservableObject {
         } else {
             startRecording(fromHotkey: false)
         }
+    }
+
+    func addVocabularyCorrection(heard: String, replacement: String) {
+        let cleanedHeard = heard.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanedReplacement = replacement.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedHeard.isEmpty, !cleanedReplacement.isEmpty else { return }
+
+        if let index = vocabularyCorrections.firstIndex(where: { $0.heard.caseInsensitiveCompare(cleanedHeard) == .orderedSame }) {
+            vocabularyCorrections[index].replacement = cleanedReplacement
+            return
+        }
+
+        vocabularyCorrections.append(VocabularyCorrection(heard: cleanedHeard, replacement: cleanedReplacement))
+    }
+
+    func removeVocabularyCorrection(_ correction: VocabularyCorrection) {
+        vocabularyCorrections.removeAll { $0.id == correction.id }
+    }
+
+    func resetWritingPreferences() {
+        let defaults = WritingPreferences.defaults
+        polishBeforePaste = true
+        writingMode = defaults.mode
+        cleanSpeechScaffolding = defaults.cleanSpeechScaffolding
+        collapseRepeats = defaults.collapseRepeats
+        smartCapitalization = defaults.smartCapitalization
+        normalizeLinks = defaults.normalizeLinks
+        removeTrailingFullStop = defaults.removeTrailingFullStop
+        adaptiveTone = defaults.adaptiveTone
+        addSpaceAfterPaste = defaults.addSpaceAfterPaste
+        aiRewriteEnabled = defaults.aiRewrite.isEnabled
+        aiRewriteEndpoint = defaults.aiRewrite.endpoint
+        aiRewriteModel = defaults.aiRewrite.model
+        suppressComputerAudio = true
     }
 
     func loadSelectedEngine(showLoadingUI: Bool = true) {
@@ -141,12 +330,14 @@ final class AppState: ObservableObject {
         modelProgress = 0
 
         let engine = transcriptionEngine
-        let task = Task.detached(priority: showLoadingUI ? .userInitiated : .utility) { [weak self] in
+        let appState = self
+        let task = Task.detached(priority: showLoadingUI ? .userInitiated : .utility) { [weak appState] in
+            guard let appState else { return }
             try await engine.load(selected) { progress, message in
-                Task { @MainActor [weak self] in
-                    guard let self, self.engineChoice == selected else { return }
-                    self.modelProgress = progress
-                    self.loadingMessage = message
+                Task { @MainActor [weak appState] in
+                    guard let appState, appState.engineChoice == selected else { return }
+                    appState.modelProgress = progress
+                    appState.loadingMessage = message
                 }
             }
         }
@@ -173,12 +364,22 @@ final class AppState: ObservableObject {
                     self.loadTask = nil
                 }
                 llog("AppState: model load failed: \(error.localizedDescription)")
+                guard self.engineChoice == selected else { return }
+                self.loadingMessage = ""
+                self.modelProgress = 0
+                if selected != .parakeetV3 {
+                    llog("AppState: falling back to Parakeet v3 after \(selected.displayName) load failure")
+                    self.engineChoice = .parakeetV3
+                    self.loadingMessage = "Falling back to Parakeet v3..."
+                    return
+                }
                 self.status = .error("Could not load \(selected.displayName). Check the log or network and try again.")
             }
         }
     }
 
     private func setupHotkey() {
+        hotkeyManager.setOption(hotkeyChoice)
         hotkeyManager.onKeyDown = { [weak self] in
             llog("Hotkey: DOWN")
             self?.startRecording(fromHotkey: true)
@@ -191,9 +392,11 @@ final class AppState: ObservableObject {
         refreshPermissions()
     }
 
+    private var didSchedulePermissionRelaunch = false
+
     private func startPermissionMonitor() {
         permissionMonitor?.invalidate()
-        permissionMonitor = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+        permissionMonitor = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.reconcilePermissions()
             }
@@ -201,10 +404,32 @@ final class AppState: ObservableObject {
     }
 
     private func reconcilePermissions() {
-        let hadInputMonitoring = inputMonitoringGranted
+        let previousMic = microphoneGranted
+        let previousInput = inputMonitoringGranted
+        let previousAccessibility = accessibilityGranted
         refreshPermissions()
 
-        if inputMonitoringGranted && (!hadInputMonitoring || !hotkeyManager.isRegistered) {
+        if microphoneGranted != previousMic
+            || inputMonitoringGranted != previousInput
+            || accessibilityGranted != previousAccessibility {
+            llog(
+                "Permissions: mic=\(microphoneGranted) inputMonitoring=\(inputMonitoringGranted) accessibility=\(accessibilityGranted) hotkeyRegistered=\(hotkeyManager.isRegistered)"
+            )
+        }
+
+        // Input Monitoring / Accessibility flips often only take effect after
+        // relaunch. If the user just enabled one in System Settings, bounce
+        // the process so the grant actually applies to this binary.
+        let inputJustGranted = inputMonitoringGranted && !previousInput
+        let accessibilityJustGranted = accessibilityGranted && !previousAccessibility
+        if (inputJustGranted || accessibilityJustGranted) && !didSchedulePermissionRelaunch {
+            didSchedulePermissionRelaunch = true
+            llog("Permissions: grant detected — relaunching so TCC applies to this process")
+            Permissions.relaunchApp()
+            return
+        }
+
+        if inputMonitoringGranted && !hotkeyManager.isRegistered {
             hotkeyManager.register()
         }
 
@@ -232,9 +457,26 @@ final class AppState: ObservableObject {
 
     private func ensureEngineLoaded() async throws {
         guard transcriptionEngine.loadedEngine != engineChoice else { return }
+        let selected = engineChoice
         loadSelectedEngine(showLoadingUI: true)
         if let loadTask {
-            try await loadTask.value
+            do {
+                try await loadTask.value
+            } catch {
+                if selected != .parakeetV3 {
+                    if engineChoice == selected {
+                        engineChoice = .parakeetV3
+                    }
+                    if transcriptionEngine.loadedEngine == .parakeetV3 {
+                        return
+                    }
+                    if let fallbackTask = self.loadTask, engineChoice == .parakeetV3 {
+                        try await fallbackTask.value
+                        return
+                    }
+                }
+                throw error
+            }
         }
     }
 
@@ -259,6 +501,7 @@ final class AppState: ObservableObject {
         }
 
         do {
+            // Duck + overlay first for instant feedback; capture uses a warm engine when possible.
             try audioRecorder.startRecording()
             isRecording = true
             status = .recording
@@ -275,6 +518,8 @@ final class AppState: ObservableObject {
         guard isRecording else { return }
 
         let audio = audioRecorder.stopRecording()
+        // Tear down immediately so the menu-bar mic indicator goes off.
+        audioRecorder.stopEngine()
         isRecording = false
 
         let duration = Float(audio.count) / 16000.0
@@ -287,7 +532,8 @@ final class AppState: ObservableObject {
             return
         }
 
-        guard rms >= 0.001 else {
+        // Threshold is on post-gain audio. Keep a floor so pure silence still drops.
+        guard rms >= 0.0004 else {
             llog("AppState: audio too quiet (RMS=\(String(format: "%.4f", rms)))")
             status = .ready
             overlay.hide()
@@ -311,8 +557,45 @@ final class AppState: ObservableObject {
                     return
                 }
 
-                self.lastTranscription = text
-                let pasted = self.textPaster.paste(text)
+                let context = ActiveAppContext.frontmost
+                self.lastTargetApp = context.name
+
+                var outputText: String
+                let preferences = self.writingPreferences
+                let resolvedMode = preferences.mode == .automatic ? context.inferredWritingMode : preferences.mode
+                if self.polishBeforePaste {
+                    outputText = TranscriptPolisher.polish(
+                        text,
+                        options: preferences.polisherOptions,
+                        context: context
+                    )
+                    llog("AppState: polished transcription='\(outputText)'")
+                } else {
+                    outputText = text
+                }
+                if preferences.aiRewrite.isEnabled {
+                    do {
+                        outputText = try await AITranscriptRewriter.rewrite(
+                            outputText,
+                            mode: resolvedMode,
+                            context: context,
+                            settings: preferences.aiRewrite
+                        )
+                        llog("AppState: AI-rewritten transcription='\(outputText)'")
+                    } catch {
+                        llog("AppState: AI rewrite failed: \(error.localizedDescription)")
+                    }
+                }
+                let vocabularyFinal = VocabularyCorrections.apply(to: outputText)
+                if vocabularyFinal != outputText {
+                    outputText = vocabularyFinal
+                    llog("AppState: vocabulary corrections re-applied='\(outputText)'")
+                }
+                if self.addSpaceAfterPaste, !outputText.hasSuffix(" ") {
+                    outputText += " "
+                }
+                self.lastTranscription = outputText
+                let pasted = self.textPaster.paste(outputText)
                 if !pasted {
                     self.status = .error(PermissionCopy.clipboardFallback)
                 }
@@ -337,5 +620,10 @@ final class AppState: ObservableObject {
         if !accessibilityGranted {
             requestAccessibilityPermission()
         }
+    }
+
+    private static func boolDefaultTrue(forKey key: String) -> Bool {
+        guard UserDefaults.standard.object(forKey: key) != nil else { return true }
+        return UserDefaults.standard.bool(forKey: key)
     }
 }
