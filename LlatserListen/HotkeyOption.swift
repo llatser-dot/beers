@@ -44,6 +44,20 @@ enum HotkeyOption: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Compact label for the Beers keycap component.
+    var keycapLabel: String {
+        switch self {
+        case .leftCommand: return "L ⌘"
+        case .rightCommand: return "R ⌘"
+        case .leftOption: return "L ⌥"
+        case .rightOption: return "R ⌥"
+        case .leftControl: return "L ⌃"
+        case .rightControl: return "R ⌃"
+        case .fnGlobe: return "fn"
+        case .f13: return "F13"
+        }
+    }
+
     var icon: String {
         switch self {
         case .leftCommand, .rightCommand: return "command"

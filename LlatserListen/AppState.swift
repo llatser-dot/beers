@@ -133,6 +133,12 @@ final class AppState: ObservableObject {
             VocabularyCorrections.save(vocabularyCorrections)
         }
     }
+    @Published var clinkOnServe: Bool {
+        didSet {
+            UserDefaults.standard.set(clinkOnServe, forKey: "clinkOnServe")
+        }
+    }
+    let pourStore = PourStore()
     @Published var microphoneGranted: Bool
     @Published var inputMonitoringGranted: Bool
     @Published var accessibilityGranted: Bool
@@ -194,6 +200,7 @@ final class AppState: ObservableObject {
         self.aiRewriteEndpoint = UserDefaults.standard.string(forKey: "aiRewriteEndpoint") ?? AIRewriteSettings.defaults.endpoint
         self.aiRewriteModel = UserDefaults.standard.string(forKey: "aiRewriteModel") ?? AIRewriteSettings.defaults.model
         self.suppressComputerAudio = Self.boolDefaultTrue(forKey: "suppressComputerAudio")
+        self.clinkOnServe = Self.boolDefaultTrue(forKey: "clinkOnServe")
         self.hotkeyChoice = HotkeyOption.savedValue(UserDefaults.standard.string(forKey: "hotkeyChoice"))
 
         // Register as a login item once by default; the toggle stays in control after that.
@@ -216,6 +223,13 @@ final class AppState: ObservableObject {
         setupHotkey()
         startPermissionMonitor()
         loadSelectedEngine(showLoadingUI: false)
+
+        MainWindowPresenter.shared.appStateProvider = { [weak self] in self }
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            BeersSnapshot.runIfRequested(appState: self)
+        }
     }
 
     func refreshPermissions() {
@@ -505,7 +519,9 @@ final class AppState: ObservableObject {
             try audioRecorder.startRecording()
             isRecording = true
             status = .recording
-            overlay.show(mode: .listening)
+            LiveMicLevel.shared.reset()
+            overlay.show(mode: .pouring)
+            Beers.popCap()
             llog("AppState: recording started")
         } catch {
             llog("AppState: record failed: \(error.localizedDescription)")
@@ -541,7 +557,7 @@ final class AppState: ObservableObject {
         }
 
         status = .transcribing
-        overlay.show(mode: .processing)
+        overlay.show(mode: .settling)
 
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -549,10 +565,10 @@ final class AppState: ObservableObject {
                 try await self.ensureEngineLoaded()
                 let text = try await self.transcriptionEngine.transcribe(audio)
                 self.status = .ready
-                self.overlay.hide(after: 0.15)
 
                 guard !text.isEmpty else {
                     llog("AppState: empty transcription")
+                    self.overlay.hide()
                     self.reconcilePermissions()
                     return
                 }
@@ -595,8 +611,21 @@ final class AppState: ObservableObject {
                     outputText += " "
                 }
                 self.lastTranscription = outputText
+
+                let pour = Pour(
+                    text: outputText.trimmingCharacters(in: .whitespacesAndNewlines),
+                    appName: context.name,
+                    duration: TimeInterval(duration)
+                )
+                self.pourStore.add(pour)
+
                 let pasted = self.textPaster.paste(outputText)
-                if !pasted {
+                if pasted {
+                    self.overlay.show(mode: .served(words: pour.words))
+                    self.overlay.hide(after: 1.0)
+                    Beers.clink()
+                } else {
+                    self.overlay.hide()
                     self.status = .error(PermissionCopy.clipboardFallback)
                 }
                 self.reconcilePermissions()

@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// The Brewer's dictionary: teach Beers your words.
 struct VocabularyEditorView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -10,48 +11,65 @@ struct VocabularyEditorView: View {
     let showsTitle: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: compact ? 10 : 12) {
+        VStack(alignment: .leading, spacing: 12) {
             if showsTitle {
-                SectionLabel(title: "Vocabulary", icon: "text.badge.checkmark")
+                Text("Brewer’s dictionary")
+                    .font(Beers.display(14))
+                    .foregroundStyle(Beers.stout)
             }
 
             HStack(spacing: 8) {
-                TextField("Heard", text: $heard)
-                    .textFieldStyle(.plain)
-                    .jarvisField()
-                    .onSubmit(addCorrection)
-
-                TextField("Use", text: $replacement)
-                    .textFieldStyle(.plain)
-                    .jarvisField()
-                    .onSubmit(addCorrection)
+                beersField("Heard", text: $heard)
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Beers.amber)
+                beersField("Pour instead", text: $replacement)
 
                 Button(action: addCorrection) {
                     Image(systemName: "plus")
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(LlatserTheme.ink)
+                        .foregroundStyle(Beers.paper)
                         .frame(width: 34, height: 34)
-                        .background(LlatserTheme.accent, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .background(Beers.amber, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .strokeBorder(Beers.ink, lineWidth: 2)
+                        )
                 }
                 .buttonStyle(.plain)
                 .disabled(!canAdd)
                 .opacity(canAdd ? 1 : 0.4)
-                .help("Add correction")
+                .help("Add word")
             }
 
             if appState.vocabularyCorrections.isEmpty {
-                Text("No custom words yet.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(LlatserTheme.textTertiary)
+                Text("No custom words yet — “Llatser”, “cmux”, “PlanWatch”…")
+                    .font(Beers.ui(12, .medium))
+                    .foregroundStyle(Beers.ink.opacity(0.5))
             } else if compact {
                 ScrollView {
                     correctionList
                 }
-                .frame(maxHeight: 138)
+                .frame(maxHeight: 150)
             } else {
                 correctionList
             }
         }
+    }
+
+    private func beersField(_ placeholder: String, text: Binding<String>) -> some View {
+        TextField(placeholder, text: text)
+            .textFieldStyle(.plain)
+            .font(Beers.ui(13, .medium))
+            .foregroundStyle(Beers.ink)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Beers.cream, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(Beers.ink, lineWidth: 2)
+            )
+            .onSubmit(addCorrection)
     }
 
     private var correctionList: some View {
@@ -69,44 +87,45 @@ struct VocabularyEditorView: View {
 
     private func correctionRow(_ correction: VocabularyCorrection) -> some View {
         HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(correction.heard)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(LlatserTheme.textPrimary)
-                    .lineLimit(1)
-                Text(correction.replacement)
-                    .font(.system(size: 12))
-                    .foregroundStyle(LlatserTheme.textSecondary)
-                    .lineLimit(1)
-            }
+            Text(correction.heard)
+                .font(Beers.ui(12, .semibold))
+                .foregroundStyle(Beers.ink.opacity(0.6))
+                .lineLimit(1)
+            Image(systemName: "arrow.right")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(Beers.amber)
+            Text(correction.replacement)
+                .font(Beers.ui(12, .bold))
+                .foregroundStyle(Beers.ink)
+                .lineLimit(1)
 
             Spacer()
 
             Button {
-                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : Beers.spring) {
                     appState.removeVocabularyCorrection(correction)
                 }
             } label: {
                 Image(systemName: "trash")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Beers.stout)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(LlatserTheme.textTertiary)
-            .help("Remove correction")
+            .help("Remove word")
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 11)
         .padding(.vertical, 8)
-        .background(LlatserTheme.selected, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(Beers.cream, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(LlatserTheme.hairline, lineWidth: 0.8)
+                .strokeBorder(Beers.ink.opacity(0.9), lineWidth: 2)
         )
         .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
     }
 
     private func addCorrection() {
         guard canAdd else { return }
-        withAnimation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0.08)) {
+        withAnimation(reduceMotion ? nil : Beers.spring) {
             appState.addVocabularyCorrection(heard: heard, replacement: replacement)
         }
         heard = ""
