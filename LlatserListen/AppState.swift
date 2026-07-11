@@ -14,7 +14,7 @@ final class AppState: ObservableObject {
         var label: String {
             switch self {
             case .loading: return "Preparing"
-            case .ready: return "Online"
+            case .ready: return "Ready"
             case .recording: return "Listening"
             case .transcribing: return "Processing"
             case .error: return "Attention"

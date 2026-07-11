@@ -22,7 +22,7 @@ struct SettingsView: View {
             .scrollIndicators(.hidden)
         }
         .frame(width: 700, height: 780)
-        .preferredColorScheme(.dark)
+        .tint(LlatserTheme.strong)
         .onAppear { appState.refreshPermissions() }
     }
 }
@@ -39,16 +39,16 @@ private struct HeroPanel: View {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .fill(statusColor.opacity(0.12))
                     Image(systemName: statusIcon)
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.system(size: 24, weight: .semibold))
                         .foregroundStyle(statusColor)
                 }
                 .frame(width: 48, height: 48)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Llatser Listen")
-                        .font(.system(size: 22, weight: .semibold))
+                    Text("Beers")
+                        .font(.system(size: 24, weight: .semibold))
                         .tracking(-0.3)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(LlatserTheme.textPrimary)
 
                     Text(statusDetail)
                         .font(.system(size: 13))
@@ -136,15 +136,15 @@ private struct StepChip: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(LlatserTheme.textPrimary)
             Text(detail)
-                .font(.system(size: 11))
+                .font(.system(size: 12))
                 .foregroundStyle(LlatserTheme.textSecondary)
                 .lineLimit(1)
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(LlatserTheme.selected, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -166,6 +166,7 @@ private struct DashboardGrid: View {
 
 private struct EnginePanel: View {
     @EnvironmentObject var appState: AppState
+    @State private var isShowingEngineInfo = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -173,8 +174,9 @@ private struct EnginePanel: View {
                 SectionLabel(title: "Voice engine", icon: "cpu")
                 Spacer()
                 Text(engineStatusLabel)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(engineStatusColor)
+                EngineInfoButton(isPresented: $isShowingEngineInfo)
             }
 
             HStack(spacing: 8) {
@@ -194,7 +196,7 @@ private struct EnginePanel: View {
 
             if appState.engineChoice.isExperimental {
                 Label("Experimental", systemImage: "exclamationmark.triangle")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(LlatserTheme.warn)
             }
         }
@@ -210,6 +212,92 @@ private struct EnginePanel: View {
     private var engineStatusColor: Color {
         if appState.errorMessage != nil { return LlatserTheme.warn }
         return appState.engineLoaded ? LlatserTheme.accent : LlatserTheme.textSecondary
+    }
+}
+
+private struct EngineInfoButton: View {
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        Button {
+            isPresented.toggle()
+        } label: {
+            Image(systemName: "info.circle")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(LlatserTheme.textSecondary)
+                .frame(width: 24, height: 24)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering in
+            if isHovering { isPresented = true }
+        }
+        .popover(isPresented: $isPresented, arrowEdge: .top) {
+            EngineInfoPopover()
+        }
+        .help("Compare voice engines")
+        .accessibilityLabel("Voice engine information")
+        .accessibilityHint("Shows the abilities and download size of each voice engine")
+    }
+}
+
+private struct EngineInfoPopover: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Choose a voice engine")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(LlatserTheme.textPrimary)
+                .padding(.bottom, 4)
+
+            Text("All engines run privately on your Mac after downloading.")
+                .font(.system(size: 12))
+                .foregroundStyle(LlatserTheme.textSecondary)
+                .padding(.bottom, 14)
+
+            ForEach(Array(DictationEngine.allCases.enumerated()), id: \.element.id) { index, engine in
+                if index > 0 {
+                    Divider().overlay(LlatserTheme.hairline)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(engine.displayName)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(LlatserTheme.textPrimary)
+                        if !engine.isExperimental {
+                            Text("RECOMMENDED")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(LlatserTheme.ink)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
+                                .background(LlatserTheme.accent, in: Capsule())
+                        }
+                        Spacer()
+                        Label(engine.modelSize, systemImage: "internaldrive")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(LlatserTheme.textSecondary)
+                    }
+
+                    Text(engine.abilitySummary)
+                        .font(.system(size: 12))
+                        .foregroundStyle(LlatserTheme.textPrimary.opacity(0.82))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text("Best for: \(engine.bestFor)")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(engine.isExperimental ? LlatserTheme.warn : LlatserTheme.accent)
+                }
+                .padding(.vertical, 11)
+            }
+
+            Text("Sizes are approximate and may vary slightly by release.")
+                .font(.system(size: 12))
+                .foregroundStyle(LlatserTheme.textTertiary)
+                .padding(.top, 3)
+        }
+        .padding(16)
+        .frame(width: 390)
+        .background(LlatserTheme.panelRaised)
     }
 }
 
@@ -238,10 +326,7 @@ private struct ModePanel: View {
                 }
             }
             .pickerStyle(.segmented)
-            Text(appState.writingMode.detail)
-                .font(.system(size: 12))
-                .foregroundStyle(LlatserTheme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            .labelsHidden()
             Spacer(minLength: 0)
         }
         .llatserPanel(minHeight: 140)
@@ -299,7 +384,7 @@ private struct PermissionsPanel: View {
             SectionLabel(title: "Permissions", icon: "checkmark.shield")
 
             Text("Grant only the /Applications copy. If a toggle is ON but still denied here, relaunch.")
-                .font(.system(size: 11))
+                .font(.system(size: 12))
                 .foregroundStyle(LlatserTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -428,13 +513,13 @@ private struct LastOutputPanel: View {
                 SectionLabel(title: "Last output", icon: "text.quote")
                 Spacer()
                 Text(appState.lastTargetApp)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(LlatserTheme.textTertiary)
             }
 
             Text(appState.lastTranscription.isEmpty ? "Your last dictation will appear here." : appState.lastTranscription)
                 .font(.system(size: 13))
-                .foregroundStyle(appState.lastTranscription.isEmpty ? LlatserTheme.textTertiary : .white)
+                .foregroundStyle(appState.lastTranscription.isEmpty ? LlatserTheme.textTertiary : LlatserTheme.textPrimary)
                 .lineLimit(6)
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, minHeight: 64, alignment: .topLeading)
@@ -456,31 +541,31 @@ private struct EngineChoiceButton: View {
                 HStack {
                     Image(systemName: icon)
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(isSelected ? LlatserTheme.ink : LlatserTheme.accent)
+                        .foregroundStyle(LlatserTheme.textPrimary)
                     Spacer()
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                         .font(.system(size: 12))
-                        .foregroundStyle(isSelected ? LlatserTheme.ink.opacity(0.7) : LlatserTheme.textTertiary)
+                        .foregroundStyle(isSelected ? LlatserTheme.textPrimary : LlatserTheme.textTertiary)
                 }
                 Text(engine.displayName)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(isSelected ? LlatserTheme.ink : .white)
+                    .foregroundStyle(LlatserTheme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
                 Text(shortDetail)
-                    .font(.system(size: 11))
-                    .foregroundStyle(isSelected ? LlatserTheme.ink.opacity(0.7) : LlatserTheme.textSecondary)
+                    .font(.system(size: 12))
+                    .foregroundStyle(LlatserTheme.textSecondary)
                     .lineLimit(2)
             }
             .padding(12)
             .frame(maxWidth: .infinity, minHeight: 100, alignment: .topLeading)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(isSelected ? LlatserTheme.accent : Color.white.opacity(0.04))
+                    .fill(isSelected ? LlatserTheme.selected : LlatserTheme.panel)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(isSelected ? Color.clear : LlatserTheme.hairline, lineWidth: 1)
+                    .strokeBorder(isSelected ? LlatserTheme.strong : LlatserTheme.hairline, lineWidth: 1)
             )
         }
         .buttonStyle(PressableButtonStyle())
@@ -491,7 +576,6 @@ private struct EngineChoiceButton: View {
         switch engine {
         case .parakeetV3: return "checkmark.seal.fill"
         case .parakeetV2: return "arrow.left.arrow.right"
-        case .nemotron: return "bolt.horizontal.circle.fill"
         }
     }
 
@@ -499,7 +583,6 @@ private struct EngineChoiceButton: View {
         switch engine {
         case .parakeetV3: return "Default quality"
         case .parakeetV2: return "Compare output"
-        case .nemotron: return "Experimental"
         }
     }
 }
@@ -514,9 +597,9 @@ private struct SettingSwitch: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(LlatserTheme.textPrimary)
                 Text(detail)
-                    .font(.system(size: 11))
+                    .font(.system(size: 12))
                     .foregroundStyle(LlatserTheme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -528,7 +611,7 @@ private struct SettingSwitch: View {
         }
         .padding(11)
         .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
-        .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(LlatserTheme.selected, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -541,9 +624,9 @@ private struct TextSetting: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(LlatserTheme.textPrimary)
             Text(detail)
-                .font(.system(size: 11))
+                .font(.system(size: 12))
                 .foregroundStyle(LlatserTheme.textSecondary)
             TextField(title, text: $text)
                 .textFieldStyle(.plain)
@@ -551,7 +634,7 @@ private struct TextSetting: View {
         }
         .padding(11)
         .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
-        .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(LlatserTheme.selected, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -561,7 +644,7 @@ private struct CheckLine: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "checkmark")
-                .font(.system(size: 10, weight: .bold))
+                .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(LlatserTheme.accent)
             Text(text)
                 .font(.system(size: 12))
@@ -587,9 +670,9 @@ private struct PermissionRow: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(name)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(LlatserTheme.textPrimary)
                 Text(detail)
-                    .font(.system(size: 11))
+                    .font(.system(size: 12))
                     .foregroundStyle(LlatserTheme.textSecondary)
             }
 

@@ -3,8 +3,9 @@ set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="$PROJECT_DIR/build"
-APP_NAME="Llatser Listen"
+APP_NAME="Beers"
 APP_DEST="/Applications/$APP_NAME.app"
+LEGACY_APP_DEST="/Applications/Llatser Listen.app"
 LOG_FILE="/tmp/llatser-listen.log"
 SIGN_IDENTITY="${LLATSER_LISTEN_SIGN_IDENTITY:-}"
 TEAM_ID="${LLATSER_LISTEN_TEAM_ID:-6U9UFUUR48}"
@@ -29,7 +30,7 @@ fi
 
 SIGNING_MODE="Developer ID"
 
-echo "=== Llatser Listen Build & Install ==="
+echo "=== Beers Build & Install ==="
 
 echo "[1/6] Generating project..."
 cd "$PROJECT_DIR"
@@ -138,6 +139,7 @@ echo "[4/6] Installing to /Applications..."
 pkill -x "$APP_NAME" 2>/dev/null || true
 sleep 1
 rm -rf "$APP_DEST"
+rm -rf "$LEGACY_APP_DEST"
 ditto "$BUILT_APP" "$APP_DEST"
 xattr -cr "$APP_DEST"
 
@@ -182,7 +184,7 @@ fi
 rm -rf "$BUILD_DIR/Build/Products/Debug/$APP_NAME.app.dSYM"
 
 # Xcode/DerivedData copies with the same bundle id confuse Launch Services and
-# macOS Privacy panes, causing duplicate or stale "Llatser Listen" entries.
+# macOS Privacy panes, causing duplicate or stale "Beers" entries.
 if [ -d "$HOME/Library/Developer/Xcode/DerivedData" ]; then
     while IFS= read -r -d '' DERIVED_APP; do
         /System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister \

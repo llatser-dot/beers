@@ -9,8 +9,9 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_NAME="Llatser Listen"
+APP_NAME="Beers"
 APP_DEST="/Applications/$APP_NAME.app"
+LEGACY_APP_DEST="/Applications/Llatser Listen.app"
 LOG_FILE="/tmp/llatser-listen.log"
 CONFIGURATION="${LLATSER_CONFIGURATION:-Debug}"
 DERIVED_DATA="$PROJECT_DIR/build/agent-derived"
@@ -30,7 +31,7 @@ pick_identity() {
     echo ""
 }
 
-echo "=== Llatser Listen Agent Install ==="
+echo "=== Beers Agent Install ==="
 
 IDENTITY="$(pick_identity)"
 if [ -z "$IDENTITY" ]; then
@@ -85,6 +86,7 @@ echo "  $NEW_REQ"
 pkill -x "$APP_NAME" 2>/dev/null || true
 sleep 0.5
 rm -rf "$APP_DEST"
+rm -rf "$LEGACY_APP_DEST"
 ditto "$BUILT_APP" "$APP_DEST"
 xattr -cr "$APP_DEST"
 codesign --verify --deep --strict "$APP_DEST"

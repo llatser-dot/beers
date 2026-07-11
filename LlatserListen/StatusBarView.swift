@@ -3,70 +3,100 @@ import SwiftUI
 struct StatusBarView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismiss) private var dismiss
     @State private var showsVocabulary = false
+    @AppStorage("selectedSettingsSection") private var selectedSettingsSection = "Record"
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 0) {
             header
-            actionPanel
-            enginePanel
-            modePanel
-            capturePanel
-            writingPanel
-            vocabularyPanel
+                .padding(16)
 
-            if !appState.lastTranscription.isEmpty {
-                transcriptPanel
-            }
-
-            if let permissionMessage {
-                Label(permissionMessage, systemImage: "exclamationmark.circle.fill")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(LlatserTheme.warn)
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(LlatserTheme.warn.opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-
-            Rectangle()
-                .fill(LlatserTheme.hairline)
-                .frame(height: 1)
-
-            HStack {
-                Button(action: openMainWindow) {
-                    Label("Settings", systemImage: "slider.horizontal.3")
-                }
-                Spacer()
-                Button(action: quit) {
-                    Label("Quit", systemImage: "power")
-                }
+            Button(action: appState.manualRecordToggle) {
+                Label(appState.status == .recording ? "Stop and Paste" : "Start Recording",
+                      systemImage: appState.status == .recording ? "stop.fill" : "mic")
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(LlatserTheme.oxblood, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .foregroundStyle(LlatserTheme.brandCream)
             }
             .buttonStyle(.plain)
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(LlatserTheme.accent)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
+
+            menuDivider
+            menuSectionTitle("Voice engine")
+            ForEach(DictationEngine.allCases) { engine in
+                Button { appState.engineChoice = engine } label: {
+                    HStack(spacing: 11) {
+                        Image(systemName: appState.engineChoice == engine ? "checkmark.circle.fill" : "circle")
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(engine.displayName).font(.system(size: 13, weight: .medium))
+                            Text(engine.choiceLabel)
+                                .font(.system(size: 12)).foregroundStyle(LlatserTheme.textSecondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.system(size: 12)).foregroundStyle(LlatserTheme.textTertiary)
+                    }
+                    .padding(.horizontal, 16).frame(height: 54)
+                }.buttonStyle(.plain)
+            }
+
+            menuDivider
+            Toggle(isOn: adaptiveWriting) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        menuSectionTitle("Writing style", inset: false)
+                        Text("Adapt to current app").font(.system(size: 14, weight: .medium))
+                    }
+                    Spacer()
+                }.padding(.horizontal, 16).frame(height: 64)
+            }
+            .toggleStyle(.switch)
+            .padding(.trailing, 16)
+
+            menuDivider
+            menuRow("Last Output", icon: "doc.text") { openMainWindow(section: "Last Output") }
+            menuRow("Vocabulary", icon: "book") { openMainWindow(section: "Vocabulary") }
+            menuDivider
+            menuRow("Open Beers", icon: "ear") { openMainWindow(section: "Record") }
+            menuRow("Quit Beers", icon: "power", action: quit)
         }
-        .padding(14)
-        .frame(width: 340)
+        .frame(width: 360)
         .background(LlatserTheme.windowBackground)
-        .preferredColorScheme(.dark)
+        .tint(LlatserTheme.strong)
         .onAppear { appState.refreshPermissions() }
+    }
+
+    private var menuDivider: some View { Divider().overlay(LlatserTheme.border) }
+
+    private func menuSectionTitle(_ title: String, inset: Bool = true) -> some View {
+        Text(title.uppercased())
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(LlatserTheme.textSecondary)
+            .padding(.horizontal, inset ? 16 : 0)
+            .padding(.top, inset ? 14 : 0)
+            .padding(.bottom, inset ? 5 : 0)
+    }
+
+    private func menuRow(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .font(.system(size: 14, weight: .regular))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16).frame(height: 46)
+        }.buttonStyle(.plain)
     }
 
     private var header: some View {
         HStack(spacing: 10) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(statusColor.opacity(0.12))
-                Image(systemName: statusIcon)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(statusColor)
-            }
-            .frame(width: 36, height: 36)
+            BeersMark(size: 42)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Llatser Listen")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
+                Text("Beers")
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .foregroundStyle(LlatserTheme.textPrimary)
                 Text(appState.status.label)
                     .font(.system(size: 12))
                     .foregroundStyle(LlatserTheme.textSecondary)
@@ -158,7 +188,7 @@ struct StatusBarView: View {
             SectionLabel(title: "Capture")
             compactToggle("Suppress Mac audio", icon: "speaker.slash.fill", isOn: $appState.suppressComputerAudio)
             Text("Ducks volume while the hotkey is held.")
-                .font(.system(size: 11))
+                .font(.system(size: 12))
                 .foregroundStyle(LlatserTheme.textSecondary)
         }
         .padding(12)
@@ -174,7 +204,7 @@ struct StatusBarView: View {
                 SectionLabel(title: "Vocabulary", icon: "text.badge.checkmark")
                 Spacer()
                 Text("\(appState.vocabularyCorrections.count)")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(LlatserTheme.textSecondary)
             }
         }
@@ -188,7 +218,7 @@ struct StatusBarView: View {
             SectionLabel(title: "Last paste", icon: "text.quote")
             Text(appState.lastTranscription)
                 .font(.system(size: 12))
-                .foregroundStyle(.white)
+                .foregroundStyle(LlatserTheme.textPrimary)
                 .lineLimit(4)
                 .textSelection(.enabled)
         }
@@ -204,16 +234,16 @@ struct StatusBarView: View {
                 ProgressView(value: appState.modelProgress)
                     .tint(LlatserTheme.accent)
                 Text(appState.loadingMessage)
-                    .font(.system(size: 11))
+                    .font(.system(size: 12))
                     .foregroundStyle(LlatserTheme.textSecondary)
             }
         } else if let errorMessage = appState.errorMessage {
             Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                .font(.system(size: 11))
+                .font(.system(size: 12))
                 .foregroundStyle(LlatserTheme.warn)
         } else {
             Text("Hold \(appState.hotkeyChoice.shortName) · release to paste")
-                .font(.system(size: 11))
+                .font(.system(size: 12))
                 .foregroundStyle(LlatserTheme.textSecondary)
         }
     }
@@ -222,7 +252,7 @@ struct StatusBarView: View {
         HStack(spacing: 8) {
             Label(title, systemImage: icon)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(LlatserTheme.textPrimary)
             Spacer()
             Toggle(title, isOn: isOn)
                 .labelsHidden()
@@ -258,8 +288,24 @@ struct StatusBarView: View {
     }
 
     private func openMainWindow() {
+        dismiss()
         openWindow(id: "main")
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func openMainWindow(section: String) {
+        selectedSettingsSection = section
+        openMainWindow()
+    }
+
+    private var adaptiveWriting: Binding<Bool> {
+        Binding(
+            get: { appState.writingMode == .automatic && appState.adaptiveTone },
+            set: { enabled in
+                appState.writingMode = enabled ? .automatic : .clean
+                appState.adaptiveTone = enabled
+            }
+        )
     }
 
     private func quit() {
@@ -276,17 +322,17 @@ private struct StatusEngineButton: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                 Text(shortName)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
-            .foregroundStyle(isSelected ? LlatserTheme.ink : .white)
+            .foregroundStyle(LlatserTheme.textPrimary)
             .frame(maxWidth: .infinity, minHeight: 48)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(isSelected ? LlatserTheme.accent : Color.white.opacity(0.04))
+                    .fill(isSelected ? LlatserTheme.selected : LlatserTheme.panel)
             )
         }
         .buttonStyle(PressableButtonStyle())
@@ -297,7 +343,6 @@ private struct StatusEngineButton: View {
         switch engine {
         case .parakeetV3: return "V3"
         case .parakeetV2: return "V2"
-        case .nemotron: return "Nemo"
         }
     }
 
@@ -305,7 +350,6 @@ private struct StatusEngineButton: View {
         switch engine {
         case .parakeetV3: return "checkmark.seal.fill"
         case .parakeetV2: return "arrow.left.arrow.right"
-        case .nemotron: return "bolt.horizontal.circle.fill"
         }
     }
 }

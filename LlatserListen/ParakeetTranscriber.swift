@@ -43,7 +43,18 @@ final class ParakeetTranscriber {
 
         llog("ParakeetTranscriber: \(label) transcribing \(audio.count) samples")
         var decoderState = TdtDecoderState.make(decoderLayers: await manager.decoderLayerCount)
-        let result = try await manager.transcribe(audio, decoderState: &decoderState, language: .english)
+        let language: Language?
+        switch version {
+        case .v2:
+            language = .english
+        case .v3:
+            // v3 is multilingual. With no language hint it can decode the
+            // language being spoken instead of filtering output to English.
+            language = nil
+        default:
+            language = nil
+        }
+        let result = try await manager.transcribe(audio, decoderState: &decoderState, language: language)
         let cleanedText = sanitize(result.text)
         llog("ParakeetTranscriber: result='\(cleanedText)' rtfx=\(String(format: "%.2f", result.rtfx)) confidence=\(String(format: "%.3f", result.confidence))")
         return cleanedText

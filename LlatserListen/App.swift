@@ -44,8 +44,8 @@ struct LlatserListenApp: App {
     @StateObject private var appState = AppState()
 
     var body: some Scene {
-        Window("Llatser Listen", id: "main") {
-            SettingsView()
+        Window("Beers", id: "main") {
+            RedesignedSettingsView()
                 .environmentObject(appState)
                 .onAppear {
                     NSApp.activate(ignoringOtherApps: true)
@@ -62,13 +62,13 @@ struct LlatserListenApp: App {
             } else if appState.status == .transcribing {
                 Image(systemName: "ellipsis.circle")
             } else {
-                Image(systemName: "mic")
+                Image(systemName: "ear")
             }
         }
         .menuBarExtraStyle(.window)
 
         Settings {
-            SettingsView()
+            RedesignedSettingsView()
                 .environmentObject(appState)
         }
     }

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct VocabularyEditorView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var heard = ""
     @State private var replacement = ""
 
@@ -40,17 +41,23 @@ struct VocabularyEditorView: View {
 
             if appState.vocabularyCorrections.isEmpty {
                 Text("No custom words yet.")
-                    .font(.system(size: 11))
+                    .font(.system(size: 12))
                     .foregroundStyle(LlatserTheme.textTertiary)
-            } else {
+            } else if compact {
                 ScrollView {
-                    VStack(spacing: 6) {
-                        ForEach(appState.vocabularyCorrections) { correction in
-                            correctionRow(correction)
-                        }
-                    }
+                    correctionList
                 }
-                .frame(maxHeight: compact ? 138 : 190)
+                .frame(maxHeight: 138)
+            } else {
+                correctionList
+            }
+        }
+    }
+
+    private var correctionList: some View {
+        LazyVStack(spacing: 6) {
+            ForEach(appState.vocabularyCorrections) { correction in
+                correctionRow(correction)
             }
         }
     }
@@ -65,10 +72,10 @@ struct VocabularyEditorView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(correction.heard)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(LlatserTheme.textPrimary)
                     .lineLimit(1)
                 Text(correction.replacement)
-                    .font(.system(size: 11))
+                    .font(.system(size: 12))
                     .foregroundStyle(LlatserTheme.textSecondary)
                     .lineLimit(1)
             }
@@ -76,10 +83,12 @@ struct VocabularyEditorView: View {
             Spacer()
 
             Button {
-                appState.removeVocabularyCorrection(correction)
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                    appState.removeVocabularyCorrection(correction)
+                }
             } label: {
                 Image(systemName: "trash")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
             }
             .buttonStyle(.plain)
             .foregroundStyle(LlatserTheme.textTertiary)
@@ -87,16 +96,19 @@ struct VocabularyEditorView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(LlatserTheme.selected, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .strokeBorder(LlatserTheme.hairline, lineWidth: 0.8)
         )
+        .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
     }
 
     private func addCorrection() {
         guard canAdd else { return }
-        appState.addVocabularyCorrection(heard: heard, replacement: replacement)
+        withAnimation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0.08)) {
+            appState.addVocabularyCorrection(heard: heard, replacement: replacement)
+        }
         heard = ""
         replacement = ""
     }

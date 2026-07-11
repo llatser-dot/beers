@@ -6,49 +6,64 @@ import Foundation
 /// then restores the previous level. This is what users mean by "Suppress Mac audio".
 enum SystemAudioDucker {
     private static let lock = NSLock()
+    private static var savedDeviceID: AudioDeviceID?
     private static var savedVolume: Float32?
+    private static var savedMute: UInt32?
     private static var isDucked = false
-
-    /// Fraction of the current volume to keep while ducked (0.12 ≈ quiet but audible).
-    private static let duckFactor: Float32 = 0.12
-    private static let absoluteFloor: Float32 = 0.02
 
     static func duckIfNeeded(enabled: Bool) {
         guard enabled else { return }
         lock.lock()
         defer { lock.unlock() }
         guard !isDucked else { return }
-        guard let deviceID = defaultOutputDeviceID(),
-              let current = volume(of: deviceID) else {
-            llog("SystemAudioDucker: could not read output volume")
+        guard let deviceID = defaultOutputDeviceID() else {
+            llog("SystemAudioDucker: could not find the default output device")
             return
         }
 
-        savedVolume = current
-        let target = max(absoluteFloor, current * duckFactor)
-        guard setVolume(target, on: deviceID) else {
-            savedVolume = nil
-            llog("SystemAudioDucker: failed to duck volume from \(String(format: "%.2f", current))")
+        savedDeviceID = deviceID
+        savedMute = muteState(of: deviceID)
+        savedVolume = volume(of: deviceID)
+
+        // Prefer the hardware mute control. Some HDMI, AirPlay and aggregate
+        // outputs do not expose it, so fall back to setting virtual volume to 0.
+        let muted = setMute(true, on: deviceID)
+        let silenced = muted || setVolume(0, on: deviceID)
+        guard silenced else {
+            clearSavedState()
+            llog("SystemAudioDucker: output device does not expose mute or volume controls")
             return
         }
         isDucked = true
-        llog("SystemAudioDucker: ducked \(String(format: "%.2f", current)) → \(String(format: "%.2f", target))")
+        llog("SystemAudioDucker: suppressed output using \(muted ? "mute" : "zero volume")")
     }
 
     static func restoreIfNeeded() {
         lock.lock()
         defer { lock.unlock() }
-        guard isDucked, let saved = savedVolume else {
+        guard isDucked, let deviceID = savedDeviceID else {
             isDucked = false
-            savedVolume = nil
+            clearSavedState()
             return
         }
-        if let deviceID = defaultOutputDeviceID() {
-            _ = setVolume(saved, on: deviceID)
-            llog("SystemAudioDucker: restored volume to \(String(format: "%.2f", saved))")
+
+        // Restore the exact device changed at capture start, even if the user
+        // changes the default output while speaking.
+        if let savedVolume {
+            _ = setVolume(savedVolume, on: deviceID)
         }
+        if let savedMute {
+            _ = setMute(savedMute != 0, on: deviceID)
+        }
+        llog("SystemAudioDucker: restored output")
         isDucked = false
+        clearSavedState()
+    }
+
+    private static func clearSavedState() {
+        savedDeviceID = nil
         savedVolume = nil
+        savedMute = nil
     }
 
     private static func defaultOutputDeviceID() -> AudioDeviceID? {
@@ -94,5 +109,35 @@ enum SystemAudioDucker {
         let size = UInt32(MemoryLayout<Float32>.size)
         let status = AudioObjectSetPropertyData(deviceID, &address, 0, nil, size, &volume)
         return status == noErr
+    }
+
+    private static func muteState(of deviceID: AudioDeviceID) -> UInt32? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        guard AudioObjectHasProperty(deviceID, &address) else { return nil }
+        var value: UInt32 = 0
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        let status = AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &value)
+        return status == noErr ? value : nil
+    }
+
+    private static func setMute(_ muted: Bool, on deviceID: AudioDeviceID) -> Bool {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var isSettable = DarwinBoolean(false)
+        guard AudioObjectHasProperty(deviceID, &address),
+              AudioObjectIsPropertySettable(deviceID, &address, &isSettable) == noErr,
+              isSettable.boolValue else {
+            return false
+        }
+        var value: UInt32 = muted ? 1 : 0
+        let size = UInt32(MemoryLayout<UInt32>.size)
+        return AudioObjectSetPropertyData(deviceID, &address, 0, nil, size, &value) == noErr
     }
 }
