@@ -85,10 +85,19 @@ struct BrewControlsView: View {
 
             BeersSettingRow(
                 label: "Clink on serve",
-                hint: "And a cap-pop when the pour key goes down",
-                showDivider: false
+                hint: "And a cap-pop when the pour key goes down"
             ) {
                 Toggle("", isOn: $appState.clinkOnServe)
+                    .labelsHidden()
+                    .toggleStyle(BeersToggleStyle())
+            }
+
+            BeersSettingRow(
+                label: "Take orders",
+                hint: "Hold ⇧ + pour key over selected text, speak the change — uses your local model",
+                showDivider: false
+            ) {
+                Toggle("", isOn: $appState.commandModeEnabled)
                     .labelsHidden()
                     .toggleStyle(BeersToggleStyle())
             }

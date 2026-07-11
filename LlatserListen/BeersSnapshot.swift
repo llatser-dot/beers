@@ -44,6 +44,8 @@ enum BeersSnapshot {
             snapHUD(mode: .pouring, name: "hud-pouring", in: dir)
             snapHUD(mode: .settling, name: "hud-settling", in: dir)
             snapHUD(mode: .served(words: 42), name: "hud-served", in: dir)
+            snapHUD(mode: .takingOrder, name: "hud-taking-order", in: dir)
+            snapHUD(mode: .notice("Kitchen's closed — no model at your endpoint"), name: "hud-notice", in: dir)
 
             llog("BeersSnapshot: wrote snapshots to \(dir.path)")
             exit(0)
