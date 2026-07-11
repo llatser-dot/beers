@@ -24,9 +24,19 @@ final class TextPaster {
             return false
         }
 
+        let axTrusted = AXIsProcessTrusted()
+        let postAccess = CGPreflightPostEventAccess()
+        llog("TextPaster: AXIsProcessTrusted=\(axTrusted) CGPreflightPostEventAccess=\(postAccess)")
+
         guard Permissions.isAccessibilityGranted() || Permissions.requestAccessibility(prompt: true) else {
             llog("TextPaster: copied text to pasteboard, but Accessibility is not granted")
             return false
+        }
+
+        if !postAccess {
+            // AX trust alone doesn't guarantee synthetic events are delivered.
+            let granted = CGRequestPostEventAccess()
+            llog("TextPaster: requested post-event access, granted=\(granted)")
         }
 
         llog("TextPaster: copied text to pasteboard, posting Cmd+V")

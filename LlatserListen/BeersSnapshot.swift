@@ -5,6 +5,20 @@ import SwiftUI
 /// `--beers-snapshot` and every surface renders to /tmp/beers-snapshots
 /// as PNGs, then the app exits. No screen recording required.
 enum BeersSnapshot {
+    /// End-to-end paste self-test: focuses whatever is frontmost and pastes
+    /// a marker string 2s after launch, then exits.
+    @MainActor
+    static func runPasteTestIfRequested() {
+        guard CommandLine.arguments.contains("--beers-paste-test") else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            let paster = TextPaster()
+            let ok = paster.paste("BEERS PASTE TEST OK ")
+            llog("BeersSnapshot: paste test returned \(ok)")
+            // Outlive the 5s pasteboard restore so the clipboard comes back.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 6.0) { exit(0) }
+        }
+    }
+
     @MainActor
     static func runIfRequested(appState: AppState) {
         guard CommandLine.arguments.contains("--beers-snapshot") else { return }
