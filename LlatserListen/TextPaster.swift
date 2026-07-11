@@ -39,6 +39,8 @@ final class TextPaster {
             llog("TextPaster: requested post-event access, granted=\(granted)")
         }
 
+        let front = NSWorkspace.shared.frontmostApplication
+        llog("TextPaster: pasting into frontmost='\(front?.localizedName ?? "?")' bundle='\(front?.bundleIdentifier ?? "?")'")
         llog("TextPaster: copied text to pasteboard, posting Cmd+V")
         simulatePaste()
         DispatchQueue.main.asyncAfter(deadline: .now() + Timing.restoreDelay) {

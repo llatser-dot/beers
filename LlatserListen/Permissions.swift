@@ -101,6 +101,7 @@ enum Permissions {
     }
 
     private static func openSystemSettingsPane(_ pane: String) {
+        llog("Permissions: OPENING System Settings pane '\(pane)' — caller stack: \(Thread.callStackSymbols.prefix(6).joined(separator: " | "))")
         // Prefer modern System Settings deep links; fall back to legacy pref pane URLs.
         let candidates = [
             "x-apple.systempreferences:com.apple.preference.security?\(pane)",
