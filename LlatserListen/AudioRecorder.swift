@@ -47,7 +47,12 @@ final class AudioRecorder {
         // Voice processing is intentionally skipped: it adds multi-second cold-start lag
         // and keeps the system mic indicator lit while the graph is warm.
         SystemAudioDucker.duckIfNeeded(enabled: suppressComputerAudio)
-        try ensureEngineRunning()
+        do {
+            try ensureEngineRunning()
+        } catch {
+            SystemAudioDucker.restoreIfNeeded()
+            throw error
+        }
 
         lock.lock()
         buffer.removeAll()
@@ -79,8 +84,10 @@ final class AudioRecorder {
         return boosted
     }
 
-    func stopEngine() {
-        SystemAudioDucker.restoreIfNeeded()
+    func stopEngine(restoreOutput: Bool = true) {
+        if restoreOutput {
+            SystemAudioDucker.restoreIfNeeded()
+        }
 
         if let engine {
             engine.inputNode.removeTap(onBus: 0)
@@ -104,7 +111,9 @@ final class AudioRecorder {
             return
         }
 
-        stopEngine()
+        // startRecording has already suppressed output. Rebuilding the audio
+        // graph must not restore it during the recorder's cold start.
+        stopEngine(restoreOutput: false)
 
         let newEngine = AVAudioEngine()
         let inputNode = newEngine.inputNode

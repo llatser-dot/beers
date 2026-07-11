@@ -1,39 +1,89 @@
+import AppKit
 import SwiftUI
 
-/// Quiet dark materials + one accent. Craft over chrome (Emil / Apple design).
+/// Monochrome semantic tokens. Light values follow the product palette;
+/// dark values invert the same hierarchy for the active macOS appearance.
 enum LlatserTheme {
-    static let accent = Color(red: 0.45, green: 0.78, blue: 1.0)
-    static let danger = Color(red: 1.0, green: 0.38, blue: 0.40)
-    static let warn = Color(red: 1.0, green: 0.72, blue: 0.32)
-    static let ink = Color(red: 0.06, green: 0.07, blue: 0.08)
-    static let panel = Color(red: 0.11, green: 0.12, blue: 0.13)
-    static let panelRaised = Color(red: 0.14, green: 0.15, blue: 0.16)
-    static let hairline = Color.white.opacity(0.08)
-    static let textSecondary = Color.white.opacity(0.58)
-    static let textTertiary = Color.white.opacity(0.38)
+    static let brandInk = Color(hex: 0x101A38)
+    static let brandCream = Color(hex: 0xFFF6DE)
+    static let deepInk = adaptive(light: 0x101A38, dark: 0xFFF6DE)
+    static let oxblood = Color(hex: 0x9E1520)
+    static let tangerine = Color(hex: 0xF4511E)
+    static let butter = Color(hex: 0xFFC247)
+    static let mint = adaptive(light: 0x78B9A5, dark: 0x8ED8BF)
+    static let cream = adaptive(light: 0xFFF6DE, dark: 0x101A38)
+    static let subtle = adaptive(light: 0x56617A, dark: 0xB8C0CF)
+    static let defaultText = adaptive(light: 0x2A334D, dark: 0xE2E6ED)
+    static let strong = deepInk
+    static let selected = adaptive(light: 0xFFF0D0, dark: 0x2A334D)
+    static let border = adaptive(light: 0xE5D7B6, dark: 0x56617A)
 
-    static var windowBackground: some View {
-        Color(red: 0.06, green: 0.065, blue: 0.07)
-    }
+    static let background = cream
+    static let panel = adaptive(light: 0xFFFAEC, dark: 0x172340)
+    static let panelRaised = adaptive(light: 0xFFF3D4, dark: 0x0E142A)
+    static let accent = oxblood
+    static let danger = oxblood
+    static let warn = tangerine
+    static let ink = cream
+    static let hairline = border
+    static let textPrimary = strong
+    static let textSecondary = defaultText
+    static let textTertiary = subtle
+
+    static var windowBackground: some View { background }
 
     static var primarySurface: some View {
-        RoundedRectangle(cornerRadius: 20, style: .continuous)
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
             .fill(panelRaised)
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .strokeBorder(hairline, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(border, lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.28), radius: 20, y: 10)
     }
 
-    static func panelBackground(cornerRadius: CGFloat = 14) -> some View {
+    static func panelBackground(cornerRadius: CGFloat = 12) -> some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .fill(panel)
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(hairline, lineWidth: 1)
+                    .strokeBorder(border, lineWidth: 1.2)
             )
     }
+
+    private static func adaptive(light: UInt32, dark: UInt32) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let match = appearance.bestMatch(from: [.darkAqua, .aqua])
+            return nsColor(hex: match == .darkAqua ? dark : light)
+        })
+    }
+
+    private static func nsColor(hex: UInt32) -> NSColor {
+        NSColor(
+            calibratedRed: CGFloat((hex >> 16) & 0xFF) / 255,
+            green: CGFloat((hex >> 8) & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255,
+            alpha: 1
+        )
+    }
+}
+
+private extension Color {
+    init(hex: UInt32) {
+        self.init(
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255
+        )
+    }
+}
+
+enum LlatserType {
+    static let caption: CGFloat = 12
+    static let base: CGFloat = 13
+    static let control: CGFloat = 14
+    static let section: CGFloat = 16
+    static let title: CGFloat = 18
+    static let hero: CGFloat = 24
 }
 
 struct SectionLabel: View {
@@ -44,17 +94,15 @@ struct SectionLabel: View {
         HStack(spacing: 6) {
             if let icon {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(LlatserTheme.accent)
+                    .font(.system(size: LlatserType.caption, weight: .medium))
             }
             Text(title)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(LlatserTheme.textSecondary)
+                .font(.system(size: LlatserType.caption, weight: .medium))
         }
+        .foregroundStyle(LlatserTheme.textSecondary)
     }
 }
 
-/// Back-compat alias used across settings / status bar.
 typealias JarvisSectionLabel = SectionLabel
 
 struct StatusBadge: View {
@@ -62,16 +110,14 @@ struct StatusBadge: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Circle()
-                .fill(color)
-                .frame(width: 6, height: 6)
+            Circle().fill(LlatserTheme.strong).frame(width: 6, height: 6)
             Text(title)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.92))
+                .font(.system(size: LlatserType.caption, weight: .medium))
+                .foregroundStyle(LlatserTheme.textPrimary)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(color.opacity(0.14), in: Capsule())
+        .background(LlatserTheme.selected, in: Capsule())
         .accessibilityLabel("Status: \(title)")
     }
 
@@ -84,26 +130,18 @@ struct StatusBadge: View {
         case .error: return "Attention"
         }
     }
-
-    private var color: Color {
-        switch status {
-        case .loading, .transcribing, .ready: return LlatserTheme.accent
-        case .recording: return LlatserTheme.danger
-        case .error: return LlatserTheme.warn
-        }
-    }
 }
 
 struct PressableButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.easeOut(duration: 0.14), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
 extension View {
-    func llatserPanel(minHeight: CGFloat? = nil, cornerRadius: CGFloat = 14) -> some View {
+    func llatserPanel(minHeight: CGFloat? = nil, cornerRadius: CGFloat = 12) -> some View {
         padding(16)
             .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .topLeading)
             .background(LlatserTheme.panelBackground(cornerRadius: cornerRadius))
@@ -112,10 +150,10 @@ extension View {
     func jarvisField() -> some View {
         padding(.horizontal, 12)
             .padding(.vertical, 9)
-            .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background(LlatserTheme.selected, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(LlatserTheme.hairline, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(LlatserTheme.border, lineWidth: 1)
             )
     }
 }

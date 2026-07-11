@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-APP_NAME="Llatser Listen"
+APP_NAME="Beers"
 BUNDLE_ID="com.llatser.listen"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$PROJECT_DIR/build-airdrop"
@@ -17,7 +17,7 @@ if [ -z "$SIGN_IDENTITY" ]; then
     SIGN_IDENTITY="$(security find-identity -v -p codesigning | awk -F '"' '/Apple Development:/ { print $2; exit }')"
 fi
 
-echo "=== Llatser Listen AirDrop Package ==="
+echo "=== Beers AirDrop Package ==="
 
 if [ -z "$SOURCE_APP" ]; then
     echo "[build] Creating Developer ID export..."
@@ -124,7 +124,7 @@ cat > "$OUT_DIR/Install $APP_NAME.command" <<'INSTALLER'
 #!/bin/bash
 set -euo pipefail
 
-APP_NAME="Llatser Listen"
+APP_NAME="Beers"
 BUNDLE_ID="com.llatser.listen"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_APP="$SCRIPT_DIR/Payload/$APP_NAME.app"
@@ -169,7 +169,7 @@ INSTALLER
 chmod +x "$OUT_DIR/Install $APP_NAME.command"
 
 cat > "$OUT_DIR/README-FIRST.txt" <<README
-Llatser Listen AirDrop install
+Beers AirDrop install
 
 Use:
 1. AirDrop "$APP_NAME AirDrop.zip" to the other Mac.

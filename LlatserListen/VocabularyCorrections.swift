@@ -35,7 +35,7 @@ enum VocabularyCorrections {
         VocabularyCorrection(heard: "Kleo", replacement: "Cleo"),
         VocabularyCorrection(heard: "KLEO", replacement: "Cleo"),
         VocabularyCorrection(heard: "C L E O", replacement: "Cleo"),
-        VocabularyCorrection(heard: "Latsa Listen", replacement: "Llatser Listen"),
+        VocabularyCorrection(heard: "Latsa Listen", replacement: "Beers"),
         VocabularyCorrection(heard: "Latsa", replacement: "Llatser"),
         VocabularyCorrection(heard: "Latser", replacement: "Llatser"),
         VocabularyCorrection(heard: "Latsir", replacement: "Llatser"),

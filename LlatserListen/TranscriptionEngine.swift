@@ -4,8 +4,12 @@ final class TranscriptionEngine {
     // Loaded models stay cached so switching engines back and forth is instant
     // instead of re-downloading/recompiling on every switch.
     private var parakeets: [DictationEngine: ParakeetTranscriber] = [:]
-    private var nemotron: NemotronTranscriber?
-    private(set) var loadedEngine: DictationEngine?
+    private var activeEngine: DictationEngine?
+    private let lock = NSLock()
+
+    var loadedEngine: DictationEngine? {
+        lock.withLock { activeEngine }
+    }
 
     func load(_ engine: DictationEngine, onProgress: @escaping @Sendable (Double, String) -> Void) async throws {
         if loadedEngine == engine {
@@ -15,7 +19,7 @@ final class TranscriptionEngine {
 
         switch engine {
         case .parakeetV3, .parakeetV2:
-            if parakeets[engine] == nil {
+            if lock.withLock({ parakeets[engine] }) == nil {
                 let transcriber = ParakeetTranscriber(
                     version: engine == .parakeetV3 ? .v3 : .v2,
                     label: engine.displayName
@@ -23,19 +27,13 @@ final class TranscriptionEngine {
                 try await transcriber.load { progress, message in
                     onProgress(progress, message)
                 }
-                parakeets[engine] = transcriber
-            }
-        case .nemotron:
-            if nemotron == nil {
-                let transcriber = NemotronTranscriber()
-                try await transcriber.load { progress, message in
-                    onProgress(progress, message)
-                }
-                nemotron = transcriber
+                try Task.checkCancellation()
+                lock.withLock { parakeets[engine] = transcriber }
             }
         }
 
-        loadedEngine = engine
+        try Task.checkCancellation()
+        lock.withLock { activeEngine = engine }
         onProgress(1, "\(engine.displayName) ready")
     }
 
@@ -47,11 +45,8 @@ final class TranscriptionEngine {
         let text: String
         switch loadedEngine {
         case .parakeetV3, .parakeetV2:
-            guard let parakeet = parakeets[loadedEngine] else { throw TranscriptionError.modelNotLoaded }
+            guard let parakeet = lock.withLock({ parakeets[loadedEngine] }) else { throw TranscriptionError.modelNotLoaded }
             text = try await parakeet.transcribe(audio)
-        case .nemotron:
-            guard let nemotron else { throw TranscriptionError.modelNotLoaded }
-            text = try await nemotron.transcribe(audio)
         }
 
         return TranscriptNormalizer.normalize(text)

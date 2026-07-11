@@ -160,7 +160,7 @@ enum TranscriptPolisher {
             (#"(?i)\bid\b"#, "I'd"),
             (#"(?i)\bi'd\b"#, "I'd"),
             (#"(?i)\bi\b"#, "I"),
-            (#"(?i)\bllatser listen\b"#, "Llatser Listen"),
+            (#"(?i)\bllatser listen\b"#, "Beers"),
             (#"(?i)\bllatser\b"#, "Llatser"),
             (#"(?i)\bparakey\b"#, "Parakeet"),
             (#"(?i)\bparakeet\b"#, "Parakeet"),

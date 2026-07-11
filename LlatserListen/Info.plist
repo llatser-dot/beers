@@ -19,7 +19,7 @@
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Llatser Listen needs microphone access to capture your voice for local transcription.</string>
+    <string>Beers needs microphone access to capture your voice for local transcription.</string>
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSAllowsLocalNetworking</key>
