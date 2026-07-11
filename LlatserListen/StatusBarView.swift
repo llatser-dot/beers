@@ -1,355 +1,322 @@
+import AppKit
 import SwiftUI
 
+/// The Bar Tap: the menu bar popover. One giant pour cap, nothing else
+/// fighting for attention.
 struct StatusBarView: View {
     @EnvironmentObject var appState: AppState
-    @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
     @Environment(\.dismiss) private var dismiss
-    @State private var showsVocabulary = false
-    @AppStorage("selectedSettingsSection") private var selectedSettingsSection = "Record"
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(spacing: 0) {
             header
-                .padding(16)
-
-            Button(action: appState.manualRecordToggle) {
-                Label(appState.status == .recording ? "Stop and Paste" : "Start Recording",
-                      systemImage: appState.status == .recording ? "stop.fill" : "mic")
-                    .font(.system(size: 14, weight: .medium))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .background(LlatserTheme.oxblood, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                    .foregroundStyle(LlatserTheme.brandCream)
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
-
-            menuDivider
-            menuSectionTitle("Voice engine")
-            ForEach(DictationEngine.allCases) { engine in
-                Button { appState.engineChoice = engine } label: {
-                    HStack(spacing: 11) {
-                        Image(systemName: appState.engineChoice == engine ? "checkmark.circle.fill" : "circle")
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(engine.displayName).font(.system(size: 13, weight: .medium))
-                            Text(engine.choiceLabel)
-                                .font(.system(size: 12)).foregroundStyle(LlatserTheme.textSecondary)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right").font(.system(size: 12)).foregroundStyle(LlatserTheme.textTertiary)
-                    }
-                    .padding(.horizontal, 16).frame(height: 54)
-                }.buttonStyle(.plain)
-            }
-
-            menuDivider
-            Toggle(isOn: adaptiveWriting) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        menuSectionTitle("Writing style", inset: false)
-                        Text("Adapt to current app").font(.system(size: 14, weight: .medium))
-                    }
-                    Spacer()
-                }.padding(.horizontal, 16).frame(height: 64)
-            }
-            .toggleStyle(.switch)
-            .padding(.trailing, 16)
-
-            menuDivider
-            menuRow("Last Output", icon: "doc.text") { openMainWindow(section: "Last Output") }
-            menuRow("Vocabulary", icon: "book") { openMainWindow(section: "Vocabulary") }
-            menuDivider
-            menuRow("Open Beers", icon: "ear") { openMainWindow(section: "Record") }
-            menuRow("Quit Beers", icon: "power", action: quit)
+            pourSection
+            rows
         }
-        .frame(width: 360)
-        .background(LlatserTheme.windowBackground)
-        .tint(LlatserTheme.strong)
+        .frame(width: 308)
+        .background(Beers.paper)
+        .environment(\.colorScheme, .light)
         .onAppear { appState.refreshPermissions() }
     }
 
-    private var menuDivider: some View { Divider().overlay(LlatserTheme.border) }
-
-    private func menuSectionTitle(_ title: String, inset: Bool = true) -> some View {
-        Text(title.uppercased())
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(LlatserTheme.textSecondary)
-            .padding(.horizontal, inset ? 16 : 0)
-            .padding(.top, inset ? 14 : 0)
-            .padding(.bottom, inset ? 5 : 0)
-    }
-
-    private func menuRow(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(title, systemImage: icon)
-                .font(.system(size: 14, weight: .regular))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16).frame(height: 46)
-        }.buttonStyle(.plain)
-    }
+    // MARK: Header — stout with a bottle-cap scallop cut into its bottom edge
 
     private var header: some View {
-        HStack(spacing: 10) {
-            BeersMark(size: 42)
+        VStack(spacing: 3) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(Beers.cream)
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .strokeBorder(Beers.ink, lineWidth: 2)
+                    BeersMark(size: 22)
+                }
+                .frame(width: 32, height: 32)
+                .rotationEffect(.degrees(-4))
 
-            VStack(alignment: .leading, spacing: 2) {
                 Text("Beers")
-                    .font(.system(size: 18, weight: .bold, design: .serif))
-                    .foregroundStyle(LlatserTheme.textPrimary)
-                Text(appState.status.label)
-                    .font(.system(size: 12))
-                    .foregroundStyle(LlatserTheme.textSecondary)
+                    .font(Beers.display(21))
+                    .foregroundStyle(Beers.paper)
             }
-            Spacer()
-            StatusBadge(status: appState.status)
-        }
-    }
 
-    private var actionPanel: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            engineDetail
-
-            Button(action: appState.manualRecordToggle) {
-                HStack(spacing: 8) {
-                    Image(systemName: appState.status == .recording ? "stop.fill" : "mic.fill")
-                    Text(appState.status == .recording ? "Stop and Paste" : "Record")
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-            }
-            .buttonStyle(PressableButtonStyle())
-            .foregroundStyle(appState.status == .recording ? .white : LlatserTheme.ink)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(appState.status == .recording ? LlatserTheme.danger : LlatserTheme.accent)
-            )
-            .disabled(appState.status == .loading || appState.status == .transcribing)
-            .opacity(appState.status == .loading || appState.status == .transcribing ? 0.5 : 1)
-        }
-        .padding(12)
-        .background(LlatserTheme.panelBackground(cornerRadius: 12))
-    }
-
-    private var modePanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionLabel(title: "Mode")
-            Picker("Writing mode", selection: $appState.writingMode) {
-                ForEach(WritingMode.allCases) { mode in
-                    Text(mode.displayName).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-
-            Picker("Push-to-talk key", selection: $appState.hotkeyChoice) {
-                ForEach(HotkeyOption.allCases) { option in
-                    Text(option.displayName).tag(option)
-                }
-            }
-            .pickerStyle(.menu)
-            .font(.system(size: 12))
-        }
-        .padding(12)
-        .background(LlatserTheme.panelBackground(cornerRadius: 12))
-    }
-
-    private var enginePanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionLabel(title: "Engine")
             HStack(spacing: 6) {
-                ForEach(DictationEngine.allCases) { engine in
-                    StatusEngineButton(
-                        engine: engine,
-                        isSelected: appState.engineChoice == engine,
-                        action: { appState.engineChoice = engine }
-                    )
-                }
+                StatusPulseDot(color: statusDotColor)
+                Text(statusLine)
+                    .font(Beers.ui(10, .semibold))
+                    .tracking(2)
+                    .textCase(.uppercase)
+                    .foregroundStyle(Beers.lager)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
         }
-        .padding(12)
-        .background(LlatserTheme.panelBackground(cornerRadius: 12))
+        .padding(.top, 15)
+        .padding(.bottom, 18)
+        .padding(.horizontal, 18)
+        .frame(maxWidth: .infinity)
+        .background(ScallopEdge(scallopRadius: 7).fill(Beers.stout))
     }
 
-    private var writingPanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionLabel(title: "Writing")
-            compactToggle("Polish", icon: "wand.and.sparkles", isOn: $appState.polishBeforePaste)
-            compactToggle("AI rewrite", icon: "brain.head.profile", isOn: $appState.aiRewriteEnabled)
-            compactToggle("Links", icon: "link", isOn: $appState.normalizeLinks)
-            compactToggle("No final full stop", icon: "textformat.abc.dottedunderline", isOn: $appState.removeTrailingFullStop)
+    private var statusLine: String {
+        if case .loading = appState.status {
+            return appState.loadingMessage.isEmpty ? "Warming the taps…" : appState.loadingMessage
         }
-        .padding(12)
-        .background(LlatserTheme.panelBackground(cornerRadius: 12))
-    }
-
-    private var capturePanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionLabel(title: "Capture")
-            compactToggle("Suppress Mac audio", icon: "speaker.slash.fill", isOn: $appState.suppressComputerAudio)
-            Text("Ducks volume while the hotkey is held.")
-                .font(.system(size: 12))
-                .foregroundStyle(LlatserTheme.textSecondary)
+        if let error = appState.errorMessage { return error }
+        switch appState.status {
+        case .recording: return "Pouring…"
+        case .transcribing: return "Settling the foam…"
+        default: return "On tap — ready to pour"
         }
-        .padding(12)
-        .background(LlatserTheme.panelBackground(cornerRadius: 12))
     }
 
-    private var vocabularyPanel: some View {
-        DisclosureGroup(isExpanded: $showsVocabulary) {
-            VocabularyEditorView(compact: true, showsTitle: false)
-                .padding(.top, 8)
-        } label: {
-            HStack {
-                SectionLabel(title: "Vocabulary", icon: "text.badge.checkmark")
+    private var statusDotColor: Color {
+        switch appState.status {
+        case .ready: return Beers.hops
+        case .recording: return Beers.amber
+        case .transcribing, .loading: return Beers.lager
+        case .error: return Beers.amber
+        }
+    }
+
+    // MARK: Pour cap
+
+    private var pourSection: some View {
+        VStack(spacing: 11) {
+            PourCapButton(
+                isRecording: appState.status == .recording,
+                isBusy: appState.status == .loading || appState.status == .transcribing,
+                action: appState.manualRecordToggle
+            )
+
+            HStack(spacing: 5) {
+                Text("Hold")
+                BeersKeycap(label: appState.hotkeyChoice.keycapLabel)
+                Text("anywhere")
+                Text("— or click me")
+                    .foregroundStyle(Beers.ink.opacity(0.55))
+                    .font(Beers.ui(13, .medium))
+            }
+            .font(Beers.ui(14, .bold))
+            .foregroundStyle(Beers.ink)
+        }
+        .padding(.top, 18)
+        .padding(.bottom, 6)
+    }
+
+    // MARK: Rows
+
+    private var rows: some View {
+        VStack(spacing: 9) {
+            if case .loading = appState.status {
+                loadingRow
+            }
+
+            popRow {
+                dismiss()
+                openSettings()
+                NSApp.activate(ignoringOtherApps: true)
+            } content: {
+                Text("🎙 Mic")
+                    .font(Beers.ui(13, .semibold))
+                Text("built-in · pinned")
+                    .font(Beers.ui(12, .medium))
+                    .foregroundStyle(Beers.ink.opacity(0.6))
                 Spacer()
-                Text("\(appState.vocabularyCorrections.count)")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(LlatserTheme.textSecondary)
+                Text("no AirPods lag")
+                    .font(Beers.ui(11, .semibold))
+                    .foregroundStyle(Beers.hopsDeep)
+            }
+
+            popRow {
+                copyLastPour()
+            } content: {
+                Text("Last pour")
+                    .font(Beers.ui(13, .semibold))
+                Spacer()
+                Text(lastPourPreview)
+                    .font(Beers.ui(12, .medium))
+                    .foregroundStyle(Beers.ink.opacity(0.6))
+                    .lineLimit(1)
+                Image(systemName: "doc.on.doc")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Beers.ink.opacity(0.6))
+            }
+
+            statsRow
+
+            popRow {
+                dismiss()
+                MainWindowPresenter.shared.show()
+            } content: {
+                Text("Open the Taproom").font(Beers.ui(13, .semibold))
+                Spacer()
+                Text("↗").font(Beers.ui(14, .bold))
+            }
+
+            popRow {
+                dismiss()
+                openSettings()
+                NSApp.activate(ignoringOtherApps: true)
+            } content: {
+                Text("Brew Controls").font(Beers.ui(13, .semibold))
+                Spacer()
+                Text("⚙️").font(.system(size: 12))
+            }
+
+            popRow {
+                NSApp.terminate(nil)
+            } content: {
+                Text("Last orders — quit").font(Beers.ui(13, .semibold))
+                Spacer()
+                Image(systemName: "power")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Beers.stout)
             }
         }
-        .tint(LlatserTheme.accent)
-        .padding(12)
-        .background(LlatserTheme.panelBackground(cornerRadius: 12))
+        .padding(.horizontal, 14)
+        .padding(.top, 10)
+        .padding(.bottom, 14)
     }
 
-    private var transcriptPanel: some View {
+    private var loadingRow: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionLabel(title: "Last paste", icon: "text.quote")
-            Text(appState.lastTranscription)
-                .font(.system(size: 12))
-                .foregroundStyle(LlatserTheme.textPrimary)
-                .lineLimit(4)
-                .textSelection(.enabled)
+            ProgressView(value: appState.modelProgress)
+                .tint(Beers.amber)
+            Text(appState.loadingMessage)
+                .font(Beers.ui(11, .medium))
+                .foregroundStyle(Beers.ink.opacity(0.6))
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(LlatserTheme.panelBackground(cornerRadius: 12))
-    }
-
-    @ViewBuilder
-    private var engineDetail: some View {
-        if appState.status == .loading {
-            VStack(alignment: .leading, spacing: 6) {
-                ProgressView(value: appState.modelProgress)
-                    .tint(LlatserTheme.accent)
-                Text(appState.loadingMessage)
-                    .font(.system(size: 12))
-                    .foregroundStyle(LlatserTheme.textSecondary)
-            }
-        } else if let errorMessage = appState.errorMessage {
-            Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                .font(.system(size: 12))
-                .foregroundStyle(LlatserTheme.warn)
-        } else {
-            Text("Hold \(appState.hotkeyChoice.shortName) · release to paste")
-                .font(.system(size: 12))
-                .foregroundStyle(LlatserTheme.textSecondary)
-        }
-    }
-
-    private func compactToggle(_ title: String, icon: String, isOn: Binding<Bool>) -> some View {
-        HStack(spacing: 8) {
-            Label(title, systemImage: icon)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(LlatserTheme.textPrimary)
-            Spacer()
-            Toggle(title, isOn: isOn)
-                .labelsHidden()
-                .toggleStyle(.switch)
-                .tint(LlatserTheme.accent)
-                .accessibilityLabel(title)
-        }
-    }
-
-    private var permissionMessage: String? {
-        if !appState.microphoneGranted { return "Microphone access is missing." }
-        if !appState.inputMonitoringGranted { return "Input Monitoring is missing." }
-        if !appState.accessibilityGranted { return "Accessibility is missing." }
-        return nil
-    }
-
-    private var statusIcon: String {
-        switch appState.status {
-        case .loading: return "arrow.triangle.2.circlepath"
-        case .ready: return "mic"
-        case .recording: return "waveform"
-        case .transcribing: return "ellipsis"
-        case .error: return "exclamationmark.triangle"
-        }
-    }
-
-    private var statusColor: Color {
-        switch appState.status {
-        case .loading, .transcribing, .ready: return LlatserTheme.accent
-        case .recording: return LlatserTheme.danger
-        case .error: return LlatserTheme.warn
-        }
-    }
-
-    private func openMainWindow() {
-        dismiss()
-        openWindow(id: "main")
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
-    private func openMainWindow(section: String) {
-        selectedSettingsSection = section
-        openMainWindow()
-    }
-
-    private var adaptiveWriting: Binding<Bool> {
-        Binding(
-            get: { appState.writingMode == .automatic && appState.adaptiveTone },
-            set: { enabled in
-                appState.writingMode = enabled ? .automatic : .clean
-                appState.adaptiveTone = enabled
-            }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 9)
+        .background(Beers.cream, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .strokeBorder(Beers.ink, lineWidth: 2)
         )
     }
 
-    private func quit() {
-        NSApp.terminate(nil)
+    private var statsRow: some View {
+        HStack {
+            Text("🏆 Today ")
+                .font(Beers.ui(13, .semibold))
+                .foregroundStyle(Beers.cream)
+            + Text("\(appState.pourStore.poursToday) pours")
+                .font(Beers.ui(13, .bold))
+                .foregroundStyle(Beers.lager)
+            Spacer()
+            Text("\(appState.pourStore.wordsToday) words")
+                .font(Beers.ui(12, .medium))
+                .foregroundStyle(Beers.hops)
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 10)
+        .background(Beers.ink, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+    }
+
+    private var lastPourPreview: String {
+        let text = appState.lastTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.isEmpty { return "nothing yet" }
+        return "“\(String(text.prefix(24)))\(text.count > 24 ? "…" : "")”"
+    }
+
+    private func copyLastPour() {
+        let text = appState.lastTranscription
+        guard !text.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    private func popRow<Content: View>(
+        action: @escaping () -> Void,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) { content() }
+                .foregroundStyle(Beers.ink)
+                .padding(.horizontal, 13)
+                .padding(.vertical, 10)
+                .background(Beers.cream, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .strokeBorder(Beers.ink, lineWidth: 2)
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PopRowButtonStyle())
     }
 }
 
-private struct StatusEngineButton: View {
-    let engine: DictationEngine
-    let isSelected: Bool
+/// Rows nudge right and tilt on press.
+private struct PopRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .offset(x: configuration.isPressed ? 3 : 0)
+            .rotationEffect(.degrees(configuration.isPressed ? -0.4 : 0))
+            .animation(Beers.springTight, value: configuration.isPressed)
+    }
+}
+
+private struct StatusPulseDot: View {
+    let color: Color
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 12.0)) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
+            Circle()
+                .fill(color)
+                .frame(width: 7, height: 7)
+                .opacity(0.55 + 0.45 * (sin(time * 3.5) + 1) / 2)
+        }
+    }
+}
+
+/// The 98pt bottle-cap pour button: amber cap in a lager+ink double ring.
+struct PourCapButton: View {
+    let isRecording: Bool
+    let isBusy: Bool
     let action: () -> Void
+    @State private var hovering = false
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
-                Text(shortName)
-                    .font(.system(size: 12, weight: .semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+            ZStack {
+                Circle().fill(Beers.amber)
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Beers.paper.opacity(0.22), .clear],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                    )
+                Image(systemName: isRecording ? "stop.fill" : "mic.fill")
+                    .font(.system(size: 34, weight: .semibold))
+                    .foregroundStyle(Beers.paper)
             }
-            .foregroundStyle(LlatserTheme.textPrimary)
-            .frame(maxWidth: .infinity, minHeight: 48)
+            .frame(width: 98, height: 98)
+            .overlay(Circle().strokeBorder(Beers.ink, lineWidth: 3.5))
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(isSelected ? LlatserTheme.selected : LlatserTheme.panel)
+                Circle()
+                    .fill(Beers.lager)
+                    .frame(width: 118, height: 118)
+                    .overlay(Circle().strokeBorder(Beers.ink, lineWidth: 3))
             )
+            .scaleEffect(hovering && !isBusy ? 1.06 : 1)
+            .rotationEffect(.degrees(hovering && !isBusy ? -3 : 0))
+            .opacity(isBusy ? 0.55 : 1)
+            .animation(Beers.springTight, value: hovering)
         }
-        .buttonStyle(PressableButtonStyle())
-        .accessibilityLabel("\(engine.displayName), \(isSelected ? "selected" : "not selected")")
+        .buttonStyle(PourCapPressStyle())
+        .disabled(isBusy)
+        .onHover { hovering = $0 }
+        .accessibilityLabel(isRecording ? "Stop and serve" : "Start a pour")
     }
+}
 
-    private var shortName: String {
-        switch engine {
-        case .parakeetV3: return "V3"
-        case .parakeetV2: return "V2"
-        }
-    }
-
-    private var icon: String {
-        switch engine {
-        case .parakeetV3: return "checkmark.seal.fill"
-        case .parakeetV2: return "arrow.left.arrow.right"
-        }
+private struct PourCapPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .animation(Beers.springTight, value: configuration.isPressed)
     }
 }

@@ -5,36 +5,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Menu-bar-only: never take a Dock icon, even while a window is open.
         NSApp.setActivationPolicy(.accessory)
+        // Law: the Beers palette is one fixed light appearance.
+        NSApp.appearance = NSAppearance(named: .aqua)
+        BeersFonts.registerOnce()
 
-        if Permissions.isMicrophoneGranted()
+        let allGranted = Permissions.isMicrophoneGranted()
             && Permissions.isInputMonitoringGranted()
-            && Permissions.isAccessibilityGranted() {
-            closeRestoredWindows()
-        } else {
-            // First run / missing grants: surface the permission checklist.
-            showSettingsWindow()
+            && Permissions.isAccessibilityGranted()
+
+        // Installs that already have every grant never need onboarding.
+        if allGranted && !UserDefaults.standard.bool(forKey: "firstRoundDone") {
+            UserDefaults.standard.set(true, forKey: "firstRoundDone")
         }
-    }
 
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        showSettingsWindow()
-        return true
-    }
-
-    private func closeRestoredWindows() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            for window in NSApp.windows where window.identifier?.rawValue.contains("main") == true {
-                window.close()
+        if !UserDefaults.standard.bool(forKey: "firstRoundDone") {
+            // First run / reset grants: show First Round.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                MainWindowPresenter.shared.show()
+                llog("App: First Round window shown")
             }
         }
     }
 
-    private func showSettingsWindow() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-            NSApp.activate(ignoringOtherApps: true)
-            llog("App: settings window requested")
-        }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        MainWindowPresenter.shared.show()
+        return true
     }
 }
 
@@ -44,32 +39,42 @@ struct LlatserListenApp: App {
     @StateObject private var appState = AppState()
 
     var body: some Scene {
-        Window("Beers", id: "main") {
-            RedesignedSettingsView()
-                .environmentObject(appState)
-                .onAppear {
-                    NSApp.activate(ignoringOtherApps: true)
-                }
-        }
-        .windowResizability(.contentSize)
-
         MenuBarExtra {
             StatusBarView()
                 .environmentObject(appState)
         } label: {
-            if appState.status == .recording {
-                Image(systemName: "waveform")
-            } else if appState.status == .transcribing {
-                Image(systemName: "ellipsis.circle")
-            } else {
-                Image(systemName: "ear")
-            }
+            // Full-colour brand icon — never a grey template glyph.
+            MenuBarIconView()
+                .environmentObject(appState)
         }
         .menuBarExtraStyle(.window)
 
         Settings {
-            RedesignedSettingsView()
+            BrewControlsView()
                 .environmentObject(appState)
         }
+    }
+}
+
+/// Always alive in the status bar; also hands AppState to the window presenter.
+private struct MenuBarIconView: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        iconImage
+    }
+
+    private var iconImage: Image {
+        let name: String
+        switch appState.status {
+        case .recording: name = "menubar-recording"
+        case .transcribing, .loading: name = "menubar-busy"
+        default: name = "menubar-idle"
+        }
+        guard let image = Beers.brandImage(name) else {
+            return Image(systemName: "ear")
+        }
+        image.size = NSSize(width: 20, height: 20)
+        return Image(nsImage: image)
     }
 }

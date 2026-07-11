@@ -204,6 +204,7 @@ final class AudioRecorder {
         guard frameCount > 0 else { return }
 
         let samples = Array(UnsafeBufferPointer(start: channelData[0], count: frameCount))
+        LiveMicLevel.shared.update(samples)
 
         lock.lock()
         if isCapturing && captureID == activeCaptureID {
@@ -528,5 +529,36 @@ final class AudioRecorder {
             engine.inputNode.removeTap(onBus: 0)
             engine.stop()
         }
+    }
+}
+
+/// Live mic RMS for the HUD waveform. Written from the audio tap thread,
+/// read every frame by the overlay's TimelineView.
+final class LiveMicLevel {
+    static let shared = LiveMicLevel()
+    private let lock = NSLock()
+    private var value: Float = 0
+
+    func update(_ samples: [Float]) {
+        guard !samples.isEmpty else { return }
+        let rms = sqrt(samples.reduce(0) { $0 + $1 * $1 } / Float(samples.count))
+        // Normalise raw capture RMS (pre speech-gain) into 0...1 display range.
+        let display = min(1, rms * 24)
+        lock.lock()
+        // Fast attack, slow decay so speech feels punchy.
+        value = display > value ? display : value * 0.82 + display * 0.18
+        lock.unlock()
+    }
+
+    var level: Float {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+
+    func reset() {
+        lock.lock()
+        value = 0
+        lock.unlock()
     }
 }

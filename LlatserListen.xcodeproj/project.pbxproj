@@ -9,63 +9,93 @@
 /* Begin PBXBuildFile section */
 		053B3918C6BB7224C8254F98 /* SystemAudioDucker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99B0DBCC798475BD0F685421 /* SystemAudioDucker.swift */; };
 		0A353AE2D8C636D166D60504 /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00B51F9E10EE5BEA66A155EB /* HotkeyManager.swift */; };
+		11C3D9358024BA45BE088E5E /* PourStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF995F241EC5EAAFEE4BBCFE /* PourStore.swift */; };
 		19332CFF80B4BC0AEF00AABB /* WritingPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BDD72F977C6D7E259E91BCC /* WritingPreferences.swift */; };
 		1A04DCE4D81D5502CFC471F2 /* ListeningOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D83F3E67D25DABE992991FB /* ListeningOverlayView.swift */; };
 		232BEEBACCE2C01B875B7F34 /* ActiveAppContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2267000C43209C6905193E7E /* ActiveAppContext.swift */; };
 		243D00DD038BA227A1241816 /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5094097141E61A6991382CB /* Log.swift */; };
 		25A9B5F0521F0FC05E263C2A /* ParakeetTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C3BE746E8EF3FD2EE3E947D /* ParakeetTranscriber.swift */; };
+		26F3D45DD7B010FFEDD96CB6 /* BeersSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = E59977506C7EDC14B88EDB93 /* BeersSnapshot.swift */; };
 		2B6276A547848425B77D113E /* HotkeyOption.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3916FAFC0F23FE7898D73EAA /* HotkeyOption.swift */; };
 		37754EEBC7CA36417AA04636 /* TranscriptPolisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 075921A149952F27423F54B0 /* TranscriptPolisher.swift */; };
 		37E39367A61C6E4DA6C4BCC0 /* VocabularyEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDEA0FB3A811F73904043201 /* VocabularyEditorView.swift */; };
 		3E2AB80855B77DA15AD8F1B3 /* OverlayWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93C2A06D187E3004EC7E1711 /* OverlayWindowController.swift */; };
+		46DB05A650037E3720BC59FC /* FirstRoundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F3E181E43741EAE91555F70 /* FirstRoundView.swift */; };
 		46ECE74CC37C9A3C13C252AB /* WritingMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2833284E00D4AD5957F0E35E /* WritingMode.swift */; };
+		4C96CAAE7D7E4E3B592B4075 /* app-icon.png in Resources */ = {isa = PBXBuildFile; fileRef = 8E53B2E7A143FE54C0DCBD6D /* app-icon.png */; };
 		4EA50DDF8A5AD3BFA6E47AF5 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F45A43414E8B455654057BC /* AudioRecorder.swift */; };
+		5DA1FB221A5F2B7F8CCAAC29 /* BrewControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE344F0921ED779B1428F827 /* BrewControlsView.swift */; };
+		63B72524519A49BDEA44DC89 /* MainWindowPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D794AD62E24F4612DAE68040 /* MainWindowPresenter.swift */; };
+		64372433477F37D2603F3F1C /* TaproomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F951624D1F56A0FC1FC8D85E /* TaproomView.swift */; };
 		6A955112E55979F3AD895DB4 /* AITranscriptRewriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E241756F93FBE4BE24C9F7 /* AITranscriptRewriter.swift */; };
-		6D9ED6CEC9BB6375636EC98A /* LlatserTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CF74D0DC54959517D88DBBD /* LlatserTheme.swift */; };
+		70B4F9DFF2D6AC184BF77C8D /* menubar-recording.png in Resources */ = {isa = PBXBuildFile; fileRef = EBB438AD8C73F9759789F37A /* menubar-recording.png */; };
 		7221800784D887FA4467AAC7 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = C5AEF2B78562A128C9ECB9B9 /* FluidAudio */; };
+		740358493A3FC16206B0A419 /* RammettoOne-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 8D3A517AAB987970840AA2E5 /* RammettoOne-Regular.ttf */; };
 		780898F52CA0AF850A048EC6 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38953F064BADECA1F8FF74DD /* AppState.swift */; };
+		7AAAB47C4E2180DB2336CB84 /* OFL-NOTICE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 39254F6A9FA541854FA8A91C /* OFL-NOTICE.txt */; };
 		8470CAEFF9B7098135C4CEE6 /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD7B8077E418C3E3BF583E96 /* StatusBarView.swift */; };
 		87FF3B47AFD540F3F79FCA12 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 49A6EA612E0684AF83094D9B /* AppIcon.icns */; };
+		9C144DE67D485D04B06B40BA /* logo-b-small.png in Resources */ = {isa = PBXBuildFile; fileRef = 128615C78B7BA95911149127 /* logo-b-small.png */; };
 		9D6782B618AF61CFCCE46D1D /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EF6550396CF3656DF71F30C /* Permissions.swift */; };
-		AE331F39EE5C64213186AA17 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74DA63DBBAE420CAD432A5E1 /* SettingsView.swift */; };
+		B0CD9D93BE2D08C4C3D7B2CD /* Fredoka-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9DB12448E0D908733EF7E6B4 /* Fredoka-Medium.ttf */; };
 		C894D64DB4D3FABAA9CC3272 /* VocabularyCorrections.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE49B49408F90022AC878A2D /* VocabularyCorrections.swift */; };
-		CFF3BE3D77AEFA9982543C95 /* RedesignedSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7570F7A7AD23E2E2311B813D /* RedesignedSettingsView.swift */; };
+		D1CAB137121FB595EA0899FE /* menubar-idle.png in Resources */ = {isa = PBXBuildFile; fileRef = D13E256F30EC831C3126ED1B /* menubar-idle.png */; };
 		D3E8E22F66899EB96D3E2B3F /* DictationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F126A39C344959EF0C83D776 /* DictationEngine.swift */; };
+		D882C39AC7715A27EF9B6D25 /* Fredoka-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AC38823F9A66E7A895995C85 /* Fredoka-SemiBold.ttf */; };
 		D9F23819CAE84BCF58984E23 /* TranscriptionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 951F0E6872182F27D5DC3138 /* TranscriptionEngine.swift */; };
+		DAA3A1B943685C5A76F3548A /* BeersTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8CF96CFDD2D530C4D97A400 /* BeersTheme.swift */; };
 		E6B1C53CA9C076B90B43FCD7 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03CFA3F5C59001F8C8349C32 /* App.swift */; };
+		EA479BF9120D9C8CB3907939 /* Fredoka-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 932AE11A0C61113542EB6F26 /* Fredoka-Regular.ttf */; };
+		F087C25284CBCF2E94391D6D /* Fredoka-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 8D7DAFFD4D31D6AC4BAE9C80 /* Fredoka-Bold.ttf */; };
 		F2FB2CF31A4538FDECAD5C16 /* TextPaster.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8224FA940B0F0E367DEFB66C /* TextPaster.swift */; };
+		FC621BBF2C0A9B8052FB31F9 /* menubar-busy.png in Resources */ = {isa = PBXBuildFile; fileRef = AADCAF42C8C59A153494F466 /* menubar-busy.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		00B51F9E10EE5BEA66A155EB /* HotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyManager.swift; sourceTree = "<group>"; };
 		03CFA3F5C59001F8C8349C32 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
 		075921A149952F27423F54B0 /* TranscriptPolisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptPolisher.swift; sourceTree = "<group>"; };
-		0CF74D0DC54959517D88DBBD /* LlatserTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LlatserTheme.swift; sourceTree = "<group>"; };
+		128615C78B7BA95911149127 /* logo-b-small.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "logo-b-small.png"; sourceTree = "<group>"; };
 		2267000C43209C6905193E7E /* ActiveAppContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveAppContext.swift; sourceTree = "<group>"; };
 		2833284E00D4AD5957F0E35E /* WritingMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingMode.swift; sourceTree = "<group>"; };
 		2C3BE746E8EF3FD2EE3E947D /* ParakeetTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParakeetTranscriber.swift; sourceTree = "<group>"; };
 		38953F064BADECA1F8FF74DD /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		3916FAFC0F23FE7898D73EAA /* HotkeyOption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyOption.swift; sourceTree = "<group>"; };
+		39254F6A9FA541854FA8A91C /* OFL-NOTICE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL-NOTICE.txt"; sourceTree = "<group>"; };
 		3BDD72F977C6D7E259E91BCC /* WritingPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingPreferences.swift; sourceTree = "<group>"; };
 		3D83F3E67D25DABE992991FB /* ListeningOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListeningOverlayView.swift; sourceTree = "<group>"; };
 		3FE80CC372C7585A1496D0E3 /* LlatserListen.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LlatserListen.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		49A6EA612E0684AF83094D9B /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
-		74DA63DBBAE420CAD432A5E1 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		7570F7A7AD23E2E2311B813D /* RedesignedSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedesignedSettingsView.swift; sourceTree = "<group>"; };
 		7EE65B29509B2AE98056EB22 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		7EF6550396CF3656DF71F30C /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
 		7F45A43414E8B455654057BC /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
 		8224FA940B0F0E367DEFB66C /* TextPaster.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextPaster.swift; sourceTree = "<group>"; };
+		8D3A517AAB987970840AA2E5 /* RammettoOne-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "RammettoOne-Regular.ttf"; sourceTree = "<group>"; };
+		8D7DAFFD4D31D6AC4BAE9C80 /* Fredoka-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fredoka-Bold.ttf"; sourceTree = "<group>"; };
 		8E3A2C7E05F979E07C910886 /* LlatserListen.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LlatserListen.entitlements; sourceTree = "<group>"; };
+		8E53B2E7A143FE54C0DCBD6D /* app-icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "app-icon.png"; sourceTree = "<group>"; };
+		8F3E181E43741EAE91555F70 /* FirstRoundView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstRoundView.swift; sourceTree = "<group>"; };
+		932AE11A0C61113542EB6F26 /* Fredoka-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fredoka-Regular.ttf"; sourceTree = "<group>"; };
 		93C2A06D187E3004EC7E1711 /* OverlayWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayWindowController.swift; sourceTree = "<group>"; };
 		951F0E6872182F27D5DC3138 /* TranscriptionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionEngine.swift; sourceTree = "<group>"; };
 		99B0DBCC798475BD0F685421 /* SystemAudioDucker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemAudioDucker.swift; sourceTree = "<group>"; };
+		9DB12448E0D908733EF7E6B4 /* Fredoka-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fredoka-Medium.ttf"; sourceTree = "<group>"; };
+		AADCAF42C8C59A153494F466 /* menubar-busy.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "menubar-busy.png"; sourceTree = "<group>"; };
+		AC38823F9A66E7A895995C85 /* Fredoka-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fredoka-SemiBold.ttf"; sourceTree = "<group>"; };
 		BD7B8077E418C3E3BF583E96 /* StatusBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarView.swift; sourceTree = "<group>"; };
 		BDEA0FB3A811F73904043201 /* VocabularyEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VocabularyEditorView.swift; sourceTree = "<group>"; };
+		D13E256F30EC831C3126ED1B /* menubar-idle.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "menubar-idle.png"; sourceTree = "<group>"; };
 		D5094097141E61A6991382CB /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
+		D794AD62E24F4612DAE68040 /* MainWindowPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowPresenter.swift; sourceTree = "<group>"; };
+		DE344F0921ED779B1428F827 /* BrewControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewControlsView.swift; sourceTree = "<group>"; };
 		DE49B49408F90022AC878A2D /* VocabularyCorrections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VocabularyCorrections.swift; sourceTree = "<group>"; };
+		DF995F241EC5EAAFEE4BBCFE /* PourStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PourStore.swift; sourceTree = "<group>"; };
+		E59977506C7EDC14B88EDB93 /* BeersSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeersSnapshot.swift; sourceTree = "<group>"; };
+		EBB438AD8C73F9759789F37A /* menubar-recording.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "menubar-recording.png"; sourceTree = "<group>"; };
 		F126A39C344959EF0C83D776 /* DictationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationEngine.swift; sourceTree = "<group>"; };
 		F3E241756F93FBE4BE24C9F7 /* AITranscriptRewriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AITranscriptRewriter.swift; sourceTree = "<group>"; };
+		F8CF96CFDD2D530C4D97A400 /* BeersTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeersTheme.swift; sourceTree = "<group>"; };
+		F951624D1F56A0FC1FC8D85E /* TaproomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaproomView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -80,12 +110,46 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		3104E531A448DFFD7C04519C /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				3653EA42B87E71EA5B5E8F17 /* BrandAssets */,
+				991373C6B81D9660B0C8051E /* Fonts */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		3653EA42B87E71EA5B5E8F17 /* BrandAssets */ = {
+			isa = PBXGroup;
+			children = (
+				8E53B2E7A143FE54C0DCBD6D /* app-icon.png */,
+				128615C78B7BA95911149127 /* logo-b-small.png */,
+				AADCAF42C8C59A153494F466 /* menubar-busy.png */,
+				D13E256F30EC831C3126ED1B /* menubar-idle.png */,
+				EBB438AD8C73F9759789F37A /* menubar-recording.png */,
+			);
+			path = BrandAssets;
+			sourceTree = "<group>";
+		};
 		3D020934E02CD82DA0EA4442 = {
 			isa = PBXGroup;
 			children = (
 				D4D8541BC9046ADC5F713B55 /* LlatserListen */,
 				9CE67A69D255F10E9DE0D1A7 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		991373C6B81D9660B0C8051E /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				8D7DAFFD4D31D6AC4BAE9C80 /* Fredoka-Bold.ttf */,
+				9DB12448E0D908733EF7E6B4 /* Fredoka-Medium.ttf */,
+				932AE11A0C61113542EB6F26 /* Fredoka-Regular.ttf */,
+				AC38823F9A66E7A895995C85 /* Fredoka-SemiBold.ttf */,
+				39254F6A9FA541854FA8A91C /* OFL-NOTICE.txt */,
+				8D3A517AAB987970840AA2E5 /* RammettoOne-Regular.ttf */,
+			);
+			path = Fonts;
 			sourceTree = "<group>";
 		};
 		9CE67A69D255F10E9DE0D1A7 /* Products */ = {
@@ -105,21 +169,25 @@
 				49A6EA612E0684AF83094D9B /* AppIcon.icns */,
 				38953F064BADECA1F8FF74DD /* AppState.swift */,
 				7F45A43414E8B455654057BC /* AudioRecorder.swift */,
+				E59977506C7EDC14B88EDB93 /* BeersSnapshot.swift */,
+				F8CF96CFDD2D530C4D97A400 /* BeersTheme.swift */,
+				DE344F0921ED779B1428F827 /* BrewControlsView.swift */,
 				F126A39C344959EF0C83D776 /* DictationEngine.swift */,
+				8F3E181E43741EAE91555F70 /* FirstRoundView.swift */,
 				00B51F9E10EE5BEA66A155EB /* HotkeyManager.swift */,
 				3916FAFC0F23FE7898D73EAA /* HotkeyOption.swift */,
 				7EE65B29509B2AE98056EB22 /* Info.plist */,
 				3D83F3E67D25DABE992991FB /* ListeningOverlayView.swift */,
 				8E3A2C7E05F979E07C910886 /* LlatserListen.entitlements */,
-				0CF74D0DC54959517D88DBBD /* LlatserTheme.swift */,
 				D5094097141E61A6991382CB /* Log.swift */,
+				D794AD62E24F4612DAE68040 /* MainWindowPresenter.swift */,
 				93C2A06D187E3004EC7E1711 /* OverlayWindowController.swift */,
 				2C3BE746E8EF3FD2EE3E947D /* ParakeetTranscriber.swift */,
 				7EF6550396CF3656DF71F30C /* Permissions.swift */,
-				7570F7A7AD23E2E2311B813D /* RedesignedSettingsView.swift */,
-				74DA63DBBAE420CAD432A5E1 /* SettingsView.swift */,
+				DF995F241EC5EAAFEE4BBCFE /* PourStore.swift */,
 				BD7B8077E418C3E3BF583E96 /* StatusBarView.swift */,
 				99B0DBCC798475BD0F685421 /* SystemAudioDucker.swift */,
+				F951624D1F56A0FC1FC8D85E /* TaproomView.swift */,
 				8224FA940B0F0E367DEFB66C /* TextPaster.swift */,
 				951F0E6872182F27D5DC3138 /* TranscriptionEngine.swift */,
 				075921A149952F27423F54B0 /* TranscriptPolisher.swift */,
@@ -127,6 +195,7 @@
 				BDEA0FB3A811F73904043201 /* VocabularyEditorView.swift */,
 				2833284E00D4AD5957F0E35E /* WritingMode.swift */,
 				3BDD72F977C6D7E259E91BCC /* WritingPreferences.swift */,
+				3104E531A448DFFD7C04519C /* Resources */,
 			);
 			path = LlatserListen;
 			sourceTree = "<group>";
@@ -191,6 +260,17 @@
 			buildActionMask = 2147483647;
 			files = (
 				87FF3B47AFD540F3F79FCA12 /* AppIcon.icns in Resources */,
+				F087C25284CBCF2E94391D6D /* Fredoka-Bold.ttf in Resources */,
+				B0CD9D93BE2D08C4C3D7B2CD /* Fredoka-Medium.ttf in Resources */,
+				EA479BF9120D9C8CB3907939 /* Fredoka-Regular.ttf in Resources */,
+				D882C39AC7715A27EF9B6D25 /* Fredoka-SemiBold.ttf in Resources */,
+				7AAAB47C4E2180DB2336CB84 /* OFL-NOTICE.txt in Resources */,
+				740358493A3FC16206B0A419 /* RammettoOne-Regular.ttf in Resources */,
+				4C96CAAE7D7E4E3B592B4075 /* app-icon.png in Resources */,
+				9C144DE67D485D04B06B40BA /* logo-b-small.png in Resources */,
+				FC621BBF2C0A9B8052FB31F9 /* menubar-busy.png in Resources */,
+				D1CAB137121FB595EA0899FE /* menubar-idle.png in Resources */,
+				70B4F9DFF2D6AC184BF77C8D /* menubar-recording.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -206,19 +286,23 @@
 				E6B1C53CA9C076B90B43FCD7 /* App.swift in Sources */,
 				780898F52CA0AF850A048EC6 /* AppState.swift in Sources */,
 				4EA50DDF8A5AD3BFA6E47AF5 /* AudioRecorder.swift in Sources */,
+				26F3D45DD7B010FFEDD96CB6 /* BeersSnapshot.swift in Sources */,
+				DAA3A1B943685C5A76F3548A /* BeersTheme.swift in Sources */,
+				5DA1FB221A5F2B7F8CCAAC29 /* BrewControlsView.swift in Sources */,
 				D3E8E22F66899EB96D3E2B3F /* DictationEngine.swift in Sources */,
+				46DB05A650037E3720BC59FC /* FirstRoundView.swift in Sources */,
 				0A353AE2D8C636D166D60504 /* HotkeyManager.swift in Sources */,
 				2B6276A547848425B77D113E /* HotkeyOption.swift in Sources */,
 				1A04DCE4D81D5502CFC471F2 /* ListeningOverlayView.swift in Sources */,
-				6D9ED6CEC9BB6375636EC98A /* LlatserTheme.swift in Sources */,
 				243D00DD038BA227A1241816 /* Log.swift in Sources */,
+				63B72524519A49BDEA44DC89 /* MainWindowPresenter.swift in Sources */,
 				3E2AB80855B77DA15AD8F1B3 /* OverlayWindowController.swift in Sources */,
 				25A9B5F0521F0FC05E263C2A /* ParakeetTranscriber.swift in Sources */,
 				9D6782B618AF61CFCCE46D1D /* Permissions.swift in Sources */,
-				CFF3BE3D77AEFA9982543C95 /* RedesignedSettingsView.swift in Sources */,
-				AE331F39EE5C64213186AA17 /* SettingsView.swift in Sources */,
+				11C3D9358024BA45BE088E5E /* PourStore.swift in Sources */,
 				8470CAEFF9B7098135C4CEE6 /* StatusBarView.swift in Sources */,
 				053B3918C6BB7224C8254F98 /* SystemAudioDucker.swift in Sources */,
+				64372433477F37D2603F3F1C /* TaproomView.swift in Sources */,
 				F2FB2CF31A4538FDECAD5C16 /* TextPaster.swift in Sources */,
 				37754EEBC7CA36417AA04636 /* TranscriptPolisher.swift in Sources */,
 				D9F23819CAE84BCF58984E23 /* TranscriptionEngine.swift in Sources */,
