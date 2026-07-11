@@ -48,6 +48,19 @@ struct PourHUDView: View {
         return false
     }
 
+    private var isOrder: Bool {
+        switch presentation.mode {
+        case .takingOrder, .workingOrder: return true
+        default: return false
+        }
+    }
+
+    private var ringColor: Color {
+        if isServed { return Beers.hops }
+        if case .notice = presentation.mode { return Beers.stout }
+        return Beers.lager
+    }
+
     private var pill: some View {
         HStack(spacing: 14) {
             badge
@@ -64,22 +77,24 @@ struct PourHUDView: View {
             }
 
             switch presentation.mode {
-            case .pouring:
+            case .pouring, .takingOrder:
                 LiveWaveform(active: !reduceMotion)
                     .frame(width: 96, height: 30)
                 timerChip
-            case .settling:
+            case .settling, .workingOrder:
                 FoamDots(active: !reduceMotion)
                     .frame(width: 44, height: 30)
             case .served:
                 Text("🍻").font(.system(size: 22))
+            case .notice:
+                Text("🫗").font(.system(size: 20))
             }
         }
         .padding(.leading, 12)
         .padding(.trailing, 22)
         .padding(.vertical, 11)
         .background(Beers.ink, in: Capsule())
-        .background(Capsule().fill(isServed ? Beers.hops : Beers.lager).padding(-4))
+        .background(Capsule().fill(ringColor).padding(-4))
         .background(Capsule().fill(Beers.ink).padding(-6.5))
         .shadow(color: Beers.ink.opacity(0.35), radius: 16, y: 10)
         .animation(.easeOut(duration: 0.18), value: presentation.mode)
@@ -112,6 +127,9 @@ struct PourHUDView: View {
         case .pouring: return "Pouring…"
         case .settling: return "Settling the foam…"
         case .served: return "Served!"
+        case .takingOrder: return "Taking your order…"
+        case .workingOrder: return "Working the order…"
+        case .notice: return "No pour"
         }
     }
 
@@ -120,6 +138,9 @@ struct PourHUDView: View {
         case .pouring: return "Release to serve"
         case .settling: return "Half a second, tops"
         case .served(let words): return words == 1 ? "1 word" : "\(words) words"
+        case .takingOrder: return "Say the change you want"
+        case .workingOrder: return "The kitchen's on it"
+        case .notice(let message): return message
         }
     }
 }

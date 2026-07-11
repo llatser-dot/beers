@@ -20,6 +20,7 @@
 		37754EEBC7CA36417AA04636 /* TranscriptPolisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 075921A149952F27423F54B0 /* TranscriptPolisher.swift */; };
 		37E39367A61C6E4DA6C4BCC0 /* VocabularyEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDEA0FB3A811F73904043201 /* VocabularyEditorView.swift */; };
 		3E2AB80855B77DA15AD8F1B3 /* OverlayWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93C2A06D187E3004EC7E1711 /* OverlayWindowController.swift */; };
+		45AFAB29047B5D04D69A1E3A /* SelectionReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E7F57D26D08E6A5EF7C7C85 /* SelectionReader.swift */; };
 		46DB05A650037E3720BC59FC /* FirstRoundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F3E181E43741EAE91555F70 /* FirstRoundView.swift */; };
 		46ECE74CC37C9A3C13C252AB /* WritingMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2833284E00D4AD5957F0E35E /* WritingMode.swift */; };
 		4C96CAAE7D7E4E3B592B4075 /* app-icon.png in Resources */ = {isa = PBXBuildFile; fileRef = 8E53B2E7A143FE54C0DCBD6D /* app-icon.png */; };
@@ -56,6 +57,7 @@
 		03CFA3F5C59001F8C8349C32 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
 		075921A149952F27423F54B0 /* TranscriptPolisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptPolisher.swift; sourceTree = "<group>"; };
 		128615C78B7BA95911149127 /* logo-b-small.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "logo-b-small.png"; sourceTree = "<group>"; };
+		1E7F57D26D08E6A5EF7C7C85 /* SelectionReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionReader.swift; sourceTree = "<group>"; };
 		2267000C43209C6905193E7E /* ActiveAppContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveAppContext.swift; sourceTree = "<group>"; };
 		2833284E00D4AD5957F0E35E /* WritingMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingMode.swift; sourceTree = "<group>"; };
 		2C3BE746E8EF3FD2EE3E947D /* ParakeetTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParakeetTranscriber.swift; sourceTree = "<group>"; };
@@ -185,6 +187,7 @@
 				2C3BE746E8EF3FD2EE3E947D /* ParakeetTranscriber.swift */,
 				7EF6550396CF3656DF71F30C /* Permissions.swift */,
 				DF995F241EC5EAAFEE4BBCFE /* PourStore.swift */,
+				1E7F57D26D08E6A5EF7C7C85 /* SelectionReader.swift */,
 				BD7B8077E418C3E3BF583E96 /* StatusBarView.swift */,
 				99B0DBCC798475BD0F685421 /* SystemAudioDucker.swift */,
 				F951624D1F56A0FC1FC8D85E /* TaproomView.swift */,
@@ -300,6 +303,7 @@
 				25A9B5F0521F0FC05E263C2A /* ParakeetTranscriber.swift in Sources */,
 				9D6782B618AF61CFCCE46D1D /* Permissions.swift in Sources */,
 				11C3D9358024BA45BE088E5E /* PourStore.swift in Sources */,
+				45AFAB29047B5D04D69A1E3A /* SelectionReader.swift in Sources */,
 				8470CAEFF9B7098135C4CEE6 /* StatusBarView.swift in Sources */,
 				053B3918C6BB7224C8254F98 /* SystemAudioDucker.swift in Sources */,
 				64372433477F37D2603F3F1C /* TaproomView.swift in Sources */,

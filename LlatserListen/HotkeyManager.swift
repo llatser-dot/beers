@@ -2,7 +2,8 @@ import Carbon
 import Cocoa
 
 final class HotkeyManager {
-    var onKeyDown: (() -> Void)?
+    /// Bool = Shift was held when the pour key went down (Command Mode).
+    var onKeyDown: ((Bool) -> Void)?
     var onKeyUp: (() -> Void)?
 
     private var eventTap: CFMachPort?
@@ -102,8 +103,9 @@ final class HotkeyManager {
 
         if pressed && !isKeyHeld {
             isKeyHeld = true
+            let shiftHeld = event.flags.contains(.maskShift)
             DispatchQueue.main.async { [weak self] in
-                self?.onKeyDown?()
+                self?.onKeyDown?(shiftHeld)
             }
         } else if !pressed && isKeyHeld {
             isKeyHeld = false

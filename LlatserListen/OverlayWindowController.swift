@@ -5,6 +5,12 @@ enum OverlayMode: Equatable {
     case pouring
     case settling
     case served(words: Int)
+    /// Command Mode: recording the spoken instruction.
+    case takingOrder
+    /// Command Mode: the local model is applying the instruction.
+    case workingOrder
+    /// Brief failure notice (e.g. no local model reachable).
+    case notice(String)
 }
 
 /// The Pour HUD: a borderless, non-activating panel slapped onto the
@@ -21,8 +27,12 @@ final class OverlayWindowController {
         hideWorkItem?.cancel()
         hideGeneration += 1
 
-        if case .pouring = mode, presentation.mode != .pouring || !presentation.isVisible {
+        switch mode {
+        case .pouring where presentation.mode != .pouring || !presentation.isVisible,
+             .takingOrder where presentation.mode != .takingOrder || !presentation.isVisible:
             presentation.pourStart = Date()
+        default:
+            break
         }
         presentation.mode = mode
 

@@ -138,7 +138,16 @@ final class AppState: ObservableObject {
             UserDefaults.standard.set(clinkOnServe, forKey: "clinkOnServe")
         }
     }
+    @Published var commandModeEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(commandModeEnabled, forKey: "commandModeEnabled")
+        }
+    }
     let pourStore = PourStore()
+
+    // Command Mode (an "order"): rewrite the selected text with a spoken instruction.
+    private var isCommandOrder = false
+    private var orderSelection = ""
     @Published var microphoneGranted: Bool
     @Published var inputMonitoringGranted: Bool
     @Published var accessibilityGranted: Bool
@@ -201,6 +210,7 @@ final class AppState: ObservableObject {
         self.aiRewriteModel = UserDefaults.standard.string(forKey: "aiRewriteModel") ?? AIRewriteSettings.defaults.model
         self.suppressComputerAudio = Self.boolDefaultTrue(forKey: "suppressComputerAudio")
         self.clinkOnServe = Self.boolDefaultTrue(forKey: "clinkOnServe")
+        self.commandModeEnabled = Self.boolDefaultTrue(forKey: "commandModeEnabled")
         self.hotkeyChoice = HotkeyOption.savedValue(UserDefaults.standard.string(forKey: "hotkeyChoice"))
 
         // Register as a login item once by default; the toggle stays in control after that.
@@ -287,7 +297,7 @@ final class AppState: ObservableObject {
         if isRecording {
             stopRecordingAndTranscribe()
         } else {
-            startRecording(fromHotkey: false)
+            startRecording(fromHotkey: false, commandMode: false)
         }
     }
 
@@ -395,9 +405,11 @@ final class AppState: ObservableObject {
 
     private func setupHotkey() {
         hotkeyManager.setOption(hotkeyChoice)
-        hotkeyManager.onKeyDown = { [weak self] in
-            llog("Hotkey: DOWN")
-            self?.startRecording(fromHotkey: true)
+        hotkeyManager.onKeyDown = { [weak self] shiftHeld in
+            guard let self else { return }
+            let commandMode = shiftHeld && self.commandModeEnabled
+            llog("Hotkey: DOWN\(commandMode ? " (order)" : "")")
+            self.startRecording(fromHotkey: true, commandMode: commandMode)
         }
         hotkeyManager.onKeyUp = { [weak self] in
             llog("Hotkey: UP")
@@ -495,10 +507,21 @@ final class AppState: ObservableObject {
         }
     }
 
-    private func startRecording(fromHotkey: Bool) {
+    private func startRecording(fromHotkey: Bool, commandMode: Bool = false) {
         guard status != .loading, status != .recording, status != .transcribing else {
             llog("AppState: start skipped, status=\(status.label)")
             return
+        }
+
+        isCommandOrder = commandMode
+        orderSelection = ""
+        if commandMode {
+            // Grab the selection while the mic spins up.
+            SelectionReader.selectedText { [weak self] text in
+                Task { @MainActor [weak self] in
+                    self?.orderSelection = text
+                }
+            }
         }
 
         if fromHotkey && !inputMonitoringGranted {
@@ -521,9 +544,9 @@ final class AppState: ObservableObject {
             isRecording = true
             status = .recording
             LiveMicLevel.shared.reset()
-            overlay.show(mode: .pouring)
+            overlay.show(mode: isCommandOrder ? .takingOrder : .pouring)
             Beers.popCap()
-            llog("AppState: recording started")
+            llog("AppState: recording started\(isCommandOrder ? " (order)" : "")")
         } catch {
             llog("AppState: record failed: \(error.localizedDescription)")
             status = .error("Mic error: \(error.localizedDescription)")
@@ -557,8 +580,10 @@ final class AppState: ObservableObject {
             return
         }
 
+        let isOrder = isCommandOrder
+        isCommandOrder = false
         status = .transcribing
-        overlay.show(mode: .settling)
+        overlay.show(mode: isOrder ? .workingOrder : .settling)
 
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -571,6 +596,11 @@ final class AppState: ObservableObject {
                     llog("AppState: empty transcription")
                     self.overlay.hide()
                     self.reconcilePermissions()
+                    return
+                }
+
+                if isOrder, !self.orderSelection.isEmpty {
+                    await self.serveOrder(instruction: text, duration: TimeInterval(duration))
                     return
                 }
 
@@ -636,6 +666,54 @@ final class AppState: ObservableObject {
                 self.overlay.hide(after: 0.2)
             }
         }
+    }
+
+    /// Command Mode serve: apply the spoken instruction to the captured
+    /// selection via the local model, then paste over the selection.
+    private func serveOrder(instruction: String, duration: TimeInterval) async {
+        let selection = orderSelection
+        orderSelection = ""
+        llog("AppState: order '\(instruction)' on \(selection.count) selected chars")
+        overlay.show(mode: .workingOrder)
+
+        let settings = AIRewriteSettings(
+            isEnabled: true,
+            endpoint: aiRewriteEndpoint,
+            model: aiRewriteModel
+        )
+
+        do {
+            let edited = try await AITranscriptRewriter.applyInstruction(
+                instruction,
+                to: String(selection.prefix(12_000)),
+                settings: settings
+            )
+            let context = ActiveAppContext.frontmost
+            lastTargetApp = context.name
+            lastTranscription = edited
+
+            let pour = Pour(
+                text: edited.trimmingCharacters(in: .whitespacesAndNewlines),
+                appName: context.name,
+                duration: duration
+            )
+            pourStore.add(pour)
+
+            let pasted = textPaster.paste(edited)
+            if pasted {
+                overlay.show(mode: .served(words: pour.words))
+                overlay.hide(after: 1.0)
+                Beers.clink()
+            } else {
+                overlay.hide()
+                status = .error("Order copied to clipboard — enable Accessibility to paste.")
+            }
+        } catch {
+            llog("AppState: order failed: \(error.localizedDescription)")
+            overlay.show(mode: .notice("Kitchen's closed — no model at your endpoint"))
+            overlay.hide(after: 1.8)
+        }
+        reconcilePermissions()
     }
 
     private func fixCurrentPermissionIssue() {
