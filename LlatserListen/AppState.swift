@@ -229,6 +229,7 @@ final class AppState: ObservableObject {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             BeersSnapshot.runIfRequested(appState: self)
+            BeersSnapshot.runPasteTestIfRequested()
         }
     }
 

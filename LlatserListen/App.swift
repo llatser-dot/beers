@@ -9,6 +9,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.appearance = NSAppearance(named: .aqua)
         BeersFonts.registerOnce()
 
+        // A menu-bar app starts windowless: macOS restoration otherwise
+        // brings back whatever was open at quit (Brew Controls included)
+        // on every relaunch.
+        UserDefaults.standard.set(false, forKey: "NSQuitAlwaysKeepsWindows")
+        closeRestoredWindows()
+
         let allGranted = Permissions.isMicrophoneGranted()
             && Permissions.isInputMonitoringGranted()
             && Permissions.isAccessibilityGranted()
@@ -20,9 +26,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if !UserDefaults.standard.bool(forKey: "firstRoundDone") {
             // First run / reset grants: show First Round.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 MainWindowPresenter.shared.show()
                 llog("App: First Round window shown")
+            }
+        }
+    }
+
+    private func closeRestoredWindows() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            for window in NSApp.windows {
+                let id = window.identifier?.rawValue ?? ""
+                let isAppWindow = id.contains("main")
+                    || id.contains("Settings")
+                    || window.title == "Brew Controls"
+                    || window.title == "Beers"
+                if isAppWindow {
+                    window.isRestorable = false
+                    window.close()
+                    llog("App: closed restored window '\(window.title)'")
+                }
             }
         }
     }
