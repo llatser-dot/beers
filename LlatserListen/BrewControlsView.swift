@@ -196,8 +196,8 @@ struct BrewControlsView: View {
             }
 
             BeersSettingRow(
-                label: "AI rewrite",
-                hint: "Optional local model pass",
+                label: "Say it badly, serve it well",
+                hint: "Fixes rambles and mid-sentence corrections — Apple on-device model",
                 showDivider: appState.aiRewriteEnabled
             ) {
                 Toggle("", isOn: $appState.aiRewriteEnabled)

@@ -29,6 +29,31 @@ enum BeersSnapshot {
         }
     }
 
+    /// Polish self-test: `--beers-polish-test "rambly text"` runs the
+    /// per-pour cleanup tiers and prints the result to the log.
+    @MainActor
+    static func runPolishTestIfRequested(appState: AppState) {
+        guard let index = CommandLine.arguments.firstIndex(of: "--beers-polish-test"),
+              CommandLine.arguments.count > index + 1 else { return }
+        let text = CommandLine.arguments[index + 1]
+        Task { @MainActor in
+            do {
+                let settings = AIRewriteSettings(
+                    isEnabled: true,
+                    endpoint: appState.aiRewriteEndpoint,
+                    model: appState.aiRewriteModel
+                )
+                let result = try await OrderKitchen.polish(
+                    text, mode: .clean, context: .frontmost, settings: settings
+                )
+                llog("BeersSnapshot: POLISH TEST RESULT='\(result)'")
+            } catch {
+                llog("BeersSnapshot: POLISH TEST FAILED: \(error.localizedDescription)")
+            }
+            exit(0)
+        }
+    }
+
     /// End-to-end paste self-test: focuses whatever is frontmost and pastes
     /// a marker string 2s after launch, then exits.
     @MainActor

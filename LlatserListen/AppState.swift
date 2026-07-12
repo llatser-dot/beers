@@ -241,6 +241,7 @@ final class AppState: ObservableObject {
             BeersSnapshot.runIfRequested(appState: self)
             BeersSnapshot.runPasteTestIfRequested()
             BeersSnapshot.runOrderTestIfRequested(appState: self)
+            BeersSnapshot.runPolishTestIfRequested(appState: self)
         }
     }
 
@@ -623,15 +624,15 @@ final class AppState: ObservableObject {
                 }
                 if preferences.aiRewrite.isEnabled {
                     do {
-                        outputText = try await AITranscriptRewriter.rewrite(
+                        outputText = try await OrderKitchen.polish(
                             outputText,
                             mode: resolvedMode,
                             context: context,
                             settings: preferences.aiRewrite
                         )
-                        llog("AppState: AI-rewritten transcription='\(outputText)'")
+                        llog("AppState: AI-polished transcription='\(outputText)'")
                     } catch {
-                        llog("AppState: AI rewrite failed: \(error.localizedDescription)")
+                        llog("AppState: AI polish failed, serving as-is: \(error.localizedDescription)")
                     }
                 }
                 let vocabularyFinal = VocabularyCorrections.apply(to: outputText)
