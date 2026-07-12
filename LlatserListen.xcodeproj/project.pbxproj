@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		053B3918C6BB7224C8254F98 /* SystemAudioDucker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99B0DBCC798475BD0F685421 /* SystemAudioDucker.swift */; };
 		0A353AE2D8C636D166D60504 /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00B51F9E10EE5BEA66A155EB /* HotkeyManager.swift */; };
+		0F23DEA6503B962C8AD32E08 /* OrderKitchen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A63DDE37998755FB4CB7089 /* OrderKitchen.swift */; };
 		11C3D9358024BA45BE088E5E /* PourStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF995F241EC5EAAFEE4BBCFE /* PourStore.swift */; };
 		19332CFF80B4BC0AEF00AABB /* WritingPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BDD72F977C6D7E259E91BCC /* WritingPreferences.swift */; };
 		1A04DCE4D81D5502CFC471F2 /* ListeningOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D83F3E67D25DABE992991FB /* ListeningOverlayView.swift */; };
@@ -68,6 +69,7 @@
 		3D83F3E67D25DABE992991FB /* ListeningOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListeningOverlayView.swift; sourceTree = "<group>"; };
 		3FE80CC372C7585A1496D0E3 /* LlatserListen.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LlatserListen.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		49A6EA612E0684AF83094D9B /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
+		4A63DDE37998755FB4CB7089 /* OrderKitchen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderKitchen.swift; sourceTree = "<group>"; };
 		7EE65B29509B2AE98056EB22 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		7EF6550396CF3656DF71F30C /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
 		7F45A43414E8B455654057BC /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
@@ -183,6 +185,7 @@
 				8E3A2C7E05F979E07C910886 /* LlatserListen.entitlements */,
 				D5094097141E61A6991382CB /* Log.swift */,
 				D794AD62E24F4612DAE68040 /* MainWindowPresenter.swift */,
+				4A63DDE37998755FB4CB7089 /* OrderKitchen.swift */,
 				93C2A06D187E3004EC7E1711 /* OverlayWindowController.swift */,
 				2C3BE746E8EF3FD2EE3E947D /* ParakeetTranscriber.swift */,
 				7EF6550396CF3656DF71F30C /* Permissions.swift */,
@@ -299,6 +302,7 @@
 				1A04DCE4D81D5502CFC471F2 /* ListeningOverlayView.swift in Sources */,
 				243D00DD038BA227A1241816 /* Log.swift in Sources */,
 				63B72524519A49BDEA44DC89 /* MainWindowPresenter.swift in Sources */,
+				0F23DEA6503B962C8AD32E08 /* OrderKitchen.swift in Sources */,
 				3E2AB80855B77DA15AD8F1B3 /* OverlayWindowController.swift in Sources */,
 				25A9B5F0521F0FC05E263C2A /* ParakeetTranscriber.swift in Sources */,
 				9D6782B618AF61CFCCE46D1D /* Permissions.swift in Sources */,
