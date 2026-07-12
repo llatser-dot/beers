@@ -77,6 +77,28 @@ struct BrewControlsView: View {
                 BeersChip { Text("Paste at cursor") }
             }
 
+            BeersSettingRow(label: "Where the pill pours", hint: "The listening pill's spot on screen") {
+                Menu {
+                    ForEach(HUDPosition.allCases) { position in
+                        Button(position.displayName) { appState.hudPosition = position }
+                    }
+                } label: {
+                    BeersChip(fill: Beers.cream) {
+                        HStack(spacing: 7) {
+                            Text(appState.hudPosition.displayName)
+                                .font(Beers.ui(13, .semibold))
+                            Text("▾")
+                                .font(Beers.ui(12, .semibold))
+                                .foregroundStyle(Beers.amber)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+            }
+
             BeersSettingRow(label: "Add a space after serving", hint: "Ready for the next pour") {
                 Toggle("", isOn: $appState.addSpaceAfterPaste)
                     .labelsHidden()

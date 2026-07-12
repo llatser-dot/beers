@@ -35,6 +35,7 @@ final class OverlayWindowController {
             break
         }
         presentation.mode = mode
+        presentation.position = HUDPosition.current
 
         if let window {
             position(window)
@@ -91,18 +92,44 @@ final class OverlayWindowController {
     }
 
     private func frameOnTargetScreen() -> NSRect {
-        guard let screen = targetScreen() else {
+        let placement = HUDPosition.current
+        guard let screen = targetScreen(for: placement) else {
             return NSRect(origin: .zero, size: PourHUDLayout.canvasSize)
         }
 
         let size = PourHUDLayout.canvasSize
-        let x = floor(screen.visibleFrame.midX - size.width / 2)
-        let y = screen.visibleFrame.minY + PourHUDLayout.bottomMargin
-        return NSRect(origin: CGPoint(x: x, y: y), size: size)
+        switch placement {
+        case .notch:
+            // Flush with the very top so the pill slides out of the notch
+            // and its wings sit inside the menu bar strip.
+            return NSRect(
+                x: floor(screen.frame.midX - size.width / 2),
+                y: screen.frame.maxY - size.height,
+                width: size.width, height: size.height
+            )
+        case .topRight:
+            return NSRect(
+                x: screen.visibleFrame.maxX - size.width,
+                y: screen.visibleFrame.maxY - size.height,
+                width: size.width, height: size.height
+            )
+        case .bottom:
+            return NSRect(
+                x: floor(screen.visibleFrame.midX - size.width / 2),
+                y: screen.visibleFrame.minY + PourHUDLayout.bottomMargin,
+                width: size.width, height: size.height
+            )
+        }
     }
 
-    private func targetScreen() -> NSScreen? {
-        NSScreen.main ?? NSScreen.screens.first
+    private func targetScreen(for placement: HUDPosition) -> NSScreen? {
+        if placement == .notch {
+            // Prefer the screen that actually has a notch.
+            if let notched = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) {
+                return notched
+            }
+        }
+        return NSScreen.main ?? NSScreen.screens.first
     }
 }
 
