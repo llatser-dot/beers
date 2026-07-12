@@ -24,7 +24,21 @@ struct StatusBarView: View {
 
     private var header: some View {
         VStack(spacing: 3) {
-            BeersWordmark(textSize: 22, onDark: true)
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(Beers.cream)
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .strokeBorder(Beers.ink, lineWidth: 2)
+                    BeersMark(size: 22)
+                }
+                .frame(width: 32, height: 32)
+                .rotationEffect(.degrees(-4))
+
+                Text("Beers")
+                    .font(Beers.display(21))
+                    .foregroundStyle(Beers.paper)
+            }
 
             HStack(spacing: 6) {
                 StatusPulseDot(color: statusDotColor)

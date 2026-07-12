@@ -124,32 +124,6 @@ struct BeersMark: View {
     }
 }
 
-/// The brand lockup: the B-with-ear mark standing in as the B of "Beers".
-/// No chip, no background — just the mark and "eers".
-struct BeersWordmark: View {
-    var textSize: CGFloat = 21
-    var onDark = true
-
-    var body: some View {
-        HStack(alignment: .center, spacing: textSize * 0.1) {
-            if let image = Beers.brandImage("logo-b-hires") {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: textSize * 1.9)
-            } else {
-                Text("B")
-                    .font(Beers.display(textSize))
-                    .foregroundStyle(onDark ? Beers.paper : Beers.ink)
-            }
-            Text("eers")
-                .font(Beers.display(textSize))
-                .foregroundStyle(onDark ? Beers.paper : Beers.ink)
-        }
-        .accessibilityLabel("Beers")
-    }
-}
-
 struct BeersAppIcon: View {
     let size: CGFloat
 

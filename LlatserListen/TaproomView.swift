@@ -40,9 +40,14 @@ struct TaproomView: View {
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 6) {
-            BeersWordmark(textSize: 19, onDark: true)
-                .padding(.horizontal, 6)
-                .padding(.bottom, 12)
+            HStack(spacing: 10) {
+                BeersAppIcon(size: 28)
+                Text("Beers")
+                    .font(Beers.display(19))
+                    .foregroundStyle(Beers.lager)
+            }
+            .padding(.horizontal, 6)
+            .padding(.bottom, 12)
 
             navItem(.all, emoji: "🍺")
             navItem(.keepers, emoji: "⭐")
