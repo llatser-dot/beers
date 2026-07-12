@@ -27,6 +27,7 @@
 		4C96CAAE7D7E4E3B592B4075 /* app-icon.png in Resources */ = {isa = PBXBuildFile; fileRef = 8E53B2E7A143FE54C0DCBD6D /* app-icon.png */; };
 		4EA50DDF8A5AD3BFA6E47AF5 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F45A43414E8B455654057BC /* AudioRecorder.swift */; };
 		5DA1FB221A5F2B7F8CCAAC29 /* BrewControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE344F0921ED779B1428F827 /* BrewControlsView.swift */; };
+		61FF362672E260088D986AD0 /* logo-b-cream.png in Resources */ = {isa = PBXBuildFile; fileRef = 2F33ADF1194433910C2136C4 /* logo-b-cream.png */; };
 		63B72524519A49BDEA44DC89 /* MainWindowPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D794AD62E24F4612DAE68040 /* MainWindowPresenter.swift */; };
 		64372433477F37D2603F3F1C /* TaproomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F951624D1F56A0FC1FC8D85E /* TaproomView.swift */; };
 		6A955112E55979F3AD895DB4 /* AITranscriptRewriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E241756F93FBE4BE24C9F7 /* AITranscriptRewriter.swift */; };
@@ -62,6 +63,7 @@
 		2267000C43209C6905193E7E /* ActiveAppContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveAppContext.swift; sourceTree = "<group>"; };
 		2833284E00D4AD5957F0E35E /* WritingMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WritingMode.swift; sourceTree = "<group>"; };
 		2C3BE746E8EF3FD2EE3E947D /* ParakeetTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParakeetTranscriber.swift; sourceTree = "<group>"; };
+		2F33ADF1194433910C2136C4 /* logo-b-cream.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "logo-b-cream.png"; sourceTree = "<group>"; };
 		38953F064BADECA1F8FF74DD /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		3916FAFC0F23FE7898D73EAA /* HotkeyOption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyOption.swift; sourceTree = "<group>"; };
 		39254F6A9FA541854FA8A91C /* OFL-NOTICE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL-NOTICE.txt"; sourceTree = "<group>"; };
@@ -127,6 +129,7 @@
 			isa = PBXGroup;
 			children = (
 				8E53B2E7A143FE54C0DCBD6D /* app-icon.png */,
+				2F33ADF1194433910C2136C4 /* logo-b-cream.png */,
 				128615C78B7BA95911149127 /* logo-b-small.png */,
 				AADCAF42C8C59A153494F466 /* menubar-busy.png */,
 				D13E256F30EC831C3126ED1B /* menubar-idle.png */,
@@ -273,6 +276,7 @@
 				7AAAB47C4E2180DB2336CB84 /* OFL-NOTICE.txt in Resources */,
 				740358493A3FC16206B0A419 /* RammettoOne-Regular.ttf in Resources */,
 				4C96CAAE7D7E4E3B592B4075 /* app-icon.png in Resources */,
+				61FF362672E260088D986AD0 /* logo-b-cream.png in Resources */,
 				9C144DE67D485D04B06B40BA /* logo-b-small.png in Resources */,
 				FC621BBF2C0A9B8052FB31F9 /* menubar-busy.png in Resources */,
 				D1CAB137121FB595EA0899FE /* menubar-idle.png in Resources */,
