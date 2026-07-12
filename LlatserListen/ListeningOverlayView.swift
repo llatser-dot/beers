@@ -101,12 +101,8 @@ struct PourHUDView: View {
     }
 
     private var badge: some View {
-        ZStack {
-            Circle().fill(Beers.cream)
-            BeersMark(size: 32)
-        }
-        .frame(width: 48, height: 48)
-        .overlay(Circle().strokeBorder(isServed ? Beers.hopsDeep : Beers.amber, lineWidth: 3))
+        BeersAppIcon(size: 44)
+            .frame(width: 48, height: 48)
     }
 
     private var timerChip: some View {
