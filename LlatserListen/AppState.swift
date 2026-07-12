@@ -143,6 +143,11 @@ final class AppState: ObservableObject {
             UserDefaults.standard.set(commandModeEnabled, forKey: "commandModeEnabled")
         }
     }
+    @Published var hudPosition: HUDPosition {
+        didSet {
+            UserDefaults.standard.set(hudPosition.rawValue, forKey: "hudPosition")
+        }
+    }
     let pourStore = PourStore()
 
     // Command Mode (an "order"): rewrite the selected text with a spoken instruction.
@@ -211,6 +216,7 @@ final class AppState: ObservableObject {
         self.suppressComputerAudio = Self.boolDefaultTrue(forKey: "suppressComputerAudio")
         self.clinkOnServe = Self.boolDefaultTrue(forKey: "clinkOnServe")
         self.commandModeEnabled = Self.boolDefaultTrue(forKey: "commandModeEnabled")
+        self.hudPosition = HUDPosition.current
         self.hotkeyChoice = HotkeyOption.savedValue(UserDefaults.standard.string(forKey: "hotkeyChoice"))
 
         // Register as a login item once by default; the toggle stays in control after that.

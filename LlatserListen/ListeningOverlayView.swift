@@ -5,11 +5,34 @@ enum PourHUDLayout {
     static let bottomMargin: CGFloat = 26
 }
 
+/// Where the pill pours. Notch mode tucks it into the menu bar strip so
+/// it slides out either side of the MacBook notch.
+enum HUDPosition: String, CaseIterable, Identifiable {
+    case notch
+    case topRight
+    case bottom
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .notch: return "At the notch"
+        case .topRight: return "Top right"
+        case .bottom: return "Bottom"
+        }
+    }
+
+    static var current: HUDPosition {
+        HUDPosition(rawValue: UserDefaults.standard.string(forKey: "hudPosition") ?? "") ?? .notch
+    }
+}
+
 @MainActor
 final class OverlayPresentationState: ObservableObject {
     @Published var mode: OverlayMode = .pouring
     @Published var isVisible = false
     @Published var pourStart = Date()
+    @Published var position: HUDPosition = .notch
 }
 
 /// The pill. Ink capsule in a lager+ink double ring, B badge, live
@@ -19,11 +42,38 @@ struct PourHUDView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hop = false
 
+    private var anchor: Alignment {
+        switch presentation.position {
+        case .notch: return .top
+        case .topRight: return .topTrailing
+        case .bottom: return .bottom
+        }
+    }
+
+    /// Top placements slide in from above (out of the notch / screen edge);
+    /// bottom slides up like a coaster.
+    private var hiddenOffset: CGFloat {
+        presentation.position == .bottom ? 110 : -110
+    }
+
+    private var hopOffset: CGFloat {
+        presentation.position == .bottom ? -16 : 14
+    }
+
+    private var pillPadding: EdgeInsets {
+        switch presentation.position {
+        case .notch: return EdgeInsets(top: 2, leading: 0, bottom: 0, trailing: 0)
+        case .topRight: return EdgeInsets(top: 10, leading: 0, bottom: 0, trailing: 22)
+        case .bottom: return EdgeInsets(top: 0, leading: 0, bottom: 12, trailing: 0)
+        }
+    }
+
     var body: some View {
-        GeometryReader { proxy in
+        ZStack(alignment: anchor) {
+            Color.clear
             pill
-                .position(x: proxy.size.width / 2, y: proxy.size.height - 44)
-                .offset(y: presentation.isVisible ? (hop ? -16 : 0) : 110)
+                .padding(pillPadding)
+                .offset(y: presentation.isVisible ? (hop ? hopOffset : 0) : hiddenOffset)
                 .opacity(presentation.isVisible ? 1 : 0)
                 .animation(
                     reduceMotion ? .easeOut(duration: 0.15) : Beers.springSlow,
