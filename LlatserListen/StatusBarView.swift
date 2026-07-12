@@ -24,7 +24,7 @@ struct StatusBarView: View {
 
     private var header: some View {
         VStack(spacing: 3) {
-            HStack(spacing: 10) {
+            HStack(spacing: 4) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
                         .fill(Beers.cream)
@@ -35,7 +35,7 @@ struct StatusBarView: View {
                 .frame(width: 32, height: 32)
                 .rotationEffect(.degrees(-4))
 
-                Text("Beers")
+                Text("eers")
                     .font(Beers.display(21))
                     .foregroundStyle(Beers.paper)
             }
