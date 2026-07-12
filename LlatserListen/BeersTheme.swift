@@ -132,7 +132,7 @@ struct BeersWordmark: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: textSize * 0.1) {
-            if let image = Beers.brandImage(onDark ? "logo-b-cream" : "logo-b-small") {
+            if let image = Beers.brandImage("logo-b-small") {
                 Image(nsImage: image)
                     .resizable()
                     .scaledToFit()
