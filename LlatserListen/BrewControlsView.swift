@@ -319,7 +319,7 @@ struct BrewControlsView: View {
 
     private var footer: some View {
         VStack(spacing: 6) {
-            BeersMark(size: 26)
+            BeersAppIcon(size: 26)
             Text("There’s nothing better than a free Beer.")
                 .font(Beers.display(12))
                 .foregroundStyle(Beers.ink.opacity(0.55))

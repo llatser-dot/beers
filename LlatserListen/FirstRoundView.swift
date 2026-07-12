@@ -57,7 +57,7 @@ struct FirstRoundView: View {
                 .background(Beers.ink, in: Capsule())
                 .rotationEffect(.degrees(-6))
             Spacer()
-            BeersMark(size: 30)
+            BeersAppIcon(size: 30)
         }
         .padding(.bottom, 8)
     }
