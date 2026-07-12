@@ -240,6 +240,7 @@ final class AppState: ObservableObject {
             guard let self else { return }
             BeersSnapshot.runIfRequested(appState: self)
             BeersSnapshot.runPasteTestIfRequested()
+            BeersSnapshot.runOrderTestIfRequested(appState: self)
         }
     }
 
@@ -683,7 +684,7 @@ final class AppState: ObservableObject {
         )
 
         do {
-            let edited = try await AITranscriptRewriter.applyInstruction(
+            let edited = try await OrderKitchen.applyInstruction(
                 instruction,
                 to: String(selection.prefix(12_000)),
                 settings: settings
@@ -710,7 +711,7 @@ final class AppState: ObservableObject {
             }
         } catch {
             llog("AppState: order failed: \(error.localizedDescription)")
-            overlay.show(mode: .notice("Kitchen's closed — no model at your endpoint"))
+            overlay.show(mode: .notice("Kitchen's closed — no on-device or local model"))
             overlay.hide(after: 1.8)
         }
         reconcilePermissions()

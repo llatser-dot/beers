@@ -5,6 +5,30 @@ import SwiftUI
 /// `--beers-snapshot` and every surface renders to /tmp/beers-snapshots
 /// as PNGs, then the app exits. No screen recording required.
 enum BeersSnapshot {
+    /// Kitchen self-test: `--beers-order-test "instruction" "text"` runs
+    /// Command Mode's model tiers and prints the result to the log.
+    @MainActor
+    static func runOrderTestIfRequested(appState: AppState) {
+        guard let index = CommandLine.arguments.firstIndex(of: "--beers-order-test"),
+              CommandLine.arguments.count > index + 2 else { return }
+        let instruction = CommandLine.arguments[index + 1]
+        let text = CommandLine.arguments[index + 2]
+        Task { @MainActor in
+            do {
+                let settings = AIRewriteSettings(
+                    isEnabled: true,
+                    endpoint: appState.aiRewriteEndpoint,
+                    model: appState.aiRewriteModel
+                )
+                let result = try await OrderKitchen.applyInstruction(instruction, to: text, settings: settings)
+                llog("BeersSnapshot: ORDER TEST RESULT='\(result)'")
+            } catch {
+                llog("BeersSnapshot: ORDER TEST FAILED: \(error.localizedDescription)")
+            }
+            exit(0)
+        }
+    }
+
     /// End-to-end paste self-test: focuses whatever is frontmost and pastes
     /// a marker string 2s after launch, then exits.
     @MainActor

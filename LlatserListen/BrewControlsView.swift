@@ -94,7 +94,7 @@ struct BrewControlsView: View {
 
             BeersSettingRow(
                 label: "Take orders",
-                hint: "Hold ⇧ + pour key over selected text, speak the change — uses your local model",
+                hint: "Hold ⇧ + pour key over selected text, speak the change — Apple on-device model, or your local one",
                 showDivider: false
             ) {
                 Toggle("", isOn: $appState.commandModeEnabled)
