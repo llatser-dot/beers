@@ -37,6 +37,17 @@ final class OverlayWindowController {
         presentation.mode = mode
         presentation.position = HUDPosition.current
 
+        if presentation.position == .notch, let screen = targetScreen(for: .notch) {
+            let inset = screen.safeAreaInsets.top
+            presentation.notchHeight = inset > 0 ? inset : 34
+            if let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea {
+                // Exact camera-housing width so the island reads as part of it.
+                presentation.notchWidth = max(120, min(340, screen.frame.width - left.width - right.width))
+            } else {
+                presentation.notchWidth = 190
+            }
+        }
+
         if let window {
             position(window)
             window.orderFrontRegardless()
