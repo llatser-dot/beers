@@ -59,6 +59,13 @@ enum OrderKitchen {
         // Immediate word repeats: "the the", "and and".
         if lower.range(of: #" (\S+) \1 "#, options: .regularExpression) != nil { return true }
 
+        // Restarted sentences: the same three-word run appearing twice
+        // ("is there no way that we... is there no way that we...").
+        if lower.range(of: #" (\S+ \S+ \S+) .*\1 "#, options: .regularExpression) != nil { return true }
+
+        // Orphaned single-letter fragments from false starts ("make that s um").
+        if lower.range(of: #" [b-hj-z] "#, options: .regularExpression) != nil { return true }
+
         let weak = [" um ", " uh ", " erm ", " basically ", " you know ", " kind of like ", " sort of like "]
         let weakCount = weak.filter(lower.contains).count
         if weakCount >= 2 { return true }
@@ -76,11 +83,14 @@ enum OrderKitchen {
     /// Same tiers as orders. On any failure the caller keeps the original.
     static func polish(
         _ text: String,
+        detectOn rawTranscript: String? = nil,
         mode: WritingMode,
         context: ActiveAppContext,
         settings: AIRewriteSettings
     ) async throws -> String {
-        guard needsRamblePolish(text) else {
+        // Gate on the RAW transcript: the rule polisher strips fillers
+        // before we get here, hiding exactly the signals we look for.
+        guard needsRamblePolish(rawTranscript ?? text) else {
             llog("OrderKitchen: clean pour — served raw, no model")
             return text
         }

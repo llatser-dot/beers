@@ -629,6 +629,7 @@ final class AppState: ObservableObject {
                     do {
                         outputText = try await OrderKitchen.polish(
                             outputText,
+                            detectOn: text,
                             mode: resolvedMode,
                             context: context,
                             settings: preferences.aiRewrite
