@@ -547,6 +547,9 @@ final class AppState: ObservableObject {
             status = .recording
             LiveMicLevel.shared.reset()
             overlay.show(mode: isCommandOrder ? .takingOrder : .pouring)
+            if aiRewriteEnabled && !isCommandOrder {
+                OrderKitchen.prewarmPolish()
+            }
             Beers.popCap()
             llog("AppState: recording started\(isCommandOrder ? " (order)" : "")")
         } catch {
