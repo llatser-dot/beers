@@ -40,9 +40,9 @@ struct TaproomView: View {
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 10) {
+            HStack(spacing: 4) {
                 BeersAppIcon(size: 28)
-                Text("Beers")
+                Text("eers")
                     .font(Beers.display(19))
                     .foregroundStyle(Beers.lager)
             }
