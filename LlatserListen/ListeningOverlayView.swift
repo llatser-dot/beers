@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum PourHUDLayout {
-    static let canvasSize = CGSize(width: 520, height: 130)
+    static let canvasSize = CGSize(width: 640, height: 130)
     static let bottomMargin: CGFloat = 26
 }
 
@@ -33,6 +33,9 @@ final class OverlayPresentationState: ObservableObject {
     @Published var isVisible = false
     @Published var pourStart = Date()
     @Published var position: HUDPosition = .notch
+    /// Physical notch metrics of the target screen (set by the controller).
+    @Published var notchWidth: CGFloat = 190
+    @Published var notchHeight: CGFloat = 38
 }
 
 /// The pill. Ink capsule in a lager+ink double ring, B badge, live
@@ -69,6 +72,17 @@ struct PourHUDView: View {
     }
 
     var body: some View {
+        Group {
+            if presentation.position == .notch {
+                NotchIslandView(presentation: presentation)
+            } else {
+                pillLayout
+            }
+        }
+        .environment(\.colorScheme, .light)
+    }
+
+    private var pillLayout: some View {
         ZStack(alignment: anchor) {
             Color.clear
             pill
@@ -90,7 +104,6 @@ struct PourHUDView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { hop = false }
             }
         }
-        .environment(\.colorScheme, .light)
     }
 
     private var isServed: Bool {
@@ -234,6 +247,158 @@ private struct FoamDots: View {
                         .fill(Beers.lager)
                         .frame(width: 8, height: 8)
                         .offset(y: active ? sin(time * 6.2 - Double(index) * 0.7) * 5 : 0)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Notch island
+
+/// Dynamic-island treatment: a true-black shape that reads as part of the
+/// physical notch, growing wings out of either side while listening.
+/// Deliberately subtle — tiny badge left, waveform + timer right.
+private struct NotchIslandView: View {
+    @ObservedObject var presentation: OverlayPresentationState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var wings: (left: CGFloat, right: CGFloat) {
+        switch presentation.mode {
+        case .pouring, .takingOrder: return (44, 118)
+        case .settling, .workingOrder: return (44, 64)
+        case .served: return (44, 96)
+        case .notice: return (44, 240)
+        }
+    }
+
+    private var islandHeight: CGFloat { presentation.notchHeight + 8 }
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            Color.clear
+
+            HStack(spacing: 0) {
+                leftWing
+                    .frame(width: presentation.isVisible ? wings.left : 0)
+                    .clipped()
+                Color.clear
+                    .frame(width: presentation.notchWidth)
+                rightWing
+                    .frame(width: presentation.isVisible ? wings.right : 0)
+                    .clipped()
+            }
+            .frame(height: islandHeight)
+            .background(
+                UnevenRoundedRectangle(
+                    cornerRadii: .init(bottomLeading: 13, bottomTrailing: 13),
+                    style: .continuous
+                )
+                .fill(.black)
+                .shadow(color: .black.opacity(presentation.isVisible ? 0.35 : 0), radius: 9, y: 5)
+            )
+            .opacity(presentation.isVisible ? 1 : 0)
+            .animation(
+                reduceMotion ? .easeOut(duration: 0.15) : Beers.springTight,
+                value: presentation.isVisible
+            )
+            .animation(reduceMotion ? nil : Beers.springTight, value: presentation.mode)
+        }
+    }
+
+    private var leftWing: some View {
+        HStack {
+            Spacer(minLength: 0)
+            BeersAppIcon(size: 19)
+            Spacer(minLength: 6)
+        }
+    }
+
+    @ViewBuilder
+    private var rightWing: some View {
+        HStack(spacing: 8) {
+            Spacer(minLength: 6)
+            switch presentation.mode {
+            case .pouring, .takingOrder:
+                IslandWaveform(active: !reduceMotion)
+                    .frame(width: 52, height: 16)
+                IslandTimer(start: presentation.pourStart)
+            case .settling, .workingOrder:
+                IslandFoam(active: !reduceMotion)
+                    .frame(width: 34, height: 16)
+            case .served(let words):
+                Text("🍻")
+                    .font(.system(size: 13))
+                Text("\(words)")
+                    .font(Beers.ui(12, .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(Beers.hops)
+            case .notice(let message):
+                Text(message)
+                    .font(Beers.ui(10.5, .semibold))
+                    .foregroundStyle(Beers.lager)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+            Spacer(minLength: 10)
+        }
+    }
+}
+
+private struct IslandTimer: View {
+    let start: Date
+
+    var body: some View {
+        TimelineView(.periodic(from: start, by: 1)) { timeline in
+            let seconds = max(0, Int(timeline.date.timeIntervalSince(start)))
+            Text(String(format: "%d:%02d", seconds / 60, seconds % 60))
+                .font(Beers.ui(11, .bold))
+                .monospacedDigit()
+                .foregroundStyle(Beers.cream)
+        }
+    }
+}
+
+/// Slimmer lager bars for the island's right wing.
+private struct IslandWaveform: View {
+    let active: Bool
+    private let barCount = 9
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: active ? 1.0 / 30.0 : 1.0, paused: !active)) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
+            let level = CGFloat(LiveMicLevel.shared.level)
+
+            HStack(alignment: .center, spacing: 2.5) {
+                ForEach(0..<barCount, id: \.self) { index in
+                    Capsule()
+                        .fill(Beers.lager)
+                        .frame(width: 3, height: active ? height(for: index, time: time, level: level) : 4)
+                }
+            }
+        }
+    }
+
+    private func height(for index: Int, time: TimeInterval, level: CGFloat) -> CGFloat {
+        let center = Double(barCount - 1) / 2
+        let envelope = 1.0 - abs(Double(index) - center) / center * 0.5
+        let jitter = (sin(time * 9.2 + Double(index) * 1.7) + 1) / 2
+        let energy = max(0.08, level)
+        return CGFloat(3.5 + envelope * energy * (5 + jitter * 9))
+    }
+}
+
+private struct IslandFoam: View {
+    let active: Bool
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: active ? 1.0 / 24.0 : 1.0, paused: !active)) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
+            HStack(spacing: 5) {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .fill(Beers.lager)
+                        .frame(width: 5, height: 5)
+                        .offset(y: active ? sin(time * 6.2 - Double(index) * 0.7) * 3 : 0)
                 }
             }
         }
