@@ -28,7 +28,10 @@ struct BrewControlsView: View {
                 appState.lastTranscription = ""
             }
         }
-        .onAppear { appState.refreshPermissions() }
+        .onAppear {
+            appState.refreshPermissions()
+            appState.refreshVocabularySuggestions()
+        }
     }
 
     private var header: some View {

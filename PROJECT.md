@@ -8,7 +8,8 @@ Beers is a free, open-source push-to-talk dictation app for macOS
 (`/Applications/Beers.app`, bundle `com.llatser.listen`, log
 `/tmp/llatser-listen.log`). Hold the hotkey, speak, release — text pastes at
 the cursor. **Terminology: a "pour" = one dictation. Pints are *pulled*
-(1,000 words = 1 pint), never "poured".** Repo: github.com/llatser-dot/llatser-listen.
+(1,000 words = 1 pint), never "poured".** Repo: github.com/llatser-dot/beers
+(renamed from llatser-listen 2026-07-14; old URL redirects). Local checkout: `~/Projects/beers`.
 
 ## Repo layout
 

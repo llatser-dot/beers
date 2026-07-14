@@ -53,6 +53,7 @@
 		D9F23819CAE84BCF58984E23 /* TranscriptionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 951F0E6872182F27D5DC3138 /* TranscriptionEngine.swift */; };
 		DAA3A1B943685C5A76F3548A /* BeersTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8CF96CFDD2D530C4D97A400 /* BeersTheme.swift */; };
 		DB1FC39EBCA1CF331E34D4CC /* Bouncer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25A51748BB0418E2950FB1AA /* Bouncer.swift */; };
+		E0100565668B46630B83ED6F /* VocabularySuggestions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 053674688A577984EBDD615A /* VocabularySuggestions.swift */; };
 		E6B1C53CA9C076B90B43FCD7 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03CFA3F5C59001F8C8349C32 /* App.swift */; };
 		EA479BF9120D9C8CB3907939 /* Fredoka-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 932AE11A0C61113542EB6F26 /* Fredoka-Regular.ttf */; };
 		F087C25284CBCF2E94391D6D /* Fredoka-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 8D7DAFFD4D31D6AC4BAE9C80 /* Fredoka-Bold.ttf */; };
@@ -64,6 +65,7 @@
 		00971B9B9DF9C8ACDC0B68DA /* vocab.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = vocab.txt; sourceTree = "<group>"; };
 		00B51F9E10EE5BEA66A155EB /* HotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyManager.swift; sourceTree = "<group>"; };
 		03CFA3F5C59001F8C8349C32 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		053674688A577984EBDD615A /* VocabularySuggestions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VocabularySuggestions.swift; sourceTree = "<group>"; };
 		05B90735D8B9EA0D242D917C /* Bouncer.mlpackage */ = {isa = PBXFileReference; path = Bouncer.mlpackage; sourceTree = "<group>"; };
 		075921A149952F27423F54B0 /* TranscriptPolisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptPolisher.swift; sourceTree = "<group>"; };
 		128615C78B7BA95911149127 /* logo-b-small.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "logo-b-small.png"; sourceTree = "<group>"; };
@@ -228,6 +230,7 @@
 				075921A149952F27423F54B0 /* TranscriptPolisher.swift */,
 				DE49B49408F90022AC878A2D /* VocabularyCorrections.swift */,
 				BDEA0FB3A811F73904043201 /* VocabularyEditorView.swift */,
+				053674688A577984EBDD615A /* VocabularySuggestions.swift */,
 				2833284E00D4AD5957F0E35E /* WritingMode.swift */,
 				3BDD72F977C6D7E259E91BCC /* WritingPreferences.swift */,
 				3104E531A448DFFD7C04519C /* Resources */,
@@ -352,6 +355,7 @@
 				D9F23819CAE84BCF58984E23 /* TranscriptionEngine.swift in Sources */,
 				C894D64DB4D3FABAA9CC3272 /* VocabularyCorrections.swift in Sources */,
 				37E39367A61C6E4DA6C4BCC0 /* VocabularyEditorView.swift in Sources */,
+				E0100565668B46630B83ED6F /* VocabularySuggestions.swift in Sources */,
 				46ECE74CC37C9A3C13C252AB /* WritingMode.swift in Sources */,
 				19332CFF80B4BC0AEF00AABB /* WritingPreferences.swift in Sources */,
 			);

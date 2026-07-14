@@ -92,6 +92,40 @@ enum BeersSnapshot {
         }
     }
 
+    /// Vocabulary-suggestion scanner self-test: `--beers-vocab-suggest-test`.
+    /// Injects a handful of synthetic correction records into an isolated temp
+    /// flywheel, runs the real scanner over them, and prints the suggestions —
+    /// so the extraction rules can be verified without touching the live log.
+    @MainActor
+    static func runVocabSuggestTestIfRequested(appState: AppState) {
+        guard CommandLine.arguments.contains("--beers-vocab-suggest-test") else { return }
+
+        // Synthetic correction records mirroring FlywheelLog.recordCorrection's
+        // wire format. Cases exercised:
+        //  A. Substitution "Latzra"->"Llatser", seen twice (should surface).
+        //  B. Merge "plan watch"->"PlanWatch" via [del,sub], seen twice (surface).
+        //  C. Grammar "i"->"I" pure casing (should NOT surface).
+        //  D. Homophone "there"->"their" both lowercase (should NOT surface).
+        //  E. Single occurrence "Kubernettes"->"Kubernetes" (below >=2, no surface).
+        let records = [
+            #"{"ts":"t1","type":"correction","pourTs":"p1","app":"Notes","served":"ship the Latzra build","corrected":"ship the Llatser build","changedWords":[[2,"Latzra","Llatser"]]}"#,
+            #"{"ts":"t2","type":"correction","pourTs":"p2","app":"Slack","served":"tell Latzra team","corrected":"tell Llatser team","changedWords":[[1,"Latzra","Llatser"]]}"#,
+            #"{"ts":"t3","type":"correction","pourTs":"p3","app":"Mail","served":"open plan watch now","corrected":"open PlanWatch now","changedWords":[[1,"plan",null],[2,"watch","PlanWatch"]]}"#,
+            #"{"ts":"t4","type":"correction","pourTs":"p4","app":"Notes","served":"the plan watch report","corrected":"the PlanWatch report","changedWords":[[1,"plan",null],[2,"watch","PlanWatch"]]}"#,
+            #"{"ts":"t5","type":"correction","pourTs":"p5","app":"Notes","served":"i think so","corrected":"I think so","changedWords":[[0,"i","I"]]}"#,
+            #"{"ts":"t6","type":"correction","pourTs":"p6","app":"Notes","served":"i think so","corrected":"I think so","changedWords":[[0,"i","I"]]}"#,
+            #"{"ts":"t7","type":"correction","pourTs":"p7","app":"Notes","served":"put there bags down","corrected":"put their bags down","changedWords":[[1,"there","their"]]}"#,
+            #"{"ts":"t8","type":"correction","pourTs":"p8","app":"Notes","served":"put there bags down","corrected":"put their bags down","changedWords":[[1,"there","their"]]}"#,
+            #"{"ts":"t9","type":"correction","pourTs":"p9","app":"Notes","served":"deploy to Kubernettes","corrected":"deploy to Kubernetes","changedWords":[[2,"Kubernettes","Kubernetes"]]}"#,
+        ]
+        let result = VocabularySuggestions.runScan(onRecords: records, existing: [])
+        llog("BeersSnapshot: VOCAB SUGGEST TEST — \(result.count) suggestion(s)")
+        for s in result {
+            llog("BeersSnapshot: VOCAB SUGGEST — '\(s.heard)' -> '\(s.replacement)' x\(s.count)")
+        }
+        exit(0)
+    }
+
     /// End-to-end correction-watcher self-test:
     /// `--beers-correction-test "served text" "edit to make"`.
     ///
@@ -207,8 +241,33 @@ enum BeersSnapshot {
             snap(StatusBarView().environmentObject(appState),
                  size: nil, name: "bar-tap", in: dir)
 
+            // Seed correction-driven vocabulary suggestions so the Brewer's
+            // Dictionary crate renders its "Suggestions from your fixes" section
+            // (mirrors how seededStore() seeds the Taproom's pours).
+            appState.vocabularySuggestions = [
+                VocabularySuggestion(heard: "plan watch", replacement: "PlanWatch", count: 4),
+                VocabularySuggestion(heard: "Latzra", replacement: "Llatser", count: 3),
+                VocabularySuggestion(heard: "track forge", replacement: "TrackForge", count: 2),
+            ]
             snap(BrewControlsView().environmentObject(appState),
                  size: CGSize(width: 560, height: 720), name: "brew-controls", in: dir)
+
+            // Focused capture of the Brewer's Dictionary crate — the suggestions
+            // section lives below the scroll fold in the full Brew Controls shot.
+            let vocabCrate = BeersCrate(
+                title: "Brewer’s Dictionary", emoji: "📖", headerColor: Beers.cream2
+            ) {
+                VStack(alignment: .leading, spacing: 0) {
+                    VocabularyEditorView(compact: true, showsTitle: false)
+                        .padding(16)
+                }
+            }
+            .padding(22)
+            .frame(width: 560)
+            .background(Beers.cream)
+            .environment(\.colorScheme, .light)
+            snap(vocabCrate.environmentObject(appState),
+                 size: CGSize(width: 560, height: 620), name: "brew-vocab", in: dir)
 
             let store = seededStore()
             snap(TaproomView(store: store).environmentObject(appState),

@@ -3,7 +3,7 @@
 # Cheap when below threshold (pure local counting, no tokens). Only launches the
 # retrain agent when enough REAL flywheel data exists AND >=10 days since last run.
 set -uo pipefail
-ML="$HOME/Projects/Llatser.Listen/ml"
+ML="$HOME/Projects/beers/ml"
 LOOP="$ML/standing-loop"
 LOG="$LOOP/loop.log"
 STATE="$LOOP/state.json"
@@ -47,8 +47,8 @@ if [ "$TOO_SOON" = "1" ]; then log "trained <${MIN_DAYS}d ago — waiting"; exit
 
 log "THRESHOLD MET — launching v3 retrain (opus, unattended)"
 python3 -c "import json,datetime;json.dump({'last_train':datetime.datetime.now().isoformat()},open('$STATE','w'))"
-cd "$HOME/Projects/Llatser.Listen"
+cd "$HOME/Projects/beers"
 "$(command -v claude || echo "$HOME/.local/bin/claude")" -p \
-  "Read ~/Projects/Llatser.Listen/ml/standing-loop/RETRAIN-PROMPT.md and execute it fully and exactly." \
+  "Read ~/Projects/beers/ml/standing-loop/RETRAIN-PROMPT.md and execute it fully and exactly." \
   --model opus --dangerously-skip-permissions >> "$LOOP/retrain-$(date +%Y%m%d).log" 2>&1
 log "retrain agent finished (exit $?) — see retrain-$(date +%Y%m%d).log and report in $LOOP"
