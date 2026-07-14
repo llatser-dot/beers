@@ -146,6 +146,24 @@ final class AppState: ObservableObject {
             UserDefaults.standard.set(commandModeEnabled, forKey: "commandModeEnabled")
         }
     }
+    /// Flywheel learning opt-out (absent key == enabled). Read directly from
+    /// UserDefaults by FlywheelLog/OrderKitchen; these mirror the same keys so
+    /// the Brew Controls / First Round toggles have a single source of truth.
+    @Published var flywheelLoggingEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(flywheelLoggingEnabled, forKey: "flywheelLoggingEnabled")
+        }
+    }
+    @Published var correctionWatcherEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(correctionWatcherEnabled, forKey: "correctionWatcherEnabled")
+        }
+    }
+    @Published var bouncerShadowEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(bouncerShadowEnabled, forKey: "bouncerShadowEnabled")
+        }
+    }
     @Published var hudPosition: HUDPosition {
         didSet {
             UserDefaults.standard.set(hudPosition.rawValue, forKey: "hudPosition")
@@ -226,6 +244,9 @@ final class AppState: ObservableObject {
         self.suppressComputerAudio = Self.boolDefaultTrue(forKey: "suppressComputerAudio")
         self.clinkOnServe = Self.boolDefaultTrue(forKey: "clinkOnServe")
         self.commandModeEnabled = Self.boolDefaultTrue(forKey: "commandModeEnabled")
+        self.flywheelLoggingEnabled = Self.boolDefaultTrue(forKey: "flywheelLoggingEnabled")
+        self.correctionWatcherEnabled = Self.boolDefaultTrue(forKey: "correctionWatcherEnabled")
+        self.bouncerShadowEnabled = Self.boolDefaultTrue(forKey: "bouncerShadowEnabled")
         self.hudPosition = HUDPosition.current
         self.hotkeyChoice = HotkeyOption.savedValue(UserDefaults.standard.string(forKey: "hotkeyChoice"))
 
@@ -261,6 +282,7 @@ final class AppState: ObservableObject {
             BeersSnapshot.runPolishTestIfRequested(appState: self)
             BeersSnapshot.runBouncerTestIfRequested()
             BeersSnapshot.runVocabSuggestTestIfRequested(appState: self)
+            BeersSnapshot.runWipeTestIfRequested()
         }
     }
 

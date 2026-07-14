@@ -1,3 +1,8 @@
+<!-- NOTE: This is the author's personal, machine-specific automation. The
+absolute paths below (repo checkout, ~/Library/Application Support) are for
+the maintainer's own Mac and will not match a fresh clone. It is committed as
+a reference for how the standing retrain loop works, not as a runnable guide. -->
+
 # Bouncer v3 standing retrain — unattended run instructions
 
 You are an unattended retrain agent for the Bouncer disfluency tagger. You were

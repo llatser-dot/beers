@@ -5,11 +5,30 @@ import SwiftUI
 struct FirstRoundView: View {
     @EnvironmentObject var appState: AppState
     @AppStorage("firstRoundDone") private var firstRoundDone = false
-    @State private var step = 0
+    @State private var step: Int
     @State private var celebrated = false
+
+    /// `initialStep` lets the snapshot harness open First Round on a specific
+    /// step (e.g. the learning disclosure); production always starts at 0.
+    init(initialStep: Int = 0) {
+        _step = State(initialValue: initialStep)
+    }
 
     private var allPermissionsGranted: Bool {
         appState.microphoneGranted && appState.inputMonitoringGranted && appState.accessibilityGranted
+    }
+
+    /// One switch for the whole flywheel: flips pour-logging and the
+    /// correction watcher together (both default on; writes through AppState so
+    /// UserDefaults stays the single source of truth the pipeline reads).
+    private var learnBinding: Binding<Bool> {
+        Binding(
+            get: { appState.flywheelLoggingEnabled },
+            set: { on in
+                appState.flywheelLoggingEnabled = on
+                appState.correctionWatcherEnabled = on
+            }
+        )
     }
 
     var body: some View {
@@ -20,6 +39,7 @@ struct FirstRoundView: View {
                 switch step {
                 case 0: permissionsStep
                 case 1: pourKeyStep
+                case 2: learningStep
                 default: firstPourStep
                 }
             }
@@ -36,12 +56,12 @@ struct FirstRoundView: View {
         .background(Beers.paper)
         .overlay(
             RoundedRectangle(cornerRadius: 0)
-                .strokeBorder(Beers.lager, lineWidth: step == 2 ? 5 : 0)
+                .strokeBorder(Beers.lager, lineWidth: step == 3 ? 5 : 0)
         )
         .environment(\.colorScheme, .light)
         .animation(Beers.spring, value: step)
         .onChange(of: appState.lastTranscription) { _, newValue in
-            if step == 2, !newValue.isEmpty {
+            if step == 3, !newValue.isEmpty {
                 celebrated = true
             }
         }
@@ -49,7 +69,7 @@ struct FirstRoundView: View {
 
     private var stepBadge: some View {
         HStack {
-            Text("\(step + 1) of 3")
+            Text("\(step + 1) of 4")
                 .font(Beers.display(12))
                 .foregroundStyle(Beers.paper)
                 .padding(.horizontal, 12)
@@ -182,7 +202,56 @@ struct FirstRoundView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: Step 3 — first pour
+    // MARK: Step 3 — learning disclosure
+
+    private var learningStep: some View {
+        VStack(spacing: 13) {
+            Text("📓").font(.system(size: 46)).rotationEffect(.degrees(-5))
+
+            Text("Beers learns your taste")
+                .font(Beers.display(19))
+                .foregroundStyle(Beers.stout)
+                .multilineTextAlignment(.center)
+
+            Text("As you pour, Beers keeps a private notebook on this Mac only — your words and the keyboard fixes you make afterwards — so your own cleanup model can learn how you talk.")
+                .font(Beers.ui(13, .medium))
+                .foregroundStyle(Beers.ink.opacity(0.7))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 10)
+
+            Text("Nothing ever leaves the machine. Turn it off or pour it away any time in Brew Controls.")
+                .font(Beers.ui(12, .semibold))
+                .foregroundStyle(Beers.hopsDeep)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 10)
+
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Learn from my pours")
+                        .font(Beers.ui(14, .semibold))
+                        .foregroundStyle(Beers.ink)
+                    Text("On this Mac only")
+                        .font(Beers.ui(11.5, .medium))
+                        .foregroundStyle(Beers.ink.opacity(0.55))
+                }
+                Spacer()
+                Toggle("", isOn: learnBinding)
+                    .labelsHidden()
+                    .toggleStyle(BeersToggleStyle())
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(Beers.cream, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .strokeBorder(Beers.ink, lineWidth: 2)
+            )
+            .padding(.top, 4)
+        }
+        .padding(.top, 14)
+    }
+
+    // MARK: Step 4 — first pour
 
     private var firstPourStep: some View {
         VStack(spacing: 14) {
@@ -231,7 +300,7 @@ struct FirstRoundView: View {
     private var footerControls: some View {
         VStack(spacing: 12) {
             HStack(spacing: 7) {
-                ForEach(0..<3, id: \.self) { index in
+                ForEach(0..<4, id: \.self) { index in
                     Circle()
                         .fill(index == step ? Beers.amber : Beers.cream2)
                         .frame(width: 10, height: 10)
@@ -251,6 +320,9 @@ struct FirstRoundView: View {
                         .buttonStyle(BeersButtonStyle(kind: allPermissionsGranted ? .amber : .lager))
                 case 1:
                     Button("\(appState.hotkeyChoice.keycapLabel) it is →") { step = 2 }
+                        .buttonStyle(BeersButtonStyle(kind: .lager))
+                case 2:
+                    Button(learnBinding.wrappedValue ? "Sounds good →" : "No thanks →") { step = 3 }
                         .buttonStyle(BeersButtonStyle(kind: .lager))
                 default:
                     Button(celebrated ? "Cheers — open the Taproom 🍻" : "I’ll pour later") {

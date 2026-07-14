@@ -5,6 +5,7 @@ import SwiftUI
 struct BrewControlsView: View {
     @EnvironmentObject var appState: AppState
     @State private var showSmashSheet = false
+    @State private var showWipeSheet = false
 
     var body: some View {
         ScrollView {
@@ -14,6 +15,7 @@ struct BrewControlsView: View {
                 tapCrate
                 dictionaryCrate
                 polishCrate
+                blackBookCrate
                 cellarCrate
                 footer
             }
@@ -26,6 +28,11 @@ struct BrewControlsView: View {
             SmashTheGlassesSheet(isPresented: $showSmashSheet) {
                 appState.pourStore.smashTheGlasses()
                 appState.lastTranscription = ""
+            }
+        }
+        .sheet(isPresented: $showWipeSheet) {
+            PourItAwaySheet(isPresented: $showWipeSheet) {
+                FlywheelLog.wipe()
             }
         }
         .onAppear {
@@ -283,6 +290,63 @@ struct BrewControlsView: View {
             )
     }
 
+    // MARK: 📓 The Little Black Book
+
+    private var blackBookCrate: some View {
+        BeersCrate(title: "The Little Black Book", emoji: "📓", headerColor: Beers.hopsDeep) {
+            BeersSettingRow(
+                label: "Learn from my pours",
+                hint: "Logs each pour to a local file so your own cleanup model can train"
+            ) {
+                Toggle("", isOn: $appState.flywheelLoggingEnabled)
+                    .labelsHidden()
+                    .toggleStyle(BeersToggleStyle())
+            }
+
+            BeersSettingRow(
+                label: "Watch my fixes",
+                hint: "Also logs the keyboard corrections you make just after a pour"
+            ) {
+                Toggle("", isOn: $appState.correctionWatcherEnabled)
+                    .labelsHidden()
+                    .toggleStyle(BeersToggleStyle())
+                    .disabled(!appState.flywheelLoggingEnabled)
+            }
+            .opacity(appState.flywheelLoggingEnabled ? 1 : 0.4)
+
+            BeersSettingRow(
+                label: "Bouncer on the door",
+                hint: "The disfluency model runs in shadow — it predicts and logs, never touches your text"
+            ) {
+                Toggle("", isOn: $appState.bouncerShadowEnabled)
+                    .labelsHidden()
+                    .toggleStyle(BeersToggleStyle())
+            }
+
+            BeersSettingRow(
+                label: "Pour it away",
+                hint: "Delete every training record from this Mac, forever",
+                showDivider: false
+            ) {
+                Button("Pour away…") { showWipeSheet = true }
+                    .buttonStyle(BeersButtonStyle(kind: .stoutGhost, small: true))
+            }
+
+            HStack(spacing: 6) {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Beers.hopsDeep)
+                Text("Everything stays on this Mac. Nothing is uploaded, ever.")
+                    .font(Beers.ui(11.5, .semibold))
+                    .foregroundStyle(Beers.ink.opacity(0.6))
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 2)
+            .padding(.bottom, 13)
+        }
+    }
+
     // MARK: 🔒 The Cellar
 
     private var cellarCrate: some View {
@@ -360,6 +424,67 @@ struct BrewControlsView: View {
                 appState.adaptiveTone = enabled
             }
         )
+    }
+}
+
+/// Destructive confirm for wiping the flywheel training data. Same scalloped
+/// seal + typed-confirmation pattern as Smash the glasses; requires typing POUR.
+struct PourItAwaySheet: View {
+    @Binding var isPresented: Bool
+    let onConfirm: () -> Void
+    @State private var confirmation = ""
+
+    private var armed: Bool { confirmation.uppercased() == "POUR" }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            ZStack {
+                SealShape()
+                    .fill(Beers.hopsDeep)
+                SealShape()
+                    .stroke(Beers.ink, lineWidth: 2.5)
+                Text("🚰").font(.system(size: 26))
+            }
+            .frame(width: 74, height: 74)
+
+            Text("Pour it all away?")
+                .font(Beers.display(18))
+                .foregroundStyle(Beers.stout)
+
+            Text("Every training record on this Mac — your logged pours and keyboard fixes — is deleted forever. Nothing was ever uploaded. Type POUR to confirm.")
+                .font(Beers.ui(13, .medium))
+                .foregroundStyle(Beers.ink.opacity(0.7))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            TextField("POUR", text: $confirmation)
+                .textFieldStyle(.plain)
+                .font(Beers.ui(15, .bold))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Beers.stout)
+                .padding(.vertical, 9)
+                .background(Beers.cream, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(armed ? Beers.stout : Beers.ink, lineWidth: 2.5)
+                )
+
+            HStack(spacing: 12) {
+                Button("Keep it") { isPresented = false }
+                    .buttonStyle(BeersButtonStyle(kind: .ghost, small: true))
+                Button("Pour away 🚰") {
+                    onConfirm()
+                    isPresented = false
+                }
+                .buttonStyle(BeersButtonStyle(kind: .amber, small: true))
+                .disabled(!armed)
+                .opacity(armed ? 1 : 0.45)
+            }
+        }
+        .padding(28)
+        .frame(width: 360)
+        .background(Beers.paper)
+        .environment(\.colorScheme, .light)
     }
 }
 

@@ -226,6 +226,18 @@ enum BeersSnapshot {
         }
     }
 
+    /// Flywheel wipe self-test: `--beers-wipe-test`. Drives the real
+    /// `FlywheelLog.wipe()` against the live Application Support dir and logs how
+    /// many files it removed, so the "Pour it away" path can be verified
+    /// end-to-end. (Test harness backs up and restores real data around it.)
+    @MainActor
+    static func runWipeTestIfRequested() {
+        guard CommandLine.arguments.contains("--beers-wipe-test") else { return }
+        let removed = FlywheelLog.wipe()
+        llog("BeersSnapshot: WIPE TEST removed \(removed) file(s)")
+        exit(0)
+    }
+
     @MainActor
     static func runIfRequested(appState: AppState) {
         guard CommandLine.arguments.contains("--beers-snapshot") else { return }
@@ -237,6 +249,10 @@ enum BeersSnapshot {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             snap(FirstRoundView().environmentObject(appState),
                  size: CGSize(width: 380, height: 540), name: "first-round", in: dir)
+
+            // The learning/privacy disclosure step (step index 2 of 4).
+            snap(FirstRoundView(initialStep: 2).environmentObject(appState),
+                 size: CGSize(width: 380, height: 540), name: "first-round-learning", in: dir)
 
             snap(StatusBarView().environmentObject(appState),
                  size: nil, name: "bar-tap", in: dir)
@@ -268,6 +284,59 @@ enum BeersSnapshot {
             .environment(\.colorScheme, .light)
             snap(vocabCrate.environmentObject(appState),
                  size: CGSize(width: 560, height: 620), name: "brew-vocab", in: dir)
+
+            // Focused capture of the privacy/learning crate — it lives below the
+            // scroll fold in the full Brew Controls shot. Mirrors the live
+            // blackBookCrate; default state = learning ON (watch-my-fixes live).
+            let blackBook = BeersCrate(
+                title: "The Little Black Book", emoji: "📓", headerColor: Beers.hopsDeep
+            ) {
+                BeersSettingRow(
+                    label: "Learn from my pours",
+                    hint: "Logs each pour to a local file so your own cleanup model can train"
+                ) {
+                    Toggle("", isOn: .constant(true))
+                        .labelsHidden().toggleStyle(BeersToggleStyle())
+                }
+                BeersSettingRow(
+                    label: "Watch my fixes",
+                    hint: "Also logs the keyboard corrections you make just after a pour"
+                ) {
+                    Toggle("", isOn: .constant(true))
+                        .labelsHidden().toggleStyle(BeersToggleStyle())
+                }
+                BeersSettingRow(
+                    label: "Bouncer on the door",
+                    hint: "The disfluency model runs in shadow — it predicts and logs, never touches your text"
+                ) {
+                    Toggle("", isOn: .constant(true))
+                        .labelsHidden().toggleStyle(BeersToggleStyle())
+                }
+                BeersSettingRow(
+                    label: "Pour it away",
+                    hint: "Delete every training record from this Mac, forever",
+                    showDivider: false
+                ) {
+                    Button("Pour away…") {}
+                        .buttonStyle(BeersButtonStyle(kind: .stoutGhost, small: true))
+                }
+                HStack(spacing: 6) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Beers.hopsDeep)
+                    Text("Everything stays on this Mac. Nothing is uploaded, ever.")
+                        .font(Beers.ui(11.5, .semibold))
+                        .foregroundStyle(Beers.ink.opacity(0.6))
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 16).padding(.top, 2).padding(.bottom, 13)
+            }
+            .padding(22)
+            .frame(width: 560)
+            .background(Beers.cream)
+            .environment(\.colorScheme, .light)
+            snap(blackBook.environmentObject(appState),
+                 size: CGSize(width: 560, height: 430), name: "brew-blackbook", in: dir)
 
             let store = seededStore()
             snap(TaproomView(store: store).environmentObject(appState),
