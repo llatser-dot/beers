@@ -40,7 +40,7 @@ if [ -z "$SOURCE_APP" ]; then
         DEVELOPMENT_TEAM="$TEAM_ID" \
         CODE_SIGN_STYLE=Automatic \
         ONLY_ACTIVE_ARCH=NO \
-        ARCHS="arm64 x86_64"; then
+        ARCHS=arm64; then
         plutil -create xml1 "$BUILD_DIR/ExportOptions.plist"
         plutil -insert method -string developer-id "$BUILD_DIR/ExportOptions.plist"
         plutil -insert destination -string export "$BUILD_DIR/ExportOptions.plist"
@@ -66,7 +66,7 @@ if [ -z "$SOURCE_APP" ]; then
             exit 1
         fi
 
-        echo "[build] Developer ID export unavailable; creating development-signed universal app..."
+        echo "[build] Developer ID export unavailable; creating development-signed Apple Silicon app..."
         xcodebuild -quiet \
             -project "$PROJECT_DIR/LlatserListen.xcodeproj" \
             -scheme LlatserListen \
@@ -78,7 +78,7 @@ if [ -z "$SOURCE_APP" ]; then
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             ONLY_ACTIVE_ARCH=NO \
-            ARCHS="arm64 x86_64"
+            ARCHS=arm64
 
         SOURCE_APP="$BUILD_DIR/Build/Products/Release/$APP_NAME.app"
 
@@ -105,9 +105,16 @@ if [ ! -d "$SOURCE_APP" ]; then
     exit 1
 fi
 
+ARCHITECTURES="$(lipo -archs "$SOURCE_APP/Contents/MacOS/$APP_NAME" 2>/dev/null || true)"
+if [ "$ARCHITECTURES" != "arm64" ]; then
+    echo "Refusing to package an app outside the supported Apple Silicon contract." >&2
+    echo "Expected arm64, found: ${ARCHITECTURES:-no readable executable}" >&2
+    exit 1
+fi
+
 echo "Source: $SOURCE_APP"
 echo "Signing: $SIGNING_NOTE"
-lipo -info "$SOURCE_APP/Contents/MacOS/$APP_NAME" 2>/dev/null || true
+echo "Architecture: $ARCHITECTURES"
 
 if [ -e "$OUT_DIR" ] || [ -e "$ZIP_PATH" ]; then
     echo "Refusing to overwrite an existing package path." >&2

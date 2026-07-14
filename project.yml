@@ -40,6 +40,9 @@ targets:
         CODE_SIGN_IDENTITY: "-"
         SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
+        # Public releases support Apple Silicon only. Do not add x86_64 until
+        # the complete FluidAudio/Parakeet runtime has passed on physical Intel.
+        ARCHS: arm64
         # We load Bouncer.mlmodelc by hand (Bouncer.swift), so skip Core ML's
         # auto-generated model class — it would collide with our Bouncer type.
         COREML_CODEGEN_LANGUAGE: "None"
