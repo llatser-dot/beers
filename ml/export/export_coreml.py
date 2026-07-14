@@ -88,7 +88,7 @@ def gold_gate(model, tokenizer, gold_path: Path, threshold: float, target_precis
     recall = tp / (tp + fn) if (tp + fn) else 0.0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
     return {
-        "data": str(gold_path),
+        "data": os.path.basename(str(gold_path)),
         "threshold": threshold,
         "target_precision": target_precision,
         "precision": precision,

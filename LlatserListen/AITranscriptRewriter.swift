@@ -8,7 +8,7 @@ struct AIRewriteSettings {
     static let defaults = AIRewriteSettings(
         isEnabled: false,
         endpoint: "http://127.0.0.1:11434/v1/chat/completions",
-        model: "llama3.2"
+        model: "gemma4:latest"
     )
 }
 

@@ -466,7 +466,7 @@
   ],
   "target_met_val": true,
   "gold_gate": {
-    "data": "~/Projects/Llatser.Listen/ml/data/gold.jsonl",
+    "data": "gold.jsonl",
     "threshold": 0.98,
     "target_precision": 0.98,
     "precision": 0.2857142857142857,

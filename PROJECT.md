@@ -22,7 +22,7 @@ LlatserListen/            Swift app source (xcodegen; project.yml is truth, .xco
   CorrectionWatcher.swift Post-paste AX watcher harvesting the user's keyboard fixes
   FlywheelLog.swift       Local-only training-data log (pours + corrections)
   Resources/Bouncer/      Model bundle: Bouncer.mlpackage (Git LFS) + vocab/threshold/labels
-ml/                       Everything machine-learning (Python; venv at ml/.venv, NOT committed)
+ml/                       Everything machine-learning (Python; ml/.venv and ALL of ml/data/ are local-only, gitignored — real speech never ships)
   DESIGN.md               The ML contract: label scheme, JSONL format, metrics, ship gate
   data/gold.jsonl         FROZEN exam: 38 real labeled dictations. NEVER train on it, never edit
   data/gold-review.md     Labeling precedent — follow its judgment calls for any new labeling

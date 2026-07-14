@@ -2,9 +2,9 @@
 
 Each line = one clean transcript (the unit of corruption); may hold 1-6
 sentences. Sources:
-  seed_pours.txt   - Ben's 226 cleaned pours (real)
+  seed_pours.txt   - the author's cleaned pours (real; local-only, never committed)
   seed_log.txt     - polished real log transcripts (cleaner variant)
-  template.txt     - slot/template generation in Ben's registers
+  template.txt     - slot/template generation in dictation-like registers
   ollama.txt       - gemma4:latest generated, batched + checkpointed
 
 Usage:
@@ -21,7 +21,7 @@ random.seed(1234)
 os.makedirs(C.CLEAN_DIR, exist_ok=True)
 
 # ---------------------------------------------------------------------------
-# Slot vocabularies drawn from Ben's real domains.
+# Slot vocabularies in dictation-like registers (all names/brands fictional).
 NAMES = ["Dave", "Sarah", "Ben", "Tom", "Charlie", "Jess", "Mark", "Katie",
          "Ryan", "Sophie", "Liam", "Emma", "Josh", "Nadia", "Kat Fielding",
          "Ken", "Richard", "the client", "the dev team", "the designer"]
@@ -30,10 +30,10 @@ TRADES = ["brickwork", "roofing", "spray foam removal", "asbestos surveys",
           "tree surgery", "extensions", "loft conversions", "conveyancing"]
 COUNCILS = ["Uxbridge", "Tendring", "Hillingdon", "Colchester", "Portsmouth",
             "Clacton", "Croydon", "Ealing", "Basildon", "Chelmsford"]
-PROJECTS = ["PlanWatch", "MedsTracker", "TenantCheck", "BargainHound",
-            "TrackForge", "LeadPipe", "Bouncer", "NotifOwl",
-            "SurveySentinel", "the SEO system", "PropBet",
-            "QuickVan Movers", "WindowFixers", "GhostFrame"]
+PROJECTS = ["PlanTracker", "MedsTracker", "TenantCheck", "BargainHound",
+            "TrackKit", "LeadPipe", "Bouncer", "OwlAlert",
+            "SurveySentinel", "the SEO system", "OddsBoard",
+            "QuickVan Movers", "WindowFixers", "FrameGhost"]
 SEO_TERMS = ["backlinks", "referring domains", "domain authority", "anchor text",
              "the sitemap", "canonical tags", "schema markup", "internal links",
              "the approval-odds engine", "the keyword matrix", "organic traffic",
@@ -117,7 +117,7 @@ TEMPLATES = [
     "Set the price at {money} for the {proj} tier and see if it converts.",
 ]
 
-# Short fragments (3-8 words) — Ben's real dictations skew short, so we need a
+# Short fragments (3-8 words) — real dictations skew short, so we need a
 # healthy tail of these.
 SHORT_TEMPLATES = [
     "{trade} in {council}", "Check out {url}", "Give me {num} more now",
