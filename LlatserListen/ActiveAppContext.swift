@@ -2,8 +2,20 @@ import AppKit
 import Foundation
 
 struct ActiveAppContext: Equatable {
+    static let beersBundleIdentifier = "com.llatser.listen"
+
     let name: String
     let bundleIdentifier: String
+
+    /// Canonical stable key for a user-created recipe. Beers and contexts with
+    /// no bundle identifier are intentionally ineligible.
+    var recipeBundleIdentifier: String? {
+        let candidate = bundleIdentifier
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard !candidate.isEmpty, candidate != Self.beersBundleIdentifier else { return nil }
+        return candidate
+    }
 
     var inferredWritingMode: WritingMode {
         let haystack = "\(name) \(bundleIdentifier)".lowercased()
