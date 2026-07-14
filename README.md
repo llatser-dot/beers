@@ -94,7 +94,9 @@ one-command build once you have the tools.
 ### Requirements
 
 - **macOS 14.0 or later** (Sonoma+).
-- **Apple Silicon** (M1 or newer). Parakeet runs locally through Core ML.
+- **Apple Silicon** (M1 or newer). This is the only supported public target;
+  Parakeet runs locally through Core ML. Intel runtime behaviour has not been
+  validated.
 - **Full Xcode** (not just the Command Line Tools). `install.sh` runs
   `xcodebuild … archive`, which needs a complete Xcode install — install Xcode
   from the App Store, launch it once, and make sure `xcode-select -p` points at
@@ -187,6 +189,26 @@ Deleting the app alone leaves your data and models behind; to remove everything:
 
 Privacy permissions (Microphone, Input Monitoring, Accessibility) can be revoked
 in **System Settings → Privacy & Security** if you want them gone too.
+
+## Verify without installing
+
+Contributors and CI can run the same non-installing release-readiness gate:
+
+```sh
+./scripts/release-check.sh
+```
+
+It requires a clean checkout, full Xcode, XcodeGen, Git LFS and Python 3. The
+gate verifies every current LFS object is materialised, exercises the remote
+endpoint trust boundary and transcript polisher, builds an **unsigned arm64**
+Release app in a temporary directory, and checks its bundle metadata and Bouncer
+resources. It never launches or installs the app, touches TCC, signs with a local
+identity, notarises, uploads, deploys or publishes anything.
+
+Passing this gate is necessary, but it is not a public release. A distributable
+build still needs an authorised maintainer to archive with a Developer ID
+Application identity, submit it to Apple for notarisation, staple the accepted
+ticket, verify Gatekeeper on the final artefact, and publish that exact artefact.
 
 ## The flywheel — how the Bouncer learns
 
