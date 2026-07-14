@@ -34,6 +34,7 @@ ml/                       Everything machine-learning (Python; ml/.venv and ALL 
   models/                 Checkpoints + baselines (NOT committed — regenerable, see reports inside)
   standing-loop/          Weekly launchd retrain loop: check-and-train.sh + RETRAIN-PROMPT.md + reports
 scripts/agent-install.sh  THE build+install command (stable signing, TCC preserved)
+site/                     Tracked public website source (source-build CTA; no deploy pipeline yet)
 ```
 
 ## The cleanup pipeline (OrderKitchen.polish)
@@ -114,5 +115,6 @@ tail -f /tmp/llatser-listen.log                                # live app log
 
 ## Related (outside this repo)
 
-- Public site draft: `~/Projects/beers-wireframes/site.html` (NOT deployed).
+- Tracked public site: `site/index.html` (NOT deployed; source-build CTA until notarisation).
+- Earlier loose site draft: `~/Projects/beers-wireframes/site.html` (reference only).
 - Brand assets: `~/Projects/beers-wireframes/brand/`, `Beers-Brand-Assets/` here.
