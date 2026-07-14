@@ -26,7 +26,11 @@ for f in files:
             except Exception: continue
             t = d.get('type')
             if t in ('correction', 'rejection'): corr += 1
-            elif 'raw' in d and d.get('raw','').strip() != d.get('served','').strip(): dirty += 1
+            elif 'raw' in d:
+                # dirty = words were actually REMOVED (deletion-teachable pair),
+                # not just punctuation/casing touched by the rule polisher
+                rw = len(d.get('raw','').split()); sw = len(d.get('served','').split())
+                if rw - sw >= 1: dirty += 1
     except FileNotFoundError: pass
 print(dirty, corr)
 EOF
