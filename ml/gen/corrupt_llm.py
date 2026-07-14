@@ -157,8 +157,17 @@ def assemble(item, rng):
     else:
         return None
 
+    # Repeat guard (bug A): gemma frequently restates the corrected value
+    # inside the marker ("...no wait it was David | David at ..."), which
+    # labels an immediate repeat as DEL_INTERREGNUM. Relabel that deleted
+    # first copy to DEL_REPEAT (KEEP set unchanged), then assert the repeat
+    # invariant so no freshly generated example can teach double-deletion.
+    C.normalize_hidden_repeats(labels, words)
     ok, reason = C.validate_example(words, labels, clean)
     if not ok:
+        return None
+    rok, rwhy = C.repeat_invariant_ok(words, labels)
+    if not rok:
         return None
     return words, labels, clean
 

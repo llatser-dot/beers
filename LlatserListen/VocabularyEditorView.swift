@@ -54,7 +54,92 @@ struct VocabularyEditorView: View {
             } else {
                 correctionList
             }
+
+            if !appState.vocabularySuggestions.isEmpty {
+                suggestionsSection
+            }
         }
+    }
+
+    // MARK: Suggestions mined from the user's own keyboard fixes
+
+    private var suggestionsSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            DashedDivider()
+                .padding(.top, 4)
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Beers.amber)
+                Text("Suggestions from your fixes")
+                    .font(Beers.display(12))
+                    .foregroundStyle(Beers.stout)
+            }
+            .padding(.top, 4)
+            .padding(.bottom, 2)
+
+            ForEach(appState.vocabularySuggestions) { suggestion in
+                suggestionRow(suggestion)
+            }
+        }
+    }
+
+    private func suggestionRow(_ suggestion: VocabularySuggestion) -> some View {
+        HStack(spacing: 8) {
+            Text(suggestion.heard)
+                .font(Beers.ui(12, .semibold))
+                .foregroundStyle(Beers.ink.opacity(0.6))
+                .lineLimit(1)
+            Image(systemName: "arrow.right")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(Beers.amber)
+            Text(suggestion.replacement)
+                .font(Beers.ui(12, .bold))
+                .foregroundStyle(Beers.ink)
+                .lineLimit(1)
+
+            Spacer()
+
+            Button {
+                withAnimation(reduceMotion ? nil : Beers.spring) {
+                    appState.acceptVocabularySuggestion(suggestion)
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 9, weight: .bold))
+                    Text("Add")
+                        .font(Beers.ui(11, .bold))
+                }
+                .foregroundStyle(Beers.paper)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Beers.amber, in: Capsule())
+                .overlay(Capsule().strokeBorder(Beers.ink, lineWidth: 2))
+            }
+            .buttonStyle(.plain)
+            .help("Teach this word")
+
+            Button {
+                withAnimation(reduceMotion ? nil : Beers.spring) {
+                    appState.dismissVocabularySuggestion(suggestion)
+                }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Beers.ink.opacity(0.45))
+            }
+            .buttonStyle(.plain)
+            .help("Dismiss suggestion")
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 8)
+        .background(Beers.cream2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Beers.ink.opacity(0.9), lineWidth: 2)
+        )
+        .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
     }
 
     private func beersField(_ placeholder: String, text: Binding<String>) -> some View {

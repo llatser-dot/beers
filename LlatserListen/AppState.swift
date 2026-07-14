@@ -133,6 +133,9 @@ final class AppState: ObservableObject {
             VocabularyCorrections.save(vocabularyCorrections)
         }
     }
+    /// One-tap vocabulary suggestions mined from the user's own keyboard fixes.
+    /// Populated by `refreshVocabularySuggestions()` when Brew Controls opens.
+    @Published var vocabularySuggestions: [VocabularySuggestion] = []
     @Published var clinkOnServe: Bool {
         didSet {
             UserDefaults.standard.set(clinkOnServe, forKey: "clinkOnServe")
@@ -257,6 +260,7 @@ final class AppState: ObservableObject {
             BeersSnapshot.runOrderTestIfRequested(appState: self)
             BeersSnapshot.runPolishTestIfRequested(appState: self)
             BeersSnapshot.runBouncerTestIfRequested()
+            BeersSnapshot.runVocabSuggestTestIfRequested(appState: self)
         }
     }
 
@@ -333,6 +337,39 @@ final class AppState: ObservableObject {
 
     func removeVocabularyCorrection(_ correction: VocabularyCorrection) {
         vocabularyCorrections.removeAll { $0.id == correction.id }
+    }
+
+    /// Re-scan the flywheel for correction-driven vocabulary suggestions. Reads
+    /// off the main thread; the scan is file-signature cached so this is cheap
+    /// unless the log actually changed since the last open.
+    func refreshVocabularySuggestions() {
+        let existing = vocabularyCorrections
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let found = VocabularySuggestions.suggestions(
+                existing: existing,
+                dismissed: VocabularySuggestions.dismissedKeys()
+            )
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if self.vocabularySuggestions != found {
+                    self.vocabularySuggestions = found
+                }
+            }
+        }
+    }
+
+    /// Accept a suggestion: teach the word (user tap only — never automatic),
+    /// then drop it from the live list. Also dismissed so it can't resurface.
+    func acceptVocabularySuggestion(_ suggestion: VocabularySuggestion) {
+        addVocabularyCorrection(heard: suggestion.heard, replacement: suggestion.replacement)
+        VocabularySuggestions.dismiss(suggestion)
+        vocabularySuggestions.removeAll { $0.id == suggestion.id }
+    }
+
+    /// Dismiss a suggestion for good.
+    func dismissVocabularySuggestion(_ suggestion: VocabularySuggestion) {
+        VocabularySuggestions.dismiss(suggestion)
+        vocabularySuggestions.removeAll { $0.id == suggestion.id }
     }
 
     func resetWritingPreferences() {

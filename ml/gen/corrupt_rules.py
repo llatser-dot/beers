@@ -23,22 +23,30 @@ import common as C
 CLEAN_FRACTION = 0.25
 
 # Filler pools with realistic weights (mirrors the real top-fillers:
-# so / okay / like / or whatever / literally dominate; um/uh/erm are the
-# classic ASR fillers that survive into raw Parakeet output).
+# so / okay / like dominate; um/uh/erm are the classic ASR fillers that
+# survive into raw Parakeet output).
 _FILLER_WEIGHTED = [
     ("um", 10), ("uh", 8), ("erm", 5), ("er", 3), ("like", 12), ("so", 8),
-    ("okay", 4), ("basically", 5), ("actually", 4),
+    ("okay", 4), ("basically", 5),
     ("right", 4), ("well", 4), ("you know", 5), ("sort of", 4),
-    ("kind of", 4), ("i mean", 4), ("or whatever", 4), ("obviously", 3),
+    ("kind of", 4), ("i mean", 4), ("obviously", 3),
     ("honestly", 2), ("essentially", 2),
 ]
 # NOTE (gold-review alignment, 2026-07-14):
-# - "literally" removed from the delete pool — gold rules it as Ben's voice
-#   (KEEP always, judgment call #5).
+# - "literally"/"genuinely"/"actually"/"or whatever" are NEVER deletable
+#   fillers — gold rules them as Ben's voice (KEEP), judgment calls #1/#5.
+#   "literally" was removed earlier; "actually" and "or whatever" are removed
+#   here (bug B: v2 still deleted them). They may still legitimately land in a
+#   DEL_REPARANDUM restart or DEL_REPEAT first-copy — that is a corrected/
+#   repeated *span*, not a standalone filler. C.PROTECTED_VOICE_* + the guard
+#   in _emit_filler enforce that they can never be injected as DEL_FILLER.
 # - Sentence-initial connectives ("Okay,"/"So"/"Also,"/"See,"/"I mean") are
 #   KEEP per gold judgment call #1; only true hesitation sounds are deletable
 #   at sentence start. See _OPENER_HESITATIONS + gen/corrupt_traps.py which
 #   teaches the KEEP side of these patterns.
+assert not any(
+    C.is_protected_voice_at(w.split(), 0) for w, _ in _FILLER_WEIGHTED), \
+    "protected voice word leaked into the deletable filler pool"
 _OPENER_HESITATIONS = ["um", "um", "uh", "erm", "er"]
 _FILLER_WORDS = [w for w, _ in _FILLER_WEIGHTED]
 _FILLER_WTS = [n for _, n in _FILLER_WEIGHTED]
@@ -137,25 +145,35 @@ def corrupt(clean_text: str, rng: random.Random):
             out_labels.append("DEL_FILLER")
 
         # filler before this word (never before the very first real word;
-        # the sentence-initial opener handled that case already)
+        # the sentence-initial opener handled that case already). Guard: a
+        # filler that equals the next real word would create a repeat hidden
+        # inside a DEL_FILLER label -> skip it (keeps the repeat invariant).
         if idx > 0 and rng.random() < base_p:
-            for t in _emit_filler(rng, sentence_initial=False):
-                out_words.append(t)
-                out_labels.append("DEL_FILLER")
+            fil = _emit_filler(rng, sentence_initial=False)
+            if C.norm_word(fil[-1]) != C.norm_word(w):
+                for t in fil:
+                    out_words.append(t)
+                    out_labels.append("DEL_FILLER")
 
-        # immediate repeat, emitted BEFORE the real word so the kept copy is
-        # the final one ("the the report" -> DEL_REPEAT KEEP KEEP).
+        # immediate repeat: DELETE the first copy, KEEP exactly one intact copy
+        # that follows. The deleted copy AND its kept twin are emitted
+        # CONTIGUOUSLY (no filler/hesitation may be injected between them),
+        # so "tell her tell her" -> DEL_REPEAT DEL_REPEAT KEEP KEEP always.
         r = rng.random()
         if r < 0.015 and idx < n - 1:
-            # bigram repeat: "tell her tell her" -> first pair deleted
+            # bigram repeat over words idx, idx+1.
             c0 = _split_trail(clean_words[idx])[0]
             c1 = _split_trail(clean_words[idx + 1])[0]
-            out_words += [c0, c1]
-            out_labels += ["DEL_REPEAT", "DEL_REPEAT"]
-        elif r < 0.05:
-            # single-word repeat
-            out_words.append(_split_trail(w)[0])
-            out_labels.append("DEL_REPEAT")
+            out_words += [c0, c1, clean_words[idx], clean_words[idx + 1]]
+            out_labels += ["DEL_REPEAT", "DEL_REPEAT", "KEEP", "KEEP"]
+            idx += 2
+            continue
+        if r < 0.05:
+            # single-word repeat.
+            out_words += [_split_trail(w)[0], w]
+            out_labels += ["DEL_REPEAT", "KEEP"]
+            idx += 1
+            continue
 
         # the real word (keeps its original punctuation/casing)
         out_words.append(w)
@@ -170,6 +188,11 @@ def make_example(ex_id: str, clean_text: str, rng: random.Random):
     ok, reason = C.validate_example(words, labels, clean_text)
     if not ok:
         return None, reason
+    # Generation-time guard: freshly generated data can never reproduce the
+    # v2 double-deletion bug (every repeat deletes the first copy and keeps
+    # exactly one intact copy that follows).
+    rok, rwhy = C.repeat_invariant_ok(words, labels)
+    assert rok, f"repeat invariant violated for {ex_id}: {rwhy}"
     return {"id": ex_id, "source": "rule", "words": words,
             "labels": labels, "clean": clean_text}, "ok"
 

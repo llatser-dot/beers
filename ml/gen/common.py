@@ -73,6 +73,84 @@ def validate_example(words, labels, clean_text=None) -> tuple[bool, str]:
     return True, "ok"
 
 # ---------------------------------------------------------------------------
+# Protected "voice" words (gold-review.md judgment calls #1 and #5). These
+# carry Ben's register and are KEEP whenever they are used as an
+# intensifier / hedge / discourse connective. They may only ever be DELETE
+# inside a genuine self-correction span (DEL_REPARANDUM: an abandoned clause
+# that happens to contain them) or a genuine correction-interregnum
+# ("...Wednesday, actually Tuesday" -> "actually" = DEL_INTERREGNUM), or as
+# the deleted FIRST copy of an immediate repeat (DEL_REPEAT). They must NEVER
+# be a standalone DEL_FILLER — that is the label-poison this guard prevents.
+PROTECTED_VOICE_SINGLE = {"literally", "genuinely", "actually"}
+PROTECTED_VOICE_PHRASES = [("or", "whatever")]
+
+def is_protected_voice_at(words, i) -> int:
+    """If a protected voice word/phrase starts at index i, return its token
+    length (1 or 2); else 0. Uses normalised matching."""
+    ni = norm_word(words[i])
+    if ni in PROTECTED_VOICE_SINGLE:
+        return 1
+    if i + 1 < len(words):
+        pair = (ni, norm_word(words[i + 1]))
+        if pair in PROTECTED_VOICE_PHRASES:
+            return 2
+    return 0
+
+# ---------------------------------------------------------------------------
+# Repeat invariant (bug A). The generators emit an immediate repeat by
+# DELETING the FIRST copy and KEEPING exactly one intact copy that follows.
+# Two failure modes poison the "delete-both-copies" behaviour we saw in v2:
+#   1. a DEL_REPEAT run not immediately followed by its intact KEEP twin
+#      (fragmented / wrong-copy);
+#   2. an immediate repeat hidden inside a non-REPEAT deletion — a
+#      DEL_INTERREGNUM/DEL_FILLER token that duplicates the very next KEEP
+#      word (gemma often restates the corrected value inside the marker,
+#      e.g. "...no wait it was David | David at ...").
+def repeat_invariant_ok(words, labels) -> tuple[bool, str]:
+    n = len(labels)
+    # (1) every DEL_REPEAT run is followed by an identical intact KEEP copy.
+    i = 0
+    while i < n:
+        if labels[i] == "DEL_REPEAT":
+            j = i
+            while j + 1 < n and labels[j + 1] == "DEL_REPEAT":
+                j += 1
+            L = j - i + 1
+            unit = [norm_word(w) for w in words[i:j + 1]]
+            foll = words[j + 1:j + 1 + L]
+            foll_l = labels[j + 1:j + 1 + L]
+            if (len(foll) != L or any(x != "KEEP" for x in foll_l)
+                    or [norm_word(w) for w in foll] != unit):
+                return False, f"DEL_REPEAT run at {i} lacks an intact KEEP copy"
+            i = j + 1
+        else:
+            i += 1
+    # (2) no interregnum/filler token immediately duplicates the next KEEP
+    #     word (that is a repeat mislabelled as a non-REPEAT deletion).
+    for k in range(n - 1):
+        if labels[k] in ("DEL_INTERREGNUM", "DEL_FILLER") and labels[k + 1] == "KEEP":
+            a = norm_word(words[k])
+            if a and a == norm_word(words[k + 1]):
+                return False, f"non-REPEAT DEL at {k} duplicates following KEEP"
+    return True, "ok"
+
+def normalize_hidden_repeats(labels, words) -> int:
+    """In-place fix for failure mode (2): relabel any DEL_INTERREGNUM/
+    DEL_FILLER token that duplicates the immediately-following KEEP word to
+    DEL_REPEAT (the correct subtype for a deleted first copy). All DEL_*
+    collapse to DELETE at inference, so this never changes the KEEP set and
+    the reconstruction invariant is preserved. Returns the number fixed."""
+    n = len(labels)
+    fixed = 0
+    for k in range(n - 1):
+        if labels[k] in ("DEL_INTERREGNUM", "DEL_FILLER") and labels[k + 1] == "KEEP":
+            a = norm_word(words[k])
+            if a and a == norm_word(words[k + 1]):
+                labels[k] = "DEL_REPEAT"
+                fixed += 1
+    return fixed
+
+# ---------------------------------------------------------------------------
 # Ollama native chat client.
 def ollama_chat(messages, *, temperature=0.9, timeout=120, retries=3,
                 fmt=None):
