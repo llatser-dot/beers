@@ -7,6 +7,14 @@ DerivedData/
 *.xcuserdata/
 .DS_Store
 
+# Local environment and Worker secrets
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
 # Xcode / SPM noise
 xcuserdata/
 *.moved-aside

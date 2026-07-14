@@ -9,7 +9,7 @@ options:
 packages:
   FluidAudio:
     url: https://github.com/FluidInference/FluidAudio
-    from: "0.13.6"
+    exactVersion: "0.14.1"
 
 targets:
   LlatserListen:

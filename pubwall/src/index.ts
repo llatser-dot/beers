@@ -2,17 +2,17 @@
  * Beers — Pub Wall API (Cloudflare Worker + D1)
  *
  * PRIVACY CONTRACT (the whole brand):
- *   This server only ever sees a username, running word/pour counts, and a
- *   streak. It NEVER sees transcripts. It NEVER sees audio. It only ever stores
- *   an email address when a user *explicitly* claims their handle. Read the
- *   schema (schema.sql) — there is nowhere to put anything else.
+ *   This server NEVER receives transcripts or audio. Product data is a username,
+ *   running word/pour counts and a streak; identity/recovery and abuse controls
+ *   also use a token hash, an optional email + short-lived code, and a secretly
+ *   salted truncated IP hash. Read README.md and schema.sql for the full boundary.
  */
 
 export interface Env {
   DB: D1Database;
   RESEND_API_KEY?: string;
   RESEND_FROM?: string; // e.g. "Beers <newsletter@example.com>"
-  IP_HASH_SALT?: string; // optional salt for the coarse abuse-throttle ip-hash
+  IP_HASH_SALT: string; // required secret for the coarse abuse-throttle ip-hash
 }
 
 // ------------------------------------------------------------------ tunables
@@ -95,8 +95,11 @@ function bearer(req: Request): string | null {
 // raw IP — only a salted, truncated hash — and only to bucket abuse. See the
 // limitations note in README (shared IPs collide; rotating IPs can evade).
 async function ipHash(req: Request, env: Env): Promise<string> {
+  if (typeof env.IP_HASH_SALT !== 'string' || env.IP_HASH_SALT.length < 32) {
+    throw new Error('IP_HASH_SALT is missing or shorter than 32 characters');
+  }
   const ip = req.headers.get('CF-Connecting-IP') || 'unknown';
-  const h = await sha256Hex(`${env.IP_HASH_SALT || 'beers-pubwall'}:${ip}`);
+  const h = await sha256Hex(`${env.IP_HASH_SALT}:${ip}`);
   return h.slice(0, 16);
 }
 
@@ -163,7 +166,7 @@ export default {
 
     try {
       if (path === '/' || path === '/api' || path === '/api/health') {
-        return json({ ok: true, service: 'beers-pubwall', privacy: 'username + counts + streak only; never transcripts or audio' });
+        return json({ ok: true, service: 'beers-pubwall', privacy: 'never receives transcripts or audio; full boundary is public in pubwall/README.md' });
       }
       if (req.method === 'POST' && path === '/api/register') return register(req, env);
       if (req.method === 'POST' && path === '/api/pours') return pours(req, env);
@@ -389,7 +392,8 @@ async function sendResendCode(env: Env, to: string, code: string, purpose: strin
   const body =
     `Your Beers verification code is ${code}\n\n` +
     `It expires in 15 minutes. If you didn't ask for this, ignore this email.\n\n` +
-    `— The Pub Wall. We only ever store your handle, your counts, and (now) this email. Never your words.`;
+    `— The Pub Wall never receives your dictated words or audio. Its full public data boundary is at ` +
+    `github.com/llatser-dot/beers/tree/main/pubwall`;
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {

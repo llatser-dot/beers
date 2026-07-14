@@ -17,7 +17,8 @@ the cursor. **Terminology: a "pour" = one dictation. Pints are *pulled*
 LlatserListen/            Swift app source (xcodegen; project.yml is truth, .xcodeproj generated)
   AppState.swift          Central state; pour lifecycle lives in stopRecordingAndTranscribe
   OrderKitchen.swift      The cleanup tier system (see pipeline below) + PolishResult
-  AITranscriptRewriter.swift  Local-LLM client (native Ollama /api/chat, think:false, OpenAI-compat fallback)
+  AITranscriptRewriter.swift  LLM client (loopback by default; remote hosts require explicit host-scoped consent)
+  AIEndpointTrust.swift   Pure URL/loopback classifier for the rewrite privacy boundary
   Bouncer.swift           On-device disfluency tagger: Swift WordPiece tokenizer + Core ML inference
   CorrectionWatcher.swift Post-paste AX watcher harvesting the user's keyboard fixes
   FlywheelLog.swift       Local-only training-data log (pours + corrections)
@@ -26,7 +27,7 @@ ml/                       Everything machine-learning (Python; ml/.venv and ALL 
   DESIGN.md               The ML contract: label scheme, JSONL format, metrics, ship gate
   data/gold.jsonl         FROZEN exam: 38 real labeled dictations. NEVER train on it, never edit
   data/gold-review.md     Labeling precedent — follow its judgment calls for any new labeling
-  data/{train,val,llm,traps}.jsonl  Synthetic v2 dataset (committed; regenerable via gen/)
+  data/{train,val,llm,traps}.jsonl  Synthetic v2 dataset (local-only with all ml/data; regenerable via gen/)
   gen/                    Data pipeline: rule corruptor, gemma4 correction generator, traps, flywheel ingest
   train/                  Training/eval/calibration harness (MPS) — see train/README.md for commands
   export/                 HF checkpoint → Core ML export + parity verification
@@ -39,8 +40,9 @@ scripts/agent-install.sh  THE build+install command (stable signing, TCC preserv
 
 Every pour flows: ASR (Parakeet v3) → rule polisher → **tier 0 Bouncer**
 (shadow mode: predicts deletions in ~10ms, logs, does NOT touch text) → ramble
-gate (clean pours serve instantly) → LLM race (Apple on-device model vs local
-Ollama `gemma4:latest`, one shared 4s deadline, first acceptable answer wins;
+gate (clean pours serve instantly) → LLM race (Apple on-device model vs the
+configured endpoint, loopback Ollama `gemma4:latest` by default; remote hosts
+require explicit host-scoped consent; one shared 4s deadline, first acceptable answer wins;
 keep-ratio guard rejects over-trimmed rewrites) → vocabulary corrections → paste.
 
 **Bouncer activation is a file swap, not a code change**: when the bundle's
@@ -61,7 +63,7 @@ cannot do this task via prompting either (benched: they answer/refuse the text).
 The lever is real user data. Ship gate: DELETE precision ≥ 0.98 on gold AND on
 held-out real data. False deletions are the cardinal sin; when unsure, KEEP.
 
-## The flywheel (all local, never leaves the Mac)
+## The flywheel (app-local; Beers has no upload path)
 
 - Every pour → `~/Library/Application Support/Beers/flywheel.jsonl`:
   {ts, raw, rulePolished, served, tier, bouncerWouldDelete, bouncerMs}
@@ -75,12 +77,14 @@ held-out real data. False deletions are the cardinal sin; when unsure, KEEP.
 ## Standing loop
 
 launchd `com.beers.bouncer-loop` (Mon 06:57) runs
-`ml/standing-loop/check-and-train.sh`: free local count; when
+`ml/standing-loop/check-and-train.sh`: local count; when
 dirty-pairs + 2×corrections ≥ 300 and ≥10 days since last run, launches a
 headless `claude -p --model opus` executing `ml/standing-loop/RETRAIN-PROMPT.md`
 (label real data → train v3 → dual exam → report). **It never activates the
 model and never commits** — activation is a reviewed manual step (checklist in
-the Phase-2 report; export → parity → copy bundle → agent-install).
+the Phase-2 report; export → parity → copy bundle → agent-install). This is a
+separate reference automation, not installed or run by the app; it sends selected
+flywheel text to Anthropic and requires the operator's own Claude access.
 
 ## Key commands
 
@@ -102,7 +106,8 @@ tail -f /tmp/llatser-listen.log                                # live app log
   clean re-grant works. Let the installer handle it; never do it by hand.
 - NEVER edit `ml/data/gold.jsonl` or train on it; extend evals via new real-test files.
 - The Bouncer only deletes — any feature that makes it write text is out of scope.
-- Flywheel data is private: no upload paths, no telemetry, ever.
+- Flywheel data is private: no upload path or telemetry in the app. Keep external
+  tooling separate and make any cloud boundary explicit before an operator runs it.
 - Build via `scripts/agent-install.sh` only (ad-hoc signing breaks TCC).
 - Site/brand: one logo (the scalloped badge replacing the B), no beer-strip
   hero dividers, pour = dictation everywhere.

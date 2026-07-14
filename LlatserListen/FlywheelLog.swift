@@ -19,9 +19,10 @@ struct FlywheelWordChange {
 ///
 /// ============================ PRIVACY ================================
 /// These records contain VERBATIM dictation transcripts. They are written to
-/// local disk ONLY and MUST NEVER leave this machine — there is no network
-/// call, no telemetry, no sync, and no upload path anywhere in this type, and
-/// none may ever be added. The ML pipeline reads the file in place
+/// local disk ONLY — there is no network call, telemetry, sync, or upload path
+/// anywhere in this type or the app. Separate operator-run tooling can read the
+/// file; the reference loop's cloud boundary is disclosed in README.md. No app
+/// upload path may ever be added. The ML pipeline reads the file in place
 /// (`ml/gen/flywheel_ingest.py`). The user can disable capture entirely via
 /// the `flywheelLoggingEnabled` UserDefault.
 /// ====================================================================
@@ -106,7 +107,7 @@ enum FlywheelLog {
     /// Append a correction/rejection record — the user's keyboard fix of a
     /// pasted pour, captured by `CorrectionWatcher`. A SEPARATE line; existing
     /// pour lines are never mutated. `pourTs` links back to the pour's `ts`.
-    /// Records NEVER leave this machine (see the PRIVACY block above).
+    /// Beers never transmits these records (see the PRIVACY block above).
     ///
     /// - type:         "correction" (edited in place) or "rejection" (deleted).
     /// - corrected:    the span after the user's edits, or nil for a rejection.

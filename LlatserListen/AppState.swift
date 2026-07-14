@@ -250,16 +250,8 @@ final class AppState: ObservableObject {
         self.hudPosition = HUDPosition.current
         self.hotkeyChoice = HotkeyOption.savedValue(UserDefaults.standard.string(forKey: "hotkeyChoice"))
 
-        // Register as a login item once by default; the toggle stays in control after that.
-        if !UserDefaults.standard.bool(forKey: "didAutoRegisterLoginItem"), SMAppService.mainApp.status != .enabled {
-            UserDefaults.standard.set(true, forKey: "didAutoRegisterLoginItem")
-            do {
-                try SMAppService.mainApp.register()
-                llog("AppState: auto-registered launch at login")
-            } catch {
-                llog("AppState: launch at login auto-registration failed: \(error.localizedDescription)")
-            }
-        }
+        // Launch at login is opt-in from Brew Controls; first launch must not
+        // silently add a persistent login item.
         self.launchAtLogin = SMAppService.mainApp.status == .enabled
         self.vocabularyCorrections = VocabularyCorrections.load()
         self.microphoneGranted = Permissions.isMicrophoneGranted()
@@ -396,6 +388,7 @@ final class AppState: ObservableObject {
 
     func resetWritingPreferences() {
         let defaults = WritingPreferences.defaults
+        AITranscriptRewriter.revokeRemoteEndpointApproval()
         polishBeforePaste = true
         writingMode = defaults.mode
         cleanSpeechScaffolding = defaults.cleanSpeechScaffolding
@@ -743,7 +736,7 @@ final class AppState: ObservableObject {
                 // Flywheel: capture this real (raw -> served) pair locally for
                 // future Bouncer retraining. Fire-and-forget; never blocks the
                 // pour. Command Mode is excluded (handled by serveOrder).
-                // Records NEVER leave this machine (see FlywheelLog).
+                // Beers never transmits these records (see FlywheelLog).
                 let pourTs = FlywheelLog.record(
                     raw: text,
                     rulePolished: rulePolished,

@@ -14,7 +14,7 @@ enum ServingTier: String {
     case cleanGate = "clean-gate"
     /// Apple's on-device Foundation model won the race.
     case apple = "apple"
-    /// The user's local endpoint (Ollama etc.) won the race.
+    /// The user's configured endpoint (loopback by default) won the race.
     case local = "local"
     /// No model served — the rule-polished text stands (race failed/timed out,
     /// or AI rewrite was disabled for this pour).
@@ -32,10 +32,10 @@ struct PolishResult {
 
 /// The kitchen behind Command Mode. Tiered:
 /// 1. Apple's on-device Foundation model (macOS 26+, zero setup)
-/// 2. The user's OpenAI-compatible local endpoint (Ollama etc.)
+/// 2. The user's approved OpenAI-compatible endpoint (loopback Ollama by default)
 enum OrderKitchen {
     /// Apple's on-device context window is small; longer selections go
-    /// straight to the local endpoint.
+    /// straight to the configured endpoint.
     private static let appleTierMaxChars = 6000
 
     static func applyInstruction(
@@ -51,16 +51,16 @@ enum OrderKitchen {
                     llog("OrderKitchen: served by Apple on-device model")
                     return edited
                 } catch {
-                    llog("OrderKitchen: Apple model failed (\(error.localizedDescription)) — trying local endpoint")
+                    llog("OrderKitchen: Apple model failed (\(error.localizedDescription)) — trying configured endpoint")
                 }
             } else {
-                llog("OrderKitchen: Apple model unavailable — trying local endpoint")
+                llog("OrderKitchen: Apple model unavailable — trying configured endpoint")
             }
         }
         #endif
 
         let edited = try await AITranscriptRewriter.applyInstruction(instruction, to: text, settings: settings)
-        llog("OrderKitchen: served by local endpoint (\(settings.model))")
+        llog("OrderKitchen: served by configured endpoint (\(settings.model))")
         return edited
     }
 

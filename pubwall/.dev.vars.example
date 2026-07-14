@@ -1,0 +1,7 @@
+# Required: replace this deliberately invalid short value with
+# `openssl rand -hex 32` before running registration locally.
+IP_HASH_SALT=replace-me
+
+# Optional: leave unset to keep claim/recovery email dark.
+# RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# RESEND_FROM=Beers <newsletter@example.com>

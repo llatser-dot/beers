@@ -9,7 +9,7 @@ SOURCE_APP="${LLATSER_LISTEN_APP_SOURCE:-}"
 OUT_DIR="${LLATSER_AIRDROP_DIR:-$HOME/Desktop/$APP_NAME AirDrop}"
 ZIP_PATH="${LLATSER_AIRDROP_ZIP:-$HOME/Desktop/$APP_NAME AirDrop.zip}"
 SIGN_IDENTITY="${LLATSER_LISTEN_SIGN_IDENTITY:-}"
-TEAM_ID="${LLATSER_LISTEN_TEAM_ID:-6U9UFUUR48}"
+TEAM_ID="${LLATSER_LISTEN_TEAM_ID:-}"
 SIGNING_NOTE="provided app"
 ALLOW_LOCAL_SIGNING="${LLATSER_ALLOW_LOCAL_SIGNING:-0}"
 
@@ -20,7 +20,7 @@ fi
 echo "=== Beers AirDrop Package ==="
 
 if [ -z "$SOURCE_APP" ]; then
-    echo "[build] Creating Developer ID export..."
+    echo "[build] Creating release app..."
     cd "$PROJECT_DIR"
     if command -v xcodegen >/dev/null 2>&1 && [ -f project.yml ]; then
         xcodegen generate
@@ -29,7 +29,7 @@ if [ -z "$SOURCE_APP" ]; then
     rm -rf "$BUILD_DIR"
     mkdir -p "$BUILD_DIR"
 
-    if xcodebuild -quiet \
+    if [ -n "$TEAM_ID" ] && xcodebuild -quiet \
         -project "$PROJECT_DIR/LlatserListen.xcodeproj" \
         -scheme LlatserListen \
         -configuration Release \
@@ -62,7 +62,7 @@ if [ -z "$SOURCE_APP" ]; then
         if [ "$ALLOW_LOCAL_SIGNING" != "1" ]; then
             echo "Developer ID export unavailable."
             echo "Refusing to package a locally signed build because it will break macOS privacy permissions again."
-            echo "Set LLATSER_ALLOW_LOCAL_SIGNING=1 only for throwaway development packages."
+            echo "Set LLATSER_LISTEN_TEAM_ID for your Developer ID team, or use LLATSER_ALLOW_LOCAL_SIGNING=1 for a local-only development package."
             exit 1
         fi
 
@@ -109,7 +109,11 @@ echo "Source: $SOURCE_APP"
 echo "Signing: $SIGNING_NOTE"
 lipo -info "$SOURCE_APP/Contents/MacOS/$APP_NAME" 2>/dev/null || true
 
-rm -rf "$OUT_DIR" "$ZIP_PATH"
+if [ -e "$OUT_DIR" ] || [ -e "$ZIP_PATH" ]; then
+    echo "Refusing to overwrite an existing package path." >&2
+    echo "Move or remove these exact outputs first: $OUT_DIR and $ZIP_PATH" >&2
+    exit 1
+fi
 mkdir -p "$OUT_DIR/Payload"
 
 echo "[1/4] Copying app into transfer payload..."

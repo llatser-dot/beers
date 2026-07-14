@@ -129,7 +129,7 @@ enum AITranscriptRewriter {
 
     /// Load the model while the user is still speaking. An Ollama-sized model
     /// can take 10s+ to page in cold — hiding that behind the recording is the
-    /// difference between the local tier landing inside the polish deadline
+    /// difference between the configured endpoint landing inside the polish deadline
     /// and always losing to it.
     static func prewarm(settings: AIRewriteSettings) {
         guard let (url, model) = try? validated(settings) else { return }
@@ -176,40 +176,57 @@ enum AITranscriptRewriter {
 
     private static func validated(_ settings: AIRewriteSettings) throws -> (URL, String) {
         let model = settings.model.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: settings.endpoint), !model.isEmpty else {
+        guard let url = URL(string: settings.endpoint),
+              AIEndpointTrust.normalizedHost(from: settings.endpoint) != nil,
+              !model.isEmpty else {
             throw URLError(.badURL)
         }
         try enforceEndpointTrust(url)
         return (url, model)
     }
 
-    /// UserDefaults gate the user flips (via the Brew Controls confirm sheet)
-    /// to consent to a remote rewrite endpoint.
-    static let remoteEndpointAllowedKey = "remoteEndpointAllowed"
+    /// The specific remote host the user approved via Brew Controls. Approval is
+    /// host-scoped: consenting to one server never silently consents to another.
+    private static let remoteEndpointAllowedHostKey = "remoteEndpointAllowedHost"
 
     /// True when `host` is a loopback address that never leaves the machine.
     static func isLoopback(host: String?) -> Bool {
-        guard let host = host?
-            .trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
-            .lowercased(), !host.isEmpty else { return false }
-        return host == "localhost" || host == "::1"
-            || host == "127.0.0.1" || host.hasPrefix("127.")
+        AIEndpointTrust.isLoopback(host: host)
     }
 
     /// Convenience for the UI: is this endpoint string a loopback destination?
     static func isLoopbackEndpoint(_ endpoint: String) -> Bool {
-        isLoopback(host: URL(string: endpoint)?.host)
+        AIEndpointTrust.isLoopback(endpoint: endpoint)
+    }
+
+    static func approveRemoteEndpoint(_ endpoint: String) -> Bool {
+        guard let host = AIEndpointTrust.normalizedHost(from: endpoint),
+              !AIEndpointTrust.isLoopback(host: host) else { return false }
+        UserDefaults.standard.set(host, forKey: remoteEndpointAllowedHostKey)
+        return true
+    }
+
+    static func isRemoteEndpointAllowed(_ endpoint: String) -> Bool {
+        guard let host = AIEndpointTrust.normalizedHost(from: endpoint) else { return false }
+        return UserDefaults.standard.string(forKey: remoteEndpointAllowedHostKey) == host
+    }
+
+    static func revokeRemoteEndpointApproval() {
+        UserDefaults.standard.removeObject(forKey: remoteEndpointAllowedHostKey)
+        // Remove the old global boolean so upgrades cannot accidentally restore
+        // the pre-1.0 blanket approval behaviour.
+        UserDefaults.standard.removeObject(forKey: "remoteEndpointAllowed")
     }
 
     /// The rewriter POSTs the user's dictation to this endpoint. Loopback is
     /// always allowed; a non-loopback (remote) host is refused unless the user
-    /// has explicitly consented via `remoteEndpointAllowed`. Every path —
+    /// has explicitly consented to that exact host. Every path —
     /// polish, Command Mode, prewarm — flows through `validated`, so this one
     /// choke point covers them all.
     private static func enforceEndpointTrust(_ url: URL) throws {
         if isLoopback(host: url.host) { return }
-        if UserDefaults.standard.bool(forKey: remoteEndpointAllowedKey) { return }
-        llog("AITranscriptRewriter: refusing non-loopback endpoint host '\(url.host ?? "?")' — your pours stay on this Mac unless you confirm a remote server (remoteEndpointAllowed is off)")
+        if isRemoteEndpointAllowed(url.absoluteString) { return }
+        llog("AITranscriptRewriter: refusing non-loopback endpoint host '\(url.host ?? "?")' — confirm this remote host before any pour is sent")
         throw URLError(.userAuthenticationRequired)
     }
 
