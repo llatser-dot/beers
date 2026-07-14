@@ -1,0 +1,59 @@
+{"id": "fix-0000", "source": "rule", "words": ["Send", "the", "report", "to", "Sarah", "by", "five."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0001", "source": "rule", "words": ["Can", "you", "push", "the", "staging", "build", "tonight?"], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0002", "source": "rule", "words": ["Book", "the", "planning", "consultant", "for", "Thursday", "morning."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0003", "source": "rule", "words": ["The", "approval", "rate", "in", "Tendring", "is", "looking", "solid."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0004", "source": "rule", "words": ["Let's", "ship", "the", "backlink", "audit", "before", "the", "weekend."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0005", "source": "rule", "words": ["Ring", "the", "council", "about", "the", "tree", "survey."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0006", "source": "rule", "words": ["Deploy", "the", "worker", "to", "Cloudflare", "and", "check", "the", "logs."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0007", "source": "rule", "words": ["Add", "a", "canonical", "tag", "to", "every", "council", "page."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0008", "source": "rule", "words": ["Grab", "a", "coffee", "and", "let's", "crack", "on."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0009", "source": "rule", "words": ["Reply", "to", "Ken", "about", "the", "refund", "first", "thing."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0010", "source": "rule", "words": ["The", "Stripe", "webhook", "is", "failing", "closed", "now."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0011", "source": "rule", "words": ["Move", "the", "permission", "into", "user", "settings."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0012", "source": "rule", "words": ["Check", "the", "bug", "tray", "before", "lunch."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0013", "source": "rule", "words": ["Sarah", "wants", "the", "odds", "report", "by", "Friday."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0014", "source": "rule", "words": ["Bump", "the", "analytics", "asset", "version", "or", "it", "serves", "stale."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0015", "source": "rule", "words": ["Send", "the", "report", "to", "um,", "Dave."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "DEL_FILLER", "KEEP"]}
+{"id": "fix-0016", "source": "rule", "words": ["Uh,", "can", "you", "call", "the", "plumber?"], "labels": ["DEL_FILLER", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0017", "source": "rule", "words": ["It's", "erm", "due", "on", "Tuesday."], "labels": ["KEEP", "DEL_FILLER", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0018", "source": "rule", "words": ["We", "should", "like", "push", "this", "live."], "labels": ["KEEP", "KEEP", "DEL_FILLER", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0019", "source": "rule", "words": ["You", "know,", "the", "council", "never", "replied."], "labels": ["KEEP", "DEL_FILLER", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0020", "source": "rule", "words": ["It's", "basically", "a", "noindex", "problem."], "labels": ["KEEP", "DEL_FILLER", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0021", "source": "rule", "words": ["That's", "sort", "of", "the", "whole", "point."], "labels": ["KEEP", "DEL_FILLER", "DEL_FILLER", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0022", "source": "rule", "words": ["Um,", "erm,", "book", "the", "call", "for", "ten."], "labels": ["DEL_FILLER", "DEL_FILLER", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0023", "source": "rule", "words": ["Just", "uh", "send", "it", "over", "when", "you", "can."], "labels": ["KEEP", "DEL_FILLER", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0024", "source": "rule", "words": ["The", "thing", "is", "like", "we", "need", "more", "authority."], "labels": ["KEEP", "KEEP", "KEEP", "DEL_FILLER", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0025", "source": "rule", "words": ["Send", "the", "the", "invoice", "today."], "labels": ["KEEP", "DEL_REPEAT", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0026", "source": "rule", "words": ["Tell", "her", "tell", "her", "we're", "running", "late."], "labels": ["KEEP", "KEEP", "DEL_REPEAT", "DEL_REPEAT", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0027", "source": "rule", "words": ["I", "I", "think", "it's", "ready."], "labels": ["KEEP", "DEL_REPEAT", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0028", "source": "rule", "words": ["We", "need", "to", "to", "rotate", "the", "token."], "labels": ["KEEP", "KEEP", "KEEP", "DEL_REPEAT", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0029", "source": "rule", "words": ["Push", "push", "it", "to", "main."], "labels": ["KEEP", "DEL_REPEAT", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0030", "source": "rule", "words": ["The", "the", "deploy", "is", "stuck."], "labels": ["KEEP", "DEL_REPEAT", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0031", "source": "rule", "words": ["Can", "can", "you", "check", "the", "cron?"], "labels": ["KEEP", "DEL_REPEAT", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0032", "source": "rule", "words": ["Send", "it", "to", "Dave", "no", "wait", "send", "it", "to", "Sarah."], "labels": ["KEEP", "KEEP", "KEEP", "DEL_REPARANDUM", "DEL_INTERREGNUM", "DEL_INTERREGNUM", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0033", "source": "rule", "words": ["Book", "it", "for", "Monday", "actually", "make", "it", "Tuesday."], "labels": ["KEEP", "KEEP", "KEEP", "DEL_REPARANDUM", "DEL_INTERREGNUM", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0034", "source": "rule", "words": ["Deploy", "to", "staging", "I", "mean", "production."], "labels": ["KEEP", "KEEP", "DEL_REPARANDUM", "DEL_INTERREGNUM", "DEL_INTERREGNUM", "KEEP"]}
+{"id": "fix-0035", "source": "rule", "words": ["Call", "the", "Colchester", "scratch", "that", "the", "Tendring", "office."], "labels": ["KEEP", "KEEP", "DEL_REPARANDUM", "DEL_INTERREGNUM", "DEL_INTERREGNUM", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0036", "source": "rule", "words": ["Set", "the", "price", "to", "twenty", "no", "nineteen", "ninety", "nine."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "DEL_REPARANDUM", "DEL_INTERREGNUM", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0037", "source": "rule", "words": ["Email", "it", "to", "Ken", "no", "Richard", "about", "the", "cancel."], "labels": ["KEEP", "KEEP", "KEEP", "DEL_REPARANDUM", "DEL_INTERREGNUM", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0038", "source": "rule", "words": ["Ship", "the", "blue", "sorry", "the", "green", "variant."], "labels": ["KEEP", "KEEP", "DEL_REPARANDUM", "DEL_INTERREGNUM", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0039", "source": "rule", "words": ["Meet", "at", "noon", "actually", "half", "twelve", "works", "better."], "labels": ["KEEP", "KEEP", "DEL_REPARANDUM", "DEL_INTERREGNUM", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0040", "source": "rule", "words": ["So", "um,", "send", "the", "the", "file", "to", "Dave", "no", "Sarah."], "labels": ["KEEP", "DEL_FILLER", "KEEP", "DEL_REPEAT", "KEEP", "KEEP", "KEEP", "DEL_REPARANDUM", "DEL_INTERREGNUM", "KEEP"]}
+{"id": "fix-0041", "source": "rule", "words": ["We", "we", "basically", "need", "the", "audit", "done."], "labels": ["KEEP", "DEL_REPEAT", "DEL_FILLER", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0042", "source": "rule", "words": ["Uh", "book", "Monday", "I", "mean", "Tuesday", "please."], "labels": ["DEL_FILLER", "KEEP", "DEL_REPARANDUM", "DEL_INTERREGNUM", "DEL_INTERREGNUM", "KEEP", "KEEP"]}
+{"id": "fix-0043", "source": "rule", "words": ["Push", "it", "live", "um", "actually", "hold", "on", "a", "sec."], "labels": ["KEEP", "KEEP", "KEEP", "DEL_FILLER", "DEL_INTERREGNUM", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0044", "source": "rule", "words": ["Ring", "ring", "the", "erm", "planning", "team."], "labels": ["KEEP", "DEL_REPEAT", "KEEP", "DEL_FILLER", "KEEP", "KEEP"]}
+{"id": "fix-0045", "source": "rule", "words": ["I", "like", "the", "new", "dashboard", "layout."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0046", "source": "rule", "words": ["Sort", "the", "leads", "by", "approval", "odds."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0047", "source": "rule", "words": ["You", "know", "the", "answer", "already."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0048", "source": "rule", "words": ["Basically", "everything", "is", "deployed."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0049", "source": "rule", "words": ["Add", "him", "to", "the", "nurture", "drip."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0050", "source": "rule", "words": ["The", "cabin", "guides", "are", "live", "now."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0051", "source": "rule", "words": ["Confirm", "the", "NICEIC", "number", "with", "the", "sparky."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0052", "source": "rule", "words": ["Rotate", "the", "token", "and", "redeploy."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0053", "source": "rule", "words": ["Draft", "the", "outreach", "email", "but", "don't", "send", "it."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0054", "source": "rule", "words": ["Check", "MPS", "is", "available", "before", "training."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0055", "source": "rule", "words": ["The", "gold", "set", "is", "the", "only", "eval", "that", "counts."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP", "KEEP"]}
+{"id": "fix-0056", "source": "rule", "words": ["Get", "it", "done", "today", "um."], "labels": ["KEEP", "KEEP", "KEEP", "KEEP", "DEL_FILLER"]}
+{"id": "fix-0057", "source": "rule", "words": ["Send", "to", "Sarah", "or", "no", "Dave."], "labels": ["KEEP", "KEEP", "KEEP", "DEL_REPARANDUM", "DEL_INTERREGNUM", "KEEP"]}
+{"id": "fix-0058", "source": "rule", "words": ["Push", "the", "fix", "you", "know."], "labels": ["KEEP", "KEEP", "KEEP", "DEL_FILLER", "DEL_FILLER"]}

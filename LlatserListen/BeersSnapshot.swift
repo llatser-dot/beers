@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import SwiftUI
 
 /// Offscreen design-verification harness. Launch the app with
@@ -37,21 +38,144 @@ enum BeersSnapshot {
               CommandLine.arguments.count > index + 1 else { return }
         let text = CommandLine.arguments[index + 1]
         Task { @MainActor in
-            do {
-                let settings = AIRewriteSettings(
-                    isEnabled: true,
-                    endpoint: appState.aiRewriteEndpoint,
-                    model: appState.aiRewriteModel
-                )
-                let result = try await OrderKitchen.polish(
-                    text, mode: .clean, context: .frontmost, settings: settings
-                )
-                llog("BeersSnapshot: POLISH TEST RESULT='\(result)'")
-            } catch {
-                llog("BeersSnapshot: POLISH TEST FAILED: \(error.localizedDescription)")
-            }
+            // Warm the Bouncer first so the shadow pass reflects the
+            // prewarmed steady state real pours see (prewarmPolish warms it
+            // during recording), not the one-off cold Core ML compile.
+            Bouncer.prewarm()
+            let settings = AIRewriteSettings(
+                isEnabled: true,
+                endpoint: appState.aiRewriteEndpoint,
+                model: appState.aiRewriteModel
+            )
+            let result = await OrderKitchen.polish(
+                text, mode: .clean, context: .frontmost, settings: settings
+            )
+            llog("BeersSnapshot: POLISH TEST RESULT='\(result.text)' [tier=\(result.tier.rawValue)]")
+            // Exercise the flywheel end-to-end: this writes a real record to
+            // flywheel.jsonl exactly as a live pour would (raw = the test input,
+            // no rule-polisher ran so rulePolished is null).
+            FlywheelLog.record(
+                raw: text,
+                rulePolished: nil,
+                served: result.text,
+                tier: result.tier.rawValue,
+                bouncerWouldDelete: result.shadow?.deletedIndices,
+                bouncerMs: result.shadow?.elapsedMillis
+            )
+            FlywheelLog.flush()  // short-lived process: ensure the write lands before exit
             exit(0)
         }
+    }
+
+    /// Bouncer parity self-test: `--beers-bouncer-test "text"` prints every
+    /// word with its P(DELETE) and the model's cleaned text, so the Swift
+    /// WordPiece tokenizer + Core ML decisions can be diffed against the Python
+    /// pipeline (`ml/export/verify_parity.py`) for the same string.
+    @MainActor
+    static func runBouncerTestIfRequested() {
+        guard let index = CommandLine.arguments.firstIndex(of: "--beers-bouncer-test"),
+              CommandLine.arguments.count > index + 1 else { return }
+        let text = CommandLine.arguments[index + 1]
+        // Give Core ML a beat to compile/load the model on cold launch.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            Bouncer.prewarm()  // measure the warm, steady-state pass
+            let v = Bouncer.review(text)
+            llog("Bouncer[test]: available=\(v.modelAvailable) threshold=\(v.threshold) "
+                 + "target_met=\(v.targetMet) elapsed=\(String(format: "%.1f", v.elapsedMillis))ms")
+            for (i, w) in v.words.enumerated() {
+                let p = String(format: "%.4f", v.deleteProbabilities[i])
+                let mark = v.deletedIndices.contains(i) ? " <-- DELETE" : ""
+                llog("Bouncer[test]: \(w):\(p)\(mark)")
+            }
+            llog("Bouncer[test]: cleaned='\(v.cleanedText)'")
+            exit(0)
+        }
+    }
+
+    /// End-to-end correction-watcher self-test:
+    /// `--beers-correction-test "served text" "edit to make"`.
+    ///
+    /// Drives the REAL CorrectionWatcher code path: writes a pour record,
+    /// pastes `served text` into the frontmost field, starts the watcher, then
+    /// simulates the user's keyboard edit by setting the field value via AX to
+    /// `edit to make`, and finally forces the watch to end so it evaluates and
+    /// writes a correction record. Two sentinels for the second argument:
+    ///   __NOEDIT__   — paste + watch but make NO edit (expect no record).
+    ///   __SKIPTEST__ — don't paste; just point the watcher at the current
+    ///                  frontmost (e.g. a Terminal) to exercise the skip path.
+    @MainActor
+    static func runCorrectionTestIfRequested(appState: AppState) {
+        guard let index = CommandLine.arguments.firstIndex(of: "--beers-correction-test"),
+              CommandLine.arguments.count > index + 2 else { return }
+        let served = CommandLine.arguments[index + 1]
+        let edit = CommandLine.arguments[index + 2]
+
+        // Skip-path check: no paste, just start the watcher against whatever is
+        // frontmost. Safe to run with a Terminal focused.
+        if edit == "__SKIPTEST__" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                let ts = FlywheelLog.record(
+                    raw: served, rulePolished: nil, served: served,
+                    tier: "rule-fallback", bouncerWouldDelete: nil, bouncerMs: nil
+                ) ?? ""
+                appState.correctionWatcher.start(servedText: served, pourTs: ts)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    FlywheelLog.flush()
+                    exit(0)
+                }
+            }
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            let ts = FlywheelLog.record(
+                raw: served, rulePolished: nil, served: served,
+                tier: "rule-fallback", bouncerWouldDelete: nil, bouncerMs: nil
+            ) ?? ""
+            let paster = TextPaster()
+            _ = paster.paste(served)
+
+            // Let the paste land, then start the watcher (mirrors the pour path).
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                appState.correctionWatcher.start(servedText: served, pourTs: ts)
+
+                if edit == "__NOEDIT__" {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                        appState.correctionWatcher.stop()
+                        FlywheelLog.flush()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { exit(0) }
+                    }
+                    return
+                }
+
+                // Simulate the user's keyboard edit by rewriting the field value.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    setFocusedValue(edit)
+                    // Give the watcher's poll a couple of ticks to capture it.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                        appState.correctionWatcher.stop()
+                        FlywheelLog.flush()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { exit(0) }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Set the focused element's AX value — a stand-in for the user typing.
+    @MainActor
+    private static func setFocusedValue(_ text: String) {
+        let systemWide = AXUIElementCreateSystemWide()
+        var focused: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            systemWide, kAXFocusedUIElementAttribute as CFString, &focused
+        ) == .success, let f = focused else {
+            llog("BeersSnapshot: correction test — no focused element to edit")
+            return
+        }
+        let el = f as! AXUIElement
+        let result = AXUIElementSetAttributeValue(el, kAXValueAttribute as CFString, text as CFTypeRef)
+        llog("BeersSnapshot: correction test set value result=\(result.rawValue)")
     }
 
     /// End-to-end paste self-test: focuses whatever is frontmost and pastes

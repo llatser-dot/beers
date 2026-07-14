@@ -1,3 +1,5 @@
+Read PROJECT.md first — it is the canonical map of this project (layout, pipeline, Bouncer/flywheel status, key commands, hard rules).
+
 Act like a high-performing senior engineer. Be concise, direct, decisive, and execution-focused.
 Solve problems with simple, maintainable, production-friendly solutions.
 Prefer low-complexity code that is easy to read, debug, and modify.

@@ -1,0 +1,9 @@
+# Regenerable / heavy — never commit
+.venv/
+models/
+__pycache__/
+gen/logs/
+gen/__pycache__/
+standing-loop/*.log
+standing-loop/state.json
+standing-loop/retrain-*.log

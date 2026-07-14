@@ -162,9 +162,16 @@ final class AppState: ObservableObject {
     private let hotkeyManager = HotkeyManager()
     private let textPaster = TextPaster()
     private let overlay = OverlayWindowController()
+    let correctionWatcher = CorrectionWatcher()
     private var permissionMonitor: Timer?
     private var loadTask: Task<Void, Error>?
     private var isRecording = false
+
+    // Re-dictation detector: the previous ordinary pour, so a fresh pour that
+    // closely echoes it soon after serving can mark it superseded.
+    private var lastPourTs: String?
+    private var lastPourRaw = ""
+    private var lastPourServedAt = Date.distantPast
 
     var errorMessage: String? {
         if case .error(let message) = status {
@@ -246,8 +253,10 @@ final class AppState: ObservableObject {
             guard let self else { return }
             BeersSnapshot.runIfRequested(appState: self)
             BeersSnapshot.runPasteTestIfRequested()
+            BeersSnapshot.runCorrectionTestIfRequested(appState: self)
             BeersSnapshot.runOrderTestIfRequested(appState: self)
             BeersSnapshot.runPolishTestIfRequested(appState: self)
+            BeersSnapshot.runBouncerTestIfRequested()
         }
     }
 
@@ -521,6 +530,9 @@ final class AppState: ObservableObject {
             return
         }
 
+        // A new pour supersedes any correction watch on the previous one.
+        correctionWatcher.stop()
+
         isCommandOrder = commandMode
         orderSelection = ""
         if commandMode {
@@ -553,8 +565,9 @@ final class AppState: ObservableObject {
             status = .recording
             LiveMicLevel.shared.reset()
             overlay.show(mode: isCommandOrder ? .takingOrder : .pouring)
-            if aiRewriteEnabled && !isCommandOrder {
-                OrderKitchen.prewarmPolish()
+            // Command Mode always uses the model, so prewarm for it too.
+            if aiRewriteEnabled || isCommandOrder {
+                OrderKitchen.prewarmPolish(settings: writingPreferences.aiRewrite)
             }
             Beers.popCap()
             llog("AppState: recording started\(isCommandOrder ? " (order)" : "")")
@@ -619,6 +632,7 @@ final class AppState: ObservableObject {
                 self.lastTargetApp = context.name
 
                 var outputText: String
+                let rulePolished: String?
                 let preferences = self.writingPreferences
                 let resolvedMode = preferences.mode == .automatic ? context.inferredWritingMode : preferences.mode
                 if self.polishBeforePaste {
@@ -627,23 +641,28 @@ final class AppState: ObservableObject {
                         options: preferences.polisherOptions,
                         context: context
                     )
+                    rulePolished = outputText
                     llog("AppState: polished transcription='\(outputText)'")
                 } else {
                     outputText = text
+                    rulePolished = nil
                 }
+                // Track which tier serves + the tier-0 shadow verdict for the
+                // flywheel. When AI rewrite is off, no model or shadow runs.
+                var servingTier: ServingTier = .ruleFallback
+                var bouncerShadow: BouncerVerdict? = nil
                 if preferences.aiRewrite.isEnabled {
-                    do {
-                        outputText = try await OrderKitchen.polish(
-                            outputText,
-                            detectOn: text,
-                            mode: resolvedMode,
-                            context: context,
-                            settings: preferences.aiRewrite
-                        )
-                        llog("AppState: AI-polished transcription='\(outputText)'")
-                    } catch {
-                        llog("AppState: AI polish failed, serving as-is: \(error.localizedDescription)")
-                    }
+                    let result = await OrderKitchen.polish(
+                        outputText,
+                        detectOn: text,
+                        mode: resolvedMode,
+                        context: context,
+                        settings: preferences.aiRewrite
+                    )
+                    outputText = result.text
+                    servingTier = result.tier
+                    bouncerShadow = result.shadow
+                    llog("AppState: AI-polished transcription='\(outputText)' [tier=\(result.tier.rawValue)]")
                 }
                 let vocabularyFinal = VocabularyCorrections.apply(to: outputText)
                 if vocabularyFinal != outputText {
@@ -662,11 +681,44 @@ final class AppState: ObservableObject {
                 )
                 self.pourStore.add(pour)
 
+                // Flywheel: capture this real (raw -> served) pair locally for
+                // future Bouncer retraining. Fire-and-forget; never blocks the
+                // pour. Command Mode is excluded (handled by serveOrder).
+                // Records NEVER leave this machine (see FlywheelLog).
+                let pourTs = FlywheelLog.record(
+                    raw: text,
+                    rulePolished: rulePolished,
+                    served: outputText,
+                    tier: servingTier.rawValue,
+                    bouncerWouldDelete: bouncerShadow?.deletedIndices,
+                    bouncerMs: bouncerShadow?.elapsedMillis
+                )
+
+                // Re-dictation detector: a fresh pour that closely echoes the
+                // last one, soon after it served, means the user re-said it
+                // rather than keeping it — mark the previous record superseded.
+                if let prevTs = self.lastPourTs, let newTs = pourTs {
+                    let dt = Date().timeIntervalSince(self.lastPourServedAt)
+                    if dt <= 20, Self.jaccard(self.lastPourRaw, text) >= 0.5 {
+                        FlywheelLog.recordRedictation(pourTs: prevTs, newPourTs: newTs)
+                        llog("AppState: re-dictation detected (Jaccard>=0.5, \(String(format: "%.1f", dt))s) — pour \(prevTs) superseded")
+                    }
+                }
+                if let newTs = pourTs {
+                    self.lastPourTs = newTs
+                    self.lastPourRaw = text
+                    self.lastPourServedAt = Date()
+                }
+
                 let pasted = self.textPaster.paste(outputText)
                 if pasted {
                     self.overlay.show(mode: .served(words: pour.words))
                     self.overlay.hide(after: 1.0)
                     Beers.clink()
+                    // Watch for the user's keyboard corrections to this pour.
+                    if let ts = pourTs {
+                        self.correctionWatcher.start(servedText: outputText, pourTs: ts)
+                    }
                 } else {
                     self.overlay.hide()
                     self.status = .error(PermissionCopy.clipboardFallback)
@@ -740,6 +792,17 @@ final class AppState: ObservableObject {
         if !accessibilityGranted {
             requestAccessibilityPermission()
         }
+    }
+
+    /// Word-set Jaccard overlap of two raw transcripts (lowercased). Used to
+    /// spot a re-dictation of the same thought.
+    private static func jaccard(_ a: String, _ b: String) -> Double {
+        let wa = Set(a.lowercased().split(whereSeparator: \.isWhitespace).map(String.init))
+        let wb = Set(b.lowercased().split(whereSeparator: \.isWhitespace).map(String.init))
+        if wa.isEmpty || wb.isEmpty { return 0 }
+        let inter = wa.intersection(wb).count
+        let uni = wa.union(wb).count
+        return uni == 0 ? 0 : Double(inter) / Double(uni)
     }
 
     private static func boolDefaultTrue(forKey key: String) -> Bool {

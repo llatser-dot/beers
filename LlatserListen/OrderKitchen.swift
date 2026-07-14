@@ -4,6 +4,32 @@ import Foundation
 import FoundationModels
 #endif
 
+/// Which tier ultimately produced the served text for a pour. Raw values are
+/// the strings the flywheel log records verbatim.
+enum ServingTier: String {
+    /// The tier-0 Bouncer served its cleaned text (dormant until a v2 model
+    /// passes the gold gate; today the shadow only logs and this never wins).
+    case bouncerShadowOnly = "bouncer-shadow-only"
+    /// The ramble gate judged the pour clean and served it unchanged, no model.
+    case cleanGate = "clean-gate"
+    /// Apple's on-device Foundation model won the race.
+    case apple = "apple"
+    /// The user's local endpoint (Ollama etc.) won the race.
+    case local = "local"
+    /// No model served — the rule-polished text stands (race failed/timed out,
+    /// or AI rewrite was disabled for this pour).
+    case ruleFallback = "rule-fallback"
+}
+
+/// Outcome of a per-pour polish: the served text, which tier produced it, and
+/// the tier-0 Bouncer shadow verdict (nil when the shadow did not run) so the
+/// caller can feed the flywheel.
+struct PolishResult {
+    let text: String
+    let tier: ServingTier
+    let shadow: BouncerVerdict?
+}
+
 /// The kitchen behind Command Mode. Tiered:
 /// 1. Apple's on-device Foundation model (macOS 26+, zero setup)
 /// 2. The user's OpenAI-compatible local endpoint (Ollama etc.)
@@ -45,23 +71,12 @@ enum OrderKitchen {
     /// Only rambling transcripts are worth the model's latency. Clean
     /// pours (the majority) serve instantly.
     static func needsRamblePolish(_ text: String) -> Bool {
-        let lower = " " + text.lowercased()
-            .replacingOccurrences(of: #"[.,!?;:—–\-]"#, with: " ", options: .regularExpression)
-            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression) + " "
+        let lower = normalizedSpoken(text)
 
-        let strong = [
-            " no wait ", " wait no ", " actually no ", " no actually ", " scratch that ",
-            " i mean ", " hang on ", " hold on ", " forget that ", " let me start again ",
-            " sorry i mean ",
-        ]
-        if strong.contains(where: lower.contains) { return true }
+        if hasStrongCorrections(text) { return true }
 
         // Immediate word repeats: "the the", "and and".
         if lower.range(of: #" (\S+) \1 "#, options: .regularExpression) != nil { return true }
-
-        // Restarted sentences: the same three-word run appearing twice
-        // ("is there no way that we... is there no way that we...").
-        if lower.range(of: #" (\S+ \S+ \S+) .*\1 "#, options: .regularExpression) != nil { return true }
 
         // Orphaned single-letter fragments from false starts ("make that s um").
         if lower.range(of: #" [b-hj-z] "#, options: .regularExpression) != nil { return true }
@@ -79,48 +94,185 @@ enum OrderKitchen {
         return false
     }
 
+    /// Spoken text with punctuation stripped and whitespace collapsed,
+    /// padded so ` marker ` searches match at the edges.
+    private static func normalizedSpoken(_ text: String) -> String {
+        " " + text.lowercased()
+            .replacingOccurrences(of: #"[.,!?;:—–\-]"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression) + " "
+    }
+
+    /// Explicit self-corrections and restarts — the cases where a much
+    /// shorter polish is legitimate because the speaker discarded words.
+    private static func hasStrongCorrections(_ text: String) -> Bool {
+        let lower = normalizedSpoken(text)
+
+        let strong = [
+            " no wait ", " wait no ", " actually no ", " no actually ", " scratch that ",
+            " i mean ", " hang on ", " hold on ", " forget that ", " let me start again ",
+            " sorry i mean ",
+        ]
+        if strong.contains(where: lower.contains) { return true }
+
+        // Restarted sentences: the same three-word run appearing twice
+        // ("is there no way that we... is there no way that we...").
+        if lower.range(of: #" (\S+ \S+ \S+) .*\1 "#, options: .regularExpression) != nil { return true }
+
+        return false
+    }
+
+    /// Guard against the model summarising instead of cleaning: unless the
+    /// speaker explicitly discarded words, a polish that loses close to half
+    /// the input has dropped sentences, not filler.
+    private static func minimumKeepRatio(rawTranscript: String) -> Double {
+        hasStrongCorrections(rawTranscript) ? 0.35 : 0.55
+    }
+
+    private static func keepRatio(input: String, output: String) -> Double {
+        let inWords = input.split(whereSeparator: \.isWhitespace).count
+        guard inWords > 0 else { return 1 }
+        let outWords = output.split(whereSeparator: \.isWhitespace).count
+        return Double(outWords) / Double(inWords)
+    }
+
     /// Per-pour polish: turn rambling speech into what the speaker meant.
-    /// Same tiers as orders. On any failure the caller keeps the original.
+    /// Same tiers as orders. Never throws — on any failure the rule-polished
+    /// input serves (tier `.ruleFallback`). Returns which tier served plus the
+    /// tier-0 shadow verdict so the caller can feed the flywheel.
     static func polish(
         _ text: String,
         detectOn rawTranscript: String? = nil,
         mode: WritingMode,
         context: ActiveAppContext,
         settings: AIRewriteSettings
-    ) async throws -> String {
+    ) async -> PolishResult {
+        // Tier 0 — the Bouncer. Runs BEFORE the ramble gate. In this phase it
+        // is SHADOW ONLY: it predicts which words it would delete and logs one
+        // line per pour, but never alters the served text.
+        let shadow = runBouncerShadow(text)
+
+        // --- TIER-0 ACTIVATION GATE (dormant until v2) ---------------------
+        // target_met is false for the current stand-in model, so this branch is
+        // never taken and the pour falls through to the ramble gate + LLM tiers
+        // exactly as before. When a v2 model passes the gold gate, the bundled
+        // threshold.json flips target_met to true and tier 0 serves — a pure
+        // file swap, no code edit.
+        if let shadow, shadow.targetMet {
+            llog("OrderKitchen: pour served by tier-0 Bouncer")
+            return PolishResult(text: shadow.cleanedText, tier: .bouncerShadowOnly, shadow: shadow)
+        }
+
         // Gate on the RAW transcript: the rule polisher strips fillers
         // before we get here, hiding exactly the signals we look for.
         guard needsRamblePolish(rawTranscript ?? text) else {
             llog("OrderKitchen: clean pour — served raw, no model")
-            return text
+            return PolishResult(text: text, tier: .cleanGate, shadow: shadow)
         }
 
         let start = ContinuousClock.now
-        #if canImport(FoundationModels)
-        if #available(macOS 26.0, *), text.count <= appleTierMaxChars {
-            if case .available = SystemLanguageModel.default.availability {
-                do {
-                    let polished = try await withDeadline(polishTimeout) {
-                        try await applePolish(text, mode: mode, context: context)
-                    }
-                    llog("OrderKitchen: pour polished by Apple model in \(elapsed(since: start))")
-                    return polished
-                } catch {
-                    llog("OrderKitchen: Apple polish failed after \(elapsed(since: start)) (\(error.localizedDescription)) — trying local endpoint")
-                }
+        let minKeep = minimumKeepRatio(rawTranscript: rawTranscript ?? text)
+        do {
+            let (tier, polished) = try await withDeadline(polishTimeout) {
+                try await racePolish(text, minKeepRatio: minKeep, mode: mode, context: context, settings: settings)
             }
+            llog("OrderKitchen: pour polished by \(tier) in \(elapsed(since: start))")
+            let servingTier: ServingTier = tier.hasPrefix("Apple") ? .apple : .local
+            return PolishResult(text: polished, tier: servingTier, shadow: shadow)
+        } catch {
+            // Deadline exceeded or no tier available: keep the rule-polished text.
+            llog("OrderKitchen: no model served (\(error)) — keeping rule-polished text")
+            return PolishResult(text: text, tier: .ruleFallback, shadow: shadow)
         }
-        #endif
-        let polished = try await withDeadline(polishTimeout) {
-            try await AITranscriptRewriter.rewrite(text, mode: mode, context: context, settings: settings)
-        }
-        llog("OrderKitchen: pour polished by local endpoint in \(elapsed(since: start))")
-        return polished
     }
 
-    /// Load the model while the user is still speaking so generation can
+    /// Tier-0 Bouncer, SHADOW MODE. Runs one inference, logs exactly one line
+    /// per pour, and returns the verdict (or nil when disabled or the model
+    /// files are absent) so the caller can both decide activation and log the
+    /// shadow prediction to the flywheel. Catches everything: a broken or
+    /// missing model must never affect a pour.
+    private static func runBouncerShadow(_ text: String) -> BouncerVerdict? {
+        // Opt-out switch; defaults on (absent key == enabled).
+        let enabled = UserDefaults.standard.object(forKey: "bouncerShadowEnabled") == nil
+            || UserDefaults.standard.bool(forKey: "bouncerShadowEnabled")
+        guard enabled else { return nil }
+
+        let verdict = Bouncer.review(text)
+        guard verdict.modelAvailable else { return nil }  // model files absent -> skip silently
+
+        let ms = String(format: "%.1f", verdict.elapsedMillis)
+        if verdict.didFire {
+            let deleted = verdict.deletedIndices.map { i in
+                "\(verdict.words[i])@\(String(format: "%.2f", verdict.deleteProbabilities[i]))"
+            }.joined(separator: ", ")
+            llog("Bouncer[shadow]: would delete \(verdict.deletedIndices.count) words: [\(deleted)] in \(ms)ms")
+        } else {
+            llog("Bouncer[shadow]: clean pour, 0 deletions in \(ms)ms")
+        }
+        return verdict
+    }
+
+    private struct KitchenClosed: Error {}
+
+    /// Run every available tier at once under the caller's single deadline —
+    /// first acceptable result serves. Sequential fallback used to stack two
+    /// full timeouts before giving up.
+    private static func racePolish(
+        _ text: String,
+        minKeepRatio: Double,
+        mode: WritingMode,
+        context: ActiveAppContext,
+        settings: AIRewriteSettings
+    ) async throws -> (tier: String, text: String) {
+        try await withThrowingTaskGroup(of: (tier: String, output: String?).self) { group in
+            var tiers = 0
+            #if canImport(FoundationModels)
+            if #available(macOS 26.0, *), text.count <= appleTierMaxChars,
+               case .available = SystemLanguageModel.default.availability {
+                tiers += 1
+                group.addTask {
+                    do {
+                        return ("Apple model", try await applePolish(text, mode: mode, context: context))
+                    } catch {
+                        if !(error is CancellationError) {
+                            llog("OrderKitchen: Apple polish failed (\(error.localizedDescription))")
+                        }
+                        return ("Apple model", nil)
+                    }
+                }
+            }
+            #endif
+            if settings.isEnabled {
+                let tier = "local model (\(settings.model))"
+                tiers += 1
+                group.addTask {
+                    do {
+                        return (tier, try await AITranscriptRewriter.rewrite(text, mode: mode, context: context, settings: settings))
+                    } catch {
+                        if !(error is CancellationError) {
+                            llog("OrderKitchen: local polish failed (\(error.localizedDescription))")
+                        }
+                        return (tier, nil)
+                    }
+                }
+            }
+            guard tiers > 0 else { throw KitchenClosed() }
+
+            defer { group.cancelAll() }
+            for try await result in group {
+                guard let output = result.output else { continue }
+                let ratio = keepRatio(input: text, output: output)
+                if ratio >= minKeepRatio {
+                    return (result.tier, output)
+                }
+                llog("OrderKitchen: \(result.tier) kept only \(Int(ratio * 100))% of the words — rejected as over-trimmed")
+            }
+            throw KitchenClosed()
+        }
+    }
+
+    /// Load the models while the user is still speaking so generation can
     /// start the instant transcription lands.
-    static func prewarmPolish() {
+    static func prewarmPolish(settings: AIRewriteSettings) {
         #if canImport(FoundationModels)
         if #available(macOS 26.0, *) {
             if case .available = SystemLanguageModel.default.availability {
@@ -130,6 +282,10 @@ enum OrderKitchen {
             }
         }
         #endif
+        AITranscriptRewriter.prewarm(settings: settings)
+        // Tier-0 Bouncer: warm the Core ML model off the main thread so the
+        // first pour's shadow pass costs a few ms, not the cold ~600ms.
+        Task.detached(priority: .utility) { Bouncer.prewarm() }
     }
 
     private static var prewarmedPolishSession: Any?
@@ -165,7 +321,9 @@ enum OrderKitchen {
         "I mean"), or say the same thing twice in different words, keep ONLY the final intended version.
         Remove filler ("um", "uh", "like", "you know", "basically") and false starts.
         Keep ALL substantive content — every reason, detail and aside the speaker meant. \
-        Only drop words that are filler or versions the speaker corrected. When unsure, keep it.
+        Never summarise, condense or shorten: apart from removed filler and corrected restarts, \
+        keep every sentence, so the output is nearly as long as the input. \
+        Never drop the first or last sentence. When unsure, keep it.
         Keep the speaker's natural voice, tone and word choice — tidy it, don't formalise it.
         Never add information, never answer questions in the text, never explain.
         Keep names, numbers, URLs, emails and code exactly as spoken.
