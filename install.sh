@@ -113,6 +113,14 @@ if ! grep -Fq "Authority=Developer ID Application:" <<<"$SIGN_DETAILS"; then
         ARCHS="arm64 x86_64"
     BUILT_APP="$BUILD_DIR/Build/Products/Release/$APP_NAME.app"
 
+    # Fresh clone with no Apple certificate at all: mint the stable local
+    # identity (same one agent-install.sh uses) so local signing can proceed.
+    if [ -z "$SIGN_IDENTITY" ]; then
+        echo "No code-signing identity found; creating a stable local identity..."
+        bash "$PROJECT_DIR/scripts/create-local-signing-identity.sh"
+        SIGN_IDENTITY="$(security find-identity -v -p codesigning | awk -F '"' '/Llatser Listen Local Code Signing/ { print $2; exit }')"
+    fi
+
     if [ -n "$SIGN_IDENTITY" ] && security find-identity -v -p codesigning | grep -Fq "$SIGN_IDENTITY"; then
         codesign --force --deep --timestamp=none --options runtime \
             --entitlements "$PROJECT_DIR/LlatserListen/LlatserListen.entitlements" \

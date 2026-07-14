@@ -167,6 +167,30 @@ enum FlywheelLog {
         queue.sync {}
     }
 
+    /// Pour it away: delete the live flywheel log and every rotation from disk.
+    /// The user's "wipe my training data" action — local files only, no network
+    /// anywhere. Serialized on `queue` so it never races an in-flight append
+    /// (pending writes land first, then everything is removed). Returns the
+    /// number of files deleted.
+    @discardableResult
+    static func wipe() -> Int {
+        queue.sync {
+            let fm = FileManager.default
+            let dir = supportDir()
+            var removed = 0
+            if let names = try? fm.contentsOfDirectory(atPath: dir.path) {
+                for name in names where name == "flywheel.jsonl"
+                    || (name.hasPrefix("flywheel-") && name.hasSuffix(".jsonl")) {
+                    if (try? fm.removeItem(at: dir.appendingPathComponent(name))) != nil {
+                        removed += 1
+                    }
+                }
+            }
+            llog("FlywheelLog: poured it away — deleted \(removed) training file(s)")
+            return removed
+        }
+    }
+
     // MARK: - Disk
 
     private static func supportDir() -> URL {

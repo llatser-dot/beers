@@ -23,7 +23,7 @@ is negotiable). See `../DESIGN.md` for the label scheme and JSONL contract.
 
 ## Environment
 ```bash
-cd ~/Projects/Llatser.Listen/ml
+cd ml                          # from the repo root
 uv venv --python 3.12          # if .venv doesn't already exist
 uv pip install torch transformers "numpy<2" scikit-learn
 .venv/bin/python -c "import torch; print('mps', torch.backends.mps.is_available())"
