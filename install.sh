@@ -51,7 +51,7 @@ if [ -n "$TEAM_ID" ] && xcodebuild -quiet \
     DEVELOPMENT_TEAM="$TEAM_ID" \
     CODE_SIGN_STYLE=Automatic \
     ONLY_ACTIVE_ARCH=NO \
-    ARCHS="arm64 x86_64"; then
+    ARCHS=arm64; then
     plutil -create xml1 "$BUILD_DIR/ExportOptions.plist"
     plutil -insert method -string developer-id "$BUILD_DIR/ExportOptions.plist"
     plutil -insert destination -string export "$BUILD_DIR/ExportOptions.plist"
@@ -114,7 +114,7 @@ if ! grep -Fq "Authority=Developer ID Application:" <<<"$SIGN_DETAILS"; then
         CODE_SIGNING_REQUIRED=NO \
         CODE_SIGNING_ALLOWED=NO \
         ONLY_ACTIVE_ARCH=NO \
-        ARCHS="arm64 x86_64"
+        ARCHS=arm64
     BUILT_APP="$BUILD_DIR/Build/Products/Release/$APP_NAME.app"
 
     # Fresh clone with no Apple certificate at all: mint the stable local
