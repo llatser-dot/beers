@@ -7,6 +7,7 @@ struct BrewControlsView: View {
     @State private var showSmashSheet = false
     @State private var showWipeSheet = false
     @State private var endpointDraft = ""
+    @State private var endpointError: String?
     @State private var showRemoteEndpointSheet = false
 
     var body: some View {
@@ -40,11 +41,15 @@ struct BrewControlsView: View {
         .sheet(isPresented: $showRemoteEndpointSheet) {
             RemoteEndpointSheet(
                 isPresented: $showRemoteEndpointSheet,
-                host: URL(string: endpointDraft)?.host ?? endpointDraft,
+                origin: AIEndpointTrust.normalizedOrigin(from: endpointDraft) ?? endpointDraft,
                 onConfirm: {
                     let candidate = endpointDraft.trimmingCharacters(in: .whitespacesAndNewlines)
                     if AITranscriptRewriter.approveRemoteEndpoint(candidate) {
                         appState.aiRewriteEndpoint = candidate
+                        endpointError = nil
+                    } else {
+                        endpointDraft = appState.aiRewriteEndpoint
+                        endpointError = "That endpoint couldn't be approved."
                     }
                 },
                 onCancel: {
@@ -309,29 +314,50 @@ struct BrewControlsView: View {
     }
 
     /// The endpoint the rewriter POSTs your pours to. A loopback address commits
-    /// silently; a remote host trips a confirm sheet before it's saved.
+    /// silently; a remote origin trips a confirm sheet before it's saved.
     private var endpointField: some View {
-        TextField("Local endpoint", text: $endpointDraft)
-            .textFieldStyle(.plain)
-            .font(Beers.ui(13, .medium))
-            .foregroundStyle(Beers.ink)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Beers.cream, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Beers.ink, lineWidth: 2)
-            )
-            .onSubmit(commitEndpoint)
+        VStack(alignment: .leading, spacing: 4) {
+            TextField("Local endpoint", text: $endpointDraft)
+                .textFieldStyle(.plain)
+                .font(Beers.ui(13, .medium))
+                .foregroundStyle(Beers.ink)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Beers.cream, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(Beers.ink, lineWidth: 2)
+                )
+                .onSubmit(commitEndpoint)
+                .onChange(of: endpointDraft) { _, newValue in
+                    if newValue != appState.aiRewriteEndpoint {
+                        endpointError = nil
+                    }
+                }
+
+            if let endpointError {
+                Text(endpointError)
+                    .font(Beers.ui(11.5, .medium))
+                    .foregroundStyle(Beers.stout)
+            }
+        }
     }
 
     private func commitEndpoint() {
         let candidate = endpointDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard AIEndpointTrust.normalizedOrigin(from: candidate) != nil else {
+            endpointDraft = appState.aiRewriteEndpoint
+            endpointError = "Use a valid HTTP or HTTPS endpoint."
+            return
+        }
+
         if AITranscriptRewriter.isLoopbackEndpoint(candidate) {
             AITranscriptRewriter.revokeRemoteEndpointApproval()
             appState.aiRewriteEndpoint = candidate
+            endpointError = nil
         } else if AITranscriptRewriter.isRemoteEndpointAllowed(candidate) {
             appState.aiRewriteEndpoint = candidate
+            endpointError = nil
         } else {
             showRemoteEndpointSheet = true
         }
@@ -598,10 +624,10 @@ struct SmashTheGlassesSheet: View {
 
 /// Consent confirm for pointing the rewriter at a NON-loopback endpoint. Same
 /// scalloped-seal warning pattern as the destructive sheets: confirming opts in
-/// (stores approval for that host), cancelling restores the previously saved value.
+/// (stores approval for that origin), cancelling restores the previously saved value.
 struct RemoteEndpointSheet: View {
     @Binding var isPresented: Bool
-    let host: String
+    let origin: String
     let onConfirm: () -> Void
     let onCancel: () -> Void
 
@@ -620,7 +646,7 @@ struct RemoteEndpointSheet: View {
                 .font(Beers.display(18))
                 .foregroundStyle(Beers.stout)
 
-            Text("“\(host)” is a remote server, not your machine. Confirm and Beers will send your pours there to be rewritten — leaving this Mac like any web request. Keep it local unless you trust that server. Plain HTTP is unencrypted; prefer HTTPS.")
+            Text("“\(origin)” is a remote server, not your machine. Confirm and Beers will send your pours there to be rewritten — leaving this Mac like any web request. Keep it local unless you trust that server. Plain HTTP is unencrypted; prefer HTTPS.")
                 .font(Beers.ui(13, .medium))
                 .foregroundStyle(Beers.ink.opacity(0.7))
                 .multilineTextAlignment(.center)

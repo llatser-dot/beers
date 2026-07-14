@@ -17,8 +17,6 @@ if [[ -n "$(git -C "$PROJECT_DIR" status --porcelain --untracked-files=normal)" 
     exit 1
 fi
 
-git -C "$PROJECT_DIR" lfs fsck
-
 for command in xcodegen xcodebuild xcrun; do
     if ! command -v "$command" >/dev/null 2>&1; then
         echo "Missing required release-check command: $command" >&2
@@ -26,7 +24,18 @@ for command in xcodegen xcodebuild xcrun; do
     fi
 done
 
+if ! git lfs version >/dev/null 2>&1; then
+    echo "Missing required release-check command: git-lfs (install with 'brew install git-lfs')." >&2
+    exit 1
+fi
+
+git -C "$PROJECT_DIR" lfs fsck
+
 WEIGHT="$PROJECT_DIR/LlatserListen/Resources/Bouncer/Bouncer.mlpackage/Data/com.apple.CoreML/weights/weight.bin"
+if [[ ! -f "$WEIGHT" ]]; then
+    echo "Missing Bouncer weights: $WEIGHT (run git lfs pull)." >&2
+    exit 1
+fi
 if grep -aq '^version https://git-lfs.github.com/spec/v1' "$WEIGHT"; then
     echo "Bouncer weights are still a Git LFS pointer; run git lfs pull." >&2
     exit 1

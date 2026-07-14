@@ -13,6 +13,18 @@ struct AIRewriteSettings {
 }
 
 enum AITranscriptRewriter {
+    private final class RedirectRefusingDelegate: NSObject, URLSessionTaskDelegate {
+        func urlSession(
+            _ session: URLSession,
+            task: URLSessionTask,
+            willPerformHTTPRedirection response: HTTPURLResponse,
+            newRequest request: URLRequest,
+            completionHandler: @escaping (URLRequest?) -> Void
+        ) {
+            completionHandler(nil)
+        }
+    }
+
     struct Request: Encodable {
         let model: String
         let messages: [Message]
@@ -87,6 +99,13 @@ enum AITranscriptRewriter {
     }
 
     private static let keepAlive = "30m"
+    /// Rewrite API calls never follow redirects; every pour stays bound to the
+    /// endpoint the user configured and, for remote origins, explicitly approved.
+    private static let session = URLSession(
+        configuration: .default,
+        delegate: RedirectRefusingDelegate(),
+        delegateQueue: nil
+    )
 
     static func rewrite(
         _ text: String,
@@ -150,7 +169,7 @@ enum AITranscriptRewriter {
                         keepAlive: keepAlive
                     )
                 )
-                if let (_, response) = try? await URLSession.shared.data(for: request),
+                if let (_, response) = try? await session.data(for: request),
                    (response as? HTTPURLResponse).map({ (200...299).contains($0.statusCode) }) == true {
                     llog("AITranscriptRewriter: prewarmed \(model)")
                     return
@@ -170,7 +189,7 @@ enum AITranscriptRewriter {
                     maxTokens: 1
                 )
             )
-            _ = try? await URLSession.shared.data(for: request)
+            _ = try? await session.data(for: request)
         }
     }
 
@@ -185,8 +204,8 @@ enum AITranscriptRewriter {
         return (url, model)
     }
 
-    /// The specific remote host the user approved via Brew Controls. Approval is
-    /// host-scoped: consenting to one server never silently consents to another.
+    /// The specific remote origin the user approved via Brew Controls.
+    private static let remoteEndpointAllowedOriginKey = "remoteEndpointAllowedOrigin"
     private static let remoteEndpointAllowedHostKey = "remoteEndpointAllowedHost"
 
     /// True when `host` is a loopback address that never leaves the machine.
@@ -200,18 +219,20 @@ enum AITranscriptRewriter {
     }
 
     static func approveRemoteEndpoint(_ endpoint: String) -> Bool {
-        guard let host = AIEndpointTrust.normalizedHost(from: endpoint),
+        guard let origin = AIEndpointTrust.normalizedOrigin(from: endpoint),
+              let host = AIEndpointTrust.normalizedHost(from: endpoint),
               !AIEndpointTrust.isLoopback(host: host) else { return false }
-        UserDefaults.standard.set(host, forKey: remoteEndpointAllowedHostKey)
+        UserDefaults.standard.set(origin, forKey: remoteEndpointAllowedOriginKey)
         return true
     }
 
     static func isRemoteEndpointAllowed(_ endpoint: String) -> Bool {
-        guard let host = AIEndpointTrust.normalizedHost(from: endpoint) else { return false }
-        return UserDefaults.standard.string(forKey: remoteEndpointAllowedHostKey) == host
+        guard let origin = AIEndpointTrust.normalizedOrigin(from: endpoint) else { return false }
+        return UserDefaults.standard.string(forKey: remoteEndpointAllowedOriginKey) == origin
     }
 
     static func revokeRemoteEndpointApproval() {
+        UserDefaults.standard.removeObject(forKey: remoteEndpointAllowedOriginKey)
         UserDefaults.standard.removeObject(forKey: remoteEndpointAllowedHostKey)
         // Remove the old global boolean so upgrades cannot accidentally restore
         // the pre-1.0 blanket approval behaviour.
@@ -219,14 +240,14 @@ enum AITranscriptRewriter {
     }
 
     /// The rewriter POSTs the user's dictation to this endpoint. Loopback is
-    /// always allowed; a non-loopback (remote) host is refused unless the user
-    /// has explicitly consented to that exact host. Every path —
+    /// always allowed; a non-loopback (remote) origin is refused unless the user
+    /// has explicitly consented to that exact scheme, host and port. Every path —
     /// polish, Command Mode, prewarm — flows through `validated`, so this one
     /// choke point covers them all.
     private static func enforceEndpointTrust(_ url: URL) throws {
         if isLoopback(host: url.host) { return }
         if isRemoteEndpointAllowed(url.absoluteString) { return }
-        llog("AITranscriptRewriter: refusing non-loopback endpoint host '\(url.host ?? "?")' — confirm this remote host before any pour is sent")
+        llog("AITranscriptRewriter: refusing non-loopback endpoint origin '\(AIEndpointTrust.normalizedOrigin(from: url.absoluteString) ?? "?")' — confirm this remote origin before any pour is sent")
         throw URLError(.userAuthenticationRequired)
     }
 
@@ -262,7 +283,7 @@ enum AITranscriptRewriter {
                 )
             )
             do {
-                let (data, response) = try await URLSession.shared.data(for: request)
+                let (data, response) = try await session.data(for: request)
                 if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
                     throw URLError(.badServerResponse)
                 }
@@ -283,7 +304,7 @@ enum AITranscriptRewriter {
             Request(model: model, messages: messages, temperature: temperature, maxTokens: maxTokens)
         )
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
             throw URLError(.badServerResponse)
         }
