@@ -53,6 +53,6 @@ log "THRESHOLD MET — launching v3 retrain (opus, unattended)"
 python3 -c "import json,datetime;json.dump({'last_train':datetime.datetime.now().isoformat()},open('$STATE','w'))"
 cd "$HOME/Projects/beers"
 "$(command -v claude || echo "$HOME/.local/bin/claude")" -p \
-  "Read ~/Projects/beers/ml/standing-loop/RETRAIN-PROMPT.md and execute it fully and exactly." \
+  "Read $HOME/Projects/beers/ml/standing-loop/RETRAIN-PROMPT.md and execute it fully and exactly." \
   --model opus --dangerously-skip-permissions >> "$LOOP/retrain-$(date +%Y%m%d).log" 2>&1
 log "retrain agent finished (exit $?) — see retrain-$(date +%Y%m%d).log and report in $LOOP"

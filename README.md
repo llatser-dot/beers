@@ -157,7 +157,12 @@ Every pour and every keyboard correction is logged **locally only**, to
 `~/Library/Application Support/Beers/flywheel.jsonl` (outside this repo, never
 uploaded). A `launchd` standing loop periodically checks whether enough real data
 has accumulated and, if so, retrains the Bouncer on *your* speech, scores it against
-the frozen gold exam plus held-out real dictation, and writes a report. It **never**
+the frozen gold exam plus held-out real dictation, and writes a report. One honest
+caveat: the committed reference loop (`ml/standing-loop/`) is the author's personal
+automation and uses a cloud LLM agent (Claude) to label the training data — so
+running *that* loop sends flywheel text to Anthropic. The app itself never runs it;
+nothing retrains unless you set it up yourself, and a fully on-device trainer is
+the roadmap item that closes this gap. It **never**
 activates the model and **never** commits anything — going live is a manual,
 reviewed step. Toggles for logging, correction-watching, and shadow prediction all
 live in the app (and all default on; turn them off any time).

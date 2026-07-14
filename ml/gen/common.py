@@ -242,7 +242,7 @@ def read_jsonl(path: str):
 # ---------------------------------------------------------------------------
 # Real-material loaders.
 def load_pours():
-    p = "~/Library/Application Support/Beers/pours.json"
+    p = os.path.expanduser("~/Library/Application Support/Beers/pours.json")
     with open(p, encoding="utf-8") as f:
         rows = json.load(f)
     return [r["text"].strip() for r in rows if r.get("text", "").strip()]
