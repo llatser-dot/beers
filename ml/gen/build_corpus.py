@@ -206,7 +206,7 @@ THEMES = [
     "asking the assistant to orchestrate a big build", "quick notes to self",
     "a Slack message to a client or contractor", "frustration with bad domains",
     "scraping marketplaces on the Oracle server", "the phone repair side project",
-    "the medicine tracking product", "PlanWatch planning alerts product",
+    "the medicine tracking product", "the planning alerts product",
 ]
 
 def gen_ollama(target, out_path):
