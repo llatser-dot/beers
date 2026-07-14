@@ -6,6 +6,8 @@ struct BrewControlsView: View {
     @EnvironmentObject var appState: AppState
     @State private var showSmashSheet = false
     @State private var showWipeSheet = false
+    @State private var endpointDraft = ""
+    @State private var showRemoteEndpointSheet = false
 
     var body: some View {
         ScrollView {
@@ -35,9 +37,23 @@ struct BrewControlsView: View {
                 FlywheelLog.wipe()
             }
         }
+        .sheet(isPresented: $showRemoteEndpointSheet) {
+            RemoteEndpointSheet(
+                isPresented: $showRemoteEndpointSheet,
+                host: URL(string: endpointDraft)?.host ?? endpointDraft,
+                onConfirm: {
+                    UserDefaults.standard.set(true, forKey: AITranscriptRewriter.remoteEndpointAllowedKey)
+                    appState.aiRewriteEndpoint = endpointDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                },
+                onCancel: {
+                    endpointDraft = appState.aiRewriteEndpoint  // revert the field
+                }
+            )
+        }
         .onAppear {
             appState.refreshPermissions()
             appState.refreshVocabularySuggestions()
+            endpointDraft = appState.aiRewriteEndpoint
         }
     }
 
@@ -239,7 +255,7 @@ struct BrewControlsView: View {
 
             if appState.aiRewriteEnabled {
                 VStack(spacing: 8) {
-                    aiField("Local endpoint", text: $appState.aiRewriteEndpoint)
+                    endpointField
                     aiField("Model", text: $appState.aiRewriteModel)
                 }
                 .padding(.horizontal, 16)
@@ -288,6 +304,33 @@ struct BrewControlsView: View {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .strokeBorder(Beers.ink, lineWidth: 2)
             )
+    }
+
+    /// The endpoint the rewriter POSTs your pours to. A loopback address commits
+    /// silently; a remote host trips a confirm sheet before it's saved.
+    private var endpointField: some View {
+        TextField("Local endpoint", text: $endpointDraft)
+            .textFieldStyle(.plain)
+            .font(Beers.ui(13, .medium))
+            .foregroundStyle(Beers.ink)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Beers.cream, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(Beers.ink, lineWidth: 2)
+            )
+            .onSubmit(commitEndpoint)
+    }
+
+    private func commitEndpoint() {
+        let candidate = endpointDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if AITranscriptRewriter.isLoopbackEndpoint(candidate)
+            || UserDefaults.standard.bool(forKey: AITranscriptRewriter.remoteEndpointAllowedKey) {
+            appState.aiRewriteEndpoint = candidate
+        } else {
+            showRemoteEndpointSheet = true
+        }
     }
 
     // MARK: 📓 The Little Black Book
@@ -540,6 +583,56 @@ struct SmashTheGlassesSheet: View {
                 .buttonStyle(BeersButtonStyle(kind: .amber, small: true))
                 .disabled(!armed)
                 .opacity(armed ? 1 : 0.45)
+            }
+        }
+        .padding(28)
+        .frame(width: 360)
+        .background(Beers.paper)
+        .environment(\.colorScheme, .light)
+    }
+}
+
+/// Consent confirm for pointing the rewriter at a NON-loopback endpoint. Same
+/// scalloped-seal warning pattern as the destructive sheets: confirming opts in
+/// (sets `remoteEndpointAllowed`), cancelling reverts the field to loopback.
+struct RemoteEndpointSheet: View {
+    @Binding var isPresented: Bool
+    let host: String
+    let onConfirm: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            ZStack {
+                SealShape()
+                    .fill(Beers.lager)
+                SealShape()
+                    .stroke(Beers.ink, lineWidth: 2.5)
+                Text("🌐").font(.system(size: 26))
+            }
+            .frame(width: 74, height: 74)
+
+            Text("Send pours off this Mac?")
+                .font(Beers.display(18))
+                .foregroundStyle(Beers.stout)
+
+            Text("“\(host)” is a remote server, not your machine. Confirm and Beers will send your pours there to be rewritten — leaving this Mac like any web request. Keep it local unless you trust that server.")
+                .font(Beers.ui(13, .medium))
+                .foregroundStyle(Beers.ink.opacity(0.7))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 12) {
+                Button("Keep it local") {
+                    onCancel()
+                    isPresented = false
+                }
+                .buttonStyle(BeersButtonStyle(kind: .ghost, small: true))
+                Button("Send to remote 🌐") {
+                    onConfirm()
+                    isPresented = false
+                }
+                .buttonStyle(BeersButtonStyle(kind: .amber, small: true))
             }
         }
         .padding(28)

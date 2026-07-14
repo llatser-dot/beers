@@ -95,7 +95,11 @@ tail -f /tmp/llatser-listen.log                                # live app log
 
 ## Hard rules
 
-- ☠️ NEVER `tccutil reset` on `com.llatser.listen` — kills the app's permission grants.
+- ☠️ NEVER run a MANUAL `tccutil reset` on `com.llatser.listen` — it kills the
+  app's permission grants. The one supported reset is `install.sh`'s own scoped,
+  automatic one (service-scoped: ListenEvent/Accessibility/Microphone on the
+  bundle id), fired only when the signing identity actually changed so a single
+  clean re-grant works. Let the installer handle it; never do it by hand.
 - NEVER edit `ml/data/gold.jsonl` or train on it; extend evals via new real-test files.
 - The Bouncer only deletes — any feature that makes it write text is out of scope.
 - Flywheel data is private: no upload paths, no telemetry, ever.

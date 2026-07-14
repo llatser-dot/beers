@@ -179,7 +179,38 @@ enum AITranscriptRewriter {
         guard let url = URL(string: settings.endpoint), !model.isEmpty else {
             throw URLError(.badURL)
         }
+        try enforceEndpointTrust(url)
         return (url, model)
+    }
+
+    /// UserDefaults gate the user flips (via the Brew Controls confirm sheet)
+    /// to consent to a remote rewrite endpoint.
+    static let remoteEndpointAllowedKey = "remoteEndpointAllowed"
+
+    /// True when `host` is a loopback address that never leaves the machine.
+    static func isLoopback(host: String?) -> Bool {
+        guard let host = host?
+            .trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+            .lowercased(), !host.isEmpty else { return false }
+        return host == "localhost" || host == "::1"
+            || host == "127.0.0.1" || host.hasPrefix("127.")
+    }
+
+    /// Convenience for the UI: is this endpoint string a loopback destination?
+    static func isLoopbackEndpoint(_ endpoint: String) -> Bool {
+        isLoopback(host: URL(string: endpoint)?.host)
+    }
+
+    /// The rewriter POSTs the user's dictation to this endpoint. Loopback is
+    /// always allowed; a non-loopback (remote) host is refused unless the user
+    /// has explicitly consented via `remoteEndpointAllowed`. Every path —
+    /// polish, Command Mode, prewarm — flows through `validated`, so this one
+    /// choke point covers them all.
+    private static func enforceEndpointTrust(_ url: URL) throws {
+        if isLoopback(host: url.host) { return }
+        if UserDefaults.standard.bool(forKey: remoteEndpointAllowedKey) { return }
+        llog("AITranscriptRewriter: refusing non-loopback endpoint host '\(url.host ?? "?")' — your pours stay on this Mac unless you confirm a remote server (remoteEndpointAllowed is off)")
+        throw URLError(.userAuthenticationRequired)
     }
 
     private static func complete(
