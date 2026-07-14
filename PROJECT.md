@@ -34,7 +34,9 @@ ml/                       Everything machine-learning (Python; ml/.venv and ALL 
   models/                 Checkpoints + baselines (NOT committed — regenerable, see reports inside)
   standing-loop/          Weekly launchd retrain loop: check-and-train.sh + RETRAIN-PROMPT.md + reports
 scripts/agent-install.sh  THE build+install command (stable signing, TCC preserved)
+scripts/export-brand-assets.py  Rebuild the true-SVG + longest-edge 4096px logo pack
 site/                     Tracked public website source (source-build CTA; no deploy pipeline yet)
+Beers-Brand-Assets/exports-v1/  Canonical SVG/4K PNG logo pack + separated legacy mark
 ```
 
 ## The cleanup pipeline (OrderKitchen.polish)
@@ -118,3 +120,6 @@ tail -f /tmp/llatser-listen.log                                # live app log
 - Tracked public site: `site/index.html` (NOT deployed; source-build CTA until notarisation).
 - Earlier loose site draft: `~/Projects/beers-wireframes/site.html` (reference only).
 - Brand assets: `~/Projects/beers-wireframes/brand/`, `Beers-Brand-Assets/` here.
+- Production logo exports: `Beers-Brand-Assets/exports-v1/` (SVG masters,
+  4K PNG pairs, preview, usage guide; rebuild with
+  `python3 scripts/export-brand-assets.py`).
