@@ -7,3 +7,6 @@ gen/__pycache__/
 standing-loop/*.log
 standing-loop/state.json
 standing-loop/retrain-*.log
+
+# Real-speech + derived training data — LOCAL ONLY, never public
+data/
