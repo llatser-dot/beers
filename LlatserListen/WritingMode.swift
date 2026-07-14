@@ -1,6 +1,6 @@
 import Foundation
 
-enum WritingMode: String, CaseIterable, Identifiable {
+enum WritingMode: String, CaseIterable, Codable, Identifiable {
     case automatic
     case clean
     case message

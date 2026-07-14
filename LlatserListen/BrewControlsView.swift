@@ -240,6 +240,13 @@ struct BrewControlsView: View {
                     .toggleStyle(BeersToggleStyle())
             }
 
+            AppRecipeEditorView(
+                store: appState.appRecipeStore,
+                target: appState.recipeTargetContext,
+                globalWritingMode: appState.writingMode,
+                globalAddSpaceAfterPaste: appState.addSpaceAfterPaste
+            )
+
             BeersSettingRow(label: "Polish before serving", hint: "Cleans fillers, repeats and casing") {
                 Toggle("", isOn: $appState.polishBeforePaste)
                     .labelsHidden()
