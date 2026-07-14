@@ -170,6 +170,10 @@ final class AppState: ObservableObject {
         }
     }
     let pourStore = PourStore()
+    let appRecipeStore = AppRecipeStore()
+    /// The last non-Beers app where a real pour began. Brew Controls only
+    /// offers this explicit target; opening settings cannot target Beers.
+    @Published private(set) var recipeTargetContext: ActiveAppContext?
 
     // Command Mode (an "order"): rewrite the selected text with a spoken instruction.
     private var isCommandOrder = false
@@ -187,6 +191,8 @@ final class AppState: ObservableObject {
     private var permissionMonitor: Timer?
     private var loadTask: Task<Void, Error>?
     private var isRecording = false
+    private var activePourContext: ActiveAppContext?
+    private var activePourPreferences: WritingPreferences?
 
     // Re-dictation detector: the previous ordinary pour, so a fresh pour that
     // closely echoes it soon after serving can mark it superseded.
@@ -223,6 +229,23 @@ final class AppState: ObservableObject {
         )
     }
 
+    private func resolvedWritingPreferences(for context: ActiveAppContext) -> WritingPreferences {
+        var preferences = writingPreferences
+        let recipeSettings = appRecipeStore.settings(
+            for: context,
+            globalWritingMode: preferences.mode,
+            globalAddSpaceAfterPaste: preferences.addSpaceAfterPaste
+        )
+        preferences.mode = recipeSettings.writingMode
+        preferences.addSpaceAfterPaste = recipeSettings.addSpaceAfterPaste
+        if appRecipeStore.recipe(for: context) != nil {
+            // An explicit recipe writing mode must remain effective even when
+            // the global automatic-tone switch is off.
+            preferences.adaptiveTone = true
+        }
+        return preferences
+    }
+
     init() {
         VocabularyCorrections.ensureSeeded()
 
@@ -257,6 +280,7 @@ final class AppState: ObservableObject {
         self.microphoneGranted = Permissions.isMicrophoneGranted()
         self.inputMonitoringGranted = Permissions.isInputMonitoringGranted()
         self.accessibilityGranted = Permissions.isAccessibilityGranted()
+        self.recipeTargetContext = nil
 
         audioRecorder.setSuppressComputerAudio(suppressComputerAudio)
         setupHotkey()
@@ -610,16 +634,26 @@ final class AppState: ObservableObject {
             return
         }
 
+        // Resolve the target and its recipe exactly once. The user can switch
+        // apps while Beers transcribes without changing this pour's behaviour.
+        let context = ActiveAppContext.frontmost
+        let preferences = resolvedWritingPreferences(for: context)
+
         do {
             // Duck + overlay first for instant feedback; capture uses a warm engine when possible.
             try audioRecorder.startRecording()
             isRecording = true
+            activePourContext = context
+            activePourPreferences = preferences
+            if context.recipeBundleIdentifier != nil {
+                recipeTargetContext = context
+            }
             status = .recording
             LiveMicLevel.shared.reset()
             overlay.show(mode: isCommandOrder ? .takingOrder : .pouring)
             // Command Mode always uses the model, so prewarm for it too.
-            if aiRewriteEnabled || isCommandOrder {
-                OrderKitchen.prewarmPolish(settings: writingPreferences.aiRewrite)
+            if preferences.aiRewrite.isEnabled || isCommandOrder {
+                OrderKitchen.prewarmPolish(settings: preferences.aiRewrite)
             }
             Beers.popCap()
             llog("AppState: recording started\(isCommandOrder ? " (order)" : "")")
@@ -637,6 +671,10 @@ final class AppState: ObservableObject {
         // Tear down immediately so the menu-bar mic indicator goes off.
         audioRecorder.stopEngine()
         isRecording = false
+        let context = activePourContext ?? ActiveAppContext.frontmost
+        let preferences = activePourPreferences ?? resolvedWritingPreferences(for: context)
+        activePourContext = nil
+        activePourPreferences = nil
 
         let duration = Float(audio.count) / 16000.0
         let rms = sqrt(audio.map { $0 * $0 }.reduce(0, +) / Float(max(1, audio.count)))
@@ -676,16 +714,18 @@ final class AppState: ObservableObject {
                 }
 
                 if isOrder, !self.orderSelection.isEmpty {
-                    await self.serveOrder(instruction: text, duration: TimeInterval(duration))
+                    await self.serveOrder(
+                        instruction: text,
+                        duration: TimeInterval(duration),
+                        context: context
+                    )
                     return
                 }
 
-                let context = ActiveAppContext.frontmost
                 self.lastTargetApp = context.name
 
                 var outputText: String
                 let rulePolished: String?
-                let preferences = self.writingPreferences
                 let resolvedMode = preferences.mode == .automatic ? context.inferredWritingMode : preferences.mode
                 if self.polishBeforePaste {
                     outputText = TranscriptPolisher.polish(
@@ -721,7 +761,7 @@ final class AppState: ObservableObject {
                     outputText = vocabularyFinal
                     llog("AppState: vocabulary corrections re-applied='\(outputText)'")
                 }
-                if self.addSpaceAfterPaste, !outputText.hasSuffix(" ") {
+                if preferences.addSpaceAfterPaste, !outputText.hasSuffix(" ") {
                     outputText += " "
                 }
                 self.lastTranscription = outputText
@@ -786,7 +826,11 @@ final class AppState: ObservableObject {
 
     /// Command Mode serve: apply the spoken instruction to the captured
     /// selection via the local model, then paste over the selection.
-    private func serveOrder(instruction: String, duration: TimeInterval) async {
+    private func serveOrder(
+        instruction: String,
+        duration: TimeInterval,
+        context: ActiveAppContext
+    ) async {
         let selection = orderSelection
         orderSelection = ""
         llog("AppState: order '\(instruction)' on \(selection.count) selected chars")
@@ -804,7 +848,6 @@ final class AppState: ObservableObject {
                 to: String(selection.prefix(12_000)),
                 settings: settings
             )
-            let context = ActiveAppContext.frontmost
             lastTargetApp = context.name
             lastTranscription = edited
 
