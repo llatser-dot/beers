@@ -1,0 +1,16 @@
+name = "beers-pubwall"
+main = "src/index.ts"
+compatibility_date = "2026-07-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "beers-pubwall"
+database_id = "67ff7e23-b935-42c7-a702-b0cb720b5cb9"
+
+# Email (claim / recover) ships DARK unless a RESEND_API_KEY secret is set:
+#   wrangler secret put RESEND_API_KEY
+# Optional custom From line (defaults to a placeholder):
+#   wrangler secret put RESEND_FROM   # e.g. "Beers <newsletter@yourdomain>"
+# With no RESEND_API_KEY, /api/claim, /api/claim/verify and /api/recover
+# return 501 {"error":"claiming not enabled yet"}.

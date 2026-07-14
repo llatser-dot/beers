@@ -368,9 +368,9 @@ enum BeersSnapshot {
 
     @MainActor
     private static func seededStore() -> PourStore {
-        let store = PourStore()
-        store.persistenceEnabled = false
-        guard store.active.isEmpty else { return store }
+        // In-memory only: snapshots must NEVER render the user's real pours
+        // (a taproom screenshot of real dictations is a privacy leak).
+        let store = PourStore(inMemory: true)
         let samples: [(String, String, TimeInterval)] = [
             ("Send the invoice over to Dave and cc the accountant, tell him it's the March one.", "Mail", 19),
             ("Standup notes — shipped the tunnel fix, blocked on the cert, next up the retry queue.", "Slack", 12),

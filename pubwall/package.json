@@ -1,0 +1,16 @@
+{
+  "name": "beers-pubwall",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Beers Pub Wall API — opt-in community leaderboard. Stores only username, counts, streak, and (on explicit claim) email. Never transcripts or audio.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "schema": "wrangler d1 execute beers-pubwall --remote --file=./schema.sql"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240605.0",
+    "wrangler": "^4.50.0"
+  }
+}
