@@ -16,7 +16,18 @@ targets:
     type: application
     platform: macOS
     sources:
-      - LlatserListen
+      # Everything except the Core ML package (added explicitly below so
+      # xcodegen doesn't recurse into the .mlpackage as loose resources).
+      - path: LlatserListen
+        excludes:
+          - "Resources/Bouncer/Bouncer.mlpackage"
+      # The Bouncer model: a compile source so Xcode's Core ML compiler emits
+      # Bouncer.mlmodelc into the app bundle. vocab.txt / threshold.json /
+      # labels.json under Resources/Bouncer are picked up as resources by the
+      # glob above.
+      - path: LlatserListen/Resources/Bouncer/Bouncer.mlpackage
+        type: file
+        buildPhase: sources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.llatser.listen
@@ -29,6 +40,9 @@ targets:
         CODE_SIGN_IDENTITY: "-"
         SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
+        # We load Bouncer.mlmodelc by hand (Bouncer.swift), so skip Core ML's
+        # auto-generated model class — it would collide with our Bouncer type.
+        COREML_CODEGEN_LANGUAGE: "None"
     dependencies:
       - package: FluidAudio
     entitlements:

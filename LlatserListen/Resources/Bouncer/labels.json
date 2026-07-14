@@ -1,0 +1,17 @@
+{
+  "id2label": {
+    "0": "KEEP",
+    "1": "DEL_FILLER",
+    "2": "DEL_REPEAT",
+    "3": "DEL_REPARANDUM",
+    "4": "DEL_INTERREGNUM"
+  },
+  "keep_id": 0,
+  "del_ids": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "num_labels": 5
+}

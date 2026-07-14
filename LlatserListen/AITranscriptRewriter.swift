@@ -17,6 +17,12 @@ enum AITranscriptRewriter {
         let model: String
         let messages: [Message]
         let temperature: Double
+        let maxTokens: Int
+
+        enum CodingKeys: String, CodingKey {
+            case model, messages, temperature
+            case maxTokens = "max_tokens"
+        }
     }
 
     struct Message: Encodable {
@@ -30,11 +36,57 @@ enum AITranscriptRewriter {
 
     struct Choice: Decodable {
         let message: ResponseMessage
+        let finishReason: String?
+
+        enum CodingKeys: String, CodingKey {
+            case message
+            case finishReason = "finish_reason"
+        }
     }
 
     struct ResponseMessage: Decodable {
         let content: String
     }
+
+    /// Ollama's native chat API. Preferred over the OpenAI-compatible path
+    /// because it can actually disable thinking (gemma4 etc. burn seconds of
+    /// hidden reasoning through /v1/chat/completions) and keep the model
+    /// resident between pours.
+    struct OllamaRequest: Encodable {
+        let model: String
+        let messages: [Message]
+        let stream: Bool
+        let think: Bool
+        let options: Options
+        let keepAlive: String
+
+        struct Options: Encodable {
+            let temperature: Double
+            let numPredict: Int
+
+            enum CodingKeys: String, CodingKey {
+                case temperature
+                case numPredict = "num_predict"
+            }
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case model, messages, stream, think, options
+            case keepAlive = "keep_alive"
+        }
+    }
+
+    struct OllamaResponse: Decodable {
+        let message: ResponseMessage
+        let doneReason: String?
+
+        enum CodingKeys: String, CodingKey {
+            case message
+            case doneReason = "done_reason"
+        }
+    }
+
+    private static let keepAlive = "30m"
 
     static func rewrite(
         _ text: String,
@@ -42,36 +94,15 @@ enum AITranscriptRewriter {
         context: ActiveAppContext,
         settings: AIRewriteSettings
     ) async throws -> String {
-        guard settings.isEnabled else { return text }
-        guard let url = URL(string: settings.endpoint), !settings.model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return text
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 12
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(
-            Request(
-                model: settings.model,
-                messages: [
-                    Message(role: "system", content: systemPrompt(mode: mode, context: context)),
-                    Message(role: "user", content: text)
-                ],
-                temperature: 0.1
-            )
+        let (url, model) = try validated(settings)
+        return try await complete(
+            system: systemPrompt(mode: mode, context: context),
+            user: text,
+            url: url,
+            model: model,
+            temperature: 0.1,
+            timeout: 12
         )
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
-            throw URLError(.badServerResponse)
-        }
-
-        let decoded = try JSONDecoder().decode(Response.self, from: data)
-        let rewritten = decoded.choices.first?.message.content
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-
-        return rewritten.isEmpty ? text : rewritten
     }
 
     /// Command Mode: apply a spoken instruction to selected text.
@@ -81,28 +112,127 @@ enum AITranscriptRewriter {
         to text: String,
         settings: AIRewriteSettings
     ) async throws -> String {
-        guard let url = URL(string: settings.endpoint),
-              !settings.model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        let (url, model) = try validated(settings)
+        return try await complete(
+            system: """
+            You edit text. Apply the user's spoken instruction to the provided text.
+            Return ONLY the edited text — no explanations, no preamble, no quotes, no code fences.
+            Preserve meaning, names, numbers, URLs and formatting unless the instruction says otherwise.
+            """,
+            user: "INSTRUCTION: \(instruction)\n\nTEXT:\n\(text)",
+            url: url,
+            model: model,
+            temperature: 0.2,
+            timeout: 20
+        )
+    }
+
+    /// Load the model while the user is still speaking. An Ollama-sized model
+    /// can take 10s+ to page in cold — hiding that behind the recording is the
+    /// difference between the local tier landing inside the polish deadline
+    /// and always losing to it.
+    static func prewarm(settings: AIRewriteSettings) {
+        guard let (url, model) = try? validated(settings) else { return }
+        Task.detached(priority: .utility) {
+            if let native = nativeChatURL(from: url) {
+                // Empty messages = pure load request; returns once resident.
+                var request = URLRequest(url: native)
+                request.httpMethod = "POST"
+                request.timeoutInterval = 60
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.httpBody = try? JSONEncoder().encode(
+                    OllamaRequest(
+                        model: model,
+                        messages: [],
+                        stream: false,
+                        think: false,
+                        options: .init(temperature: 0, numPredict: 1),
+                        keepAlive: keepAlive
+                    )
+                )
+                if let (_, response) = try? await URLSession.shared.data(for: request),
+                   (response as? HTTPURLResponse).map({ (200...299).contains($0.statusCode) }) == true {
+                    llog("AITranscriptRewriter: prewarmed \(model)")
+                    return
+                }
+            }
+            // Not Ollama — a 1-token completion loads the model on any
+            // OpenAI-compatible server.
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.timeoutInterval = 60
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try? JSONEncoder().encode(
+                Request(
+                    model: model,
+                    messages: [Message(role: "user", content: "Hi")],
+                    temperature: 0,
+                    maxTokens: 1
+                )
+            )
+            _ = try? await URLSession.shared.data(for: request)
+        }
+    }
+
+    private static func validated(_ settings: AIRewriteSettings) throws -> (URL, String) {
+        let model = settings.model.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: settings.endpoint), !model.isEmpty else {
             throw URLError(.badURL)
+        }
+        return (url, model)
+    }
+
+    private static func complete(
+        system: String,
+        user: String,
+        url: URL,
+        model: String,
+        temperature: Double,
+        timeout: TimeInterval
+    ) async throws -> String {
+        let messages = [
+            Message(role: "system", content: system),
+            Message(role: "user", content: user)
+        ]
+        // Roomy ceiling (~2× the input's tokens) so long dictations are never
+        // clipped mid-sentence; hitting it still throws below.
+        let maxTokens = max(300, user.count / 2)
+
+        if let native = nativeChatURL(from: url) {
+            var request = URLRequest(url: native)
+            request.httpMethod = "POST"
+            request.timeoutInterval = timeout
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONEncoder().encode(
+                OllamaRequest(
+                    model: model,
+                    messages: messages,
+                    stream: false,
+                    think: false,
+                    options: .init(temperature: temperature, numPredict: maxTokens),
+                    keepAlive: keepAlive
+                )
+            )
+            do {
+                let (data, response) = try await URLSession.shared.data(for: request)
+                if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+                    throw URLError(.badServerResponse)
+                }
+                let decoded = try JSONDecoder().decode(OllamaResponse.self, from: data)
+                return try finished(decoded.message.content, reason: decoded.doneReason)
+            } catch let error as URLError where error.code == .cannotConnectToHost || error.code == .cannotFindHost || error.code == .timedOut {
+                throw error // compat path shares the host; don't fail twice
+            } catch {
+                llog("AITranscriptRewriter: native chat failed (\(error.localizedDescription)) — trying OpenAI-compatible endpoint")
+            }
         }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.timeoutInterval = 20
+        request.timeoutInterval = timeout
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(
-            Request(
-                model: settings.model,
-                messages: [
-                    Message(role: "system", content: """
-                    You edit text. Apply the user's spoken instruction to the provided text.
-                    Return ONLY the edited text — no explanations, no preamble, no quotes, no code fences.
-                    Preserve meaning, names, numbers, URLs and formatting unless the instruction says otherwise.
-                    """),
-                    Message(role: "user", content: "INSTRUCTION: \(instruction)\n\nTEXT:\n\(text)")
-                ],
-                temperature: 0.2
-            )
+            Request(model: model, messages: messages, temperature: temperature, maxTokens: maxTokens)
         )
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -111,10 +241,27 @@ enum AITranscriptRewriter {
         }
 
         let decoded = try JSONDecoder().decode(Response.self, from: data)
-        let edited = decoded.choices.first?.message.content
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !edited.isEmpty else { throw URLError(.zeroByteResource) }
-        return edited
+        guard let choice = decoded.choices.first else { throw URLError(.zeroByteResource) }
+        return try finished(choice.message.content, reason: choice.finishReason)
+    }
+
+    /// A truncated rewrite is worse than no rewrite — never serve one.
+    private static func finished(_ content: String, reason: String?) throws -> String {
+        if reason == "length" { throw URLError(.dataLengthExceedsMaximum) }
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw URLError(.zeroByteResource) }
+        return trimmed
+    }
+
+    /// `http://host:port/v1/chat/completions` → `http://host:port/api/chat`.
+    private static func nativeChatURL(from endpoint: URL) -> URL? {
+        let openAIPath = "/v1/chat/completions"
+        guard endpoint.path.hasSuffix(openAIPath),
+              var comps = URLComponents(url: endpoint, resolvingAgainstBaseURL: false) else {
+            return nil
+        }
+        comps.path = String(endpoint.path.dropLast(openAIPath.count)) + "/api/chat"
+        return comps.url
     }
 
     private static func systemPrompt(mode: WritingMode, context: ActiveAppContext) -> String {
@@ -123,6 +270,9 @@ enum AITranscriptRewriter {
         Return only the rewritten text. Do not explain.
         Preserve names, numbers, URLs, email addresses, code identifiers, commands, and user intent.
         Remove filler words, false starts, and obvious transcription artifacts.
+        Never summarise, condense or shorten: apart from removed filler and corrected restarts, \
+        keep every sentence, so the output is nearly as long as the input. \
+        Never drop the first or last sentence.
         Do not add facts or change meaning.
         Target app: \(context.name)
         Mode: \(mode.displayName)
