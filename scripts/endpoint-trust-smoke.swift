@@ -23,6 +23,35 @@ enum EndpointTrustSmoke {
             }
         }
 
-        print("Endpoint trust smoke passed (\(cases.count) cases).")
+        let originCases: [(String, String?)] = [
+            ("https://api.example.com/v1/chat/completions", "https://api.example.com:443"),
+            ("https://api.example.com:443/v1/chat/completions", "https://api.example.com:443"),
+            ("http://api.example.com/v1/chat/completions", "http://api.example.com:80"),
+            ("https://api.example.com:8443/v1/chat/completions", "https://api.example.com:8443"),
+            ("not an endpoint", nil),
+        ]
+
+        for (endpoint, expected) in originCases {
+            let actual = AIEndpointTrust.normalizedOrigin(from: endpoint)
+            guard actual == expected else {
+                fputs("Origin normalization failed for \(endpoint): expected \(expected ?? "nil"), got \(actual ?? "nil")\n", stderr)
+                exit(1)
+            }
+        }
+
+        let defaultHTTPS = AIEndpointTrust.normalizedOrigin(from: "https://api.example.com")
+        let explicitHTTPS = AIEndpointTrust.normalizedOrigin(from: "https://api.example.com:443")
+        guard defaultHTTPS == explicitHTTPS else {
+            fputs("Default HTTPS port did not match explicit port 443\n", stderr)
+            exit(1)
+        }
+
+        let plainHTTP = AIEndpointTrust.normalizedOrigin(from: "http://api.example.com")
+        guard defaultHTTPS != plainHTTP else {
+            fputs("HTTPS origin matched its HTTP downgrade\n", stderr)
+            exit(1)
+        }
+
+        print("Endpoint trust smoke passed (\(cases.count) loopback cases, \(originCases.count) origin cases).")
     }
 }

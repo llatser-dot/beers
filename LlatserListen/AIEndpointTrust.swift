@@ -14,6 +14,21 @@ enum AIEndpointTrust {
         return host
     }
 
+    /// Origin identity includes the effective port so consent cannot cross a
+    /// transport or service boundary while paths remain free to vary.
+    static func normalizedOrigin(from endpoint: String) -> String? {
+        guard let url = URL(string: endpoint),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              let host = normalizedHost(from: endpoint) else {
+            return nil
+        }
+
+        let port = url.port ?? (scheme == "https" ? 443 : 80)
+        let originHost = host.contains(":") ? "[\(host)]" : host
+        return "\(scheme)://\(originHost):\(port)"
+    }
+
     static func isLoopback(host: String?) -> Bool {
         guard let host = host?
             .trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
