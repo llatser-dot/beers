@@ -24,7 +24,9 @@ never touches a server.
 ## Why Beers
 
 - **On-device by default.** Speech-to-text is local. There is no API to call, no
-  key to paste, nothing to sign up for. Delete the app and it's all gone.
+  key to paste, nothing to sign up for. Beers keeps its data in a couple of
+  folders under your home Library (pours, the flywheel log, downloaded models);
+  removing it is a short checklist — see [Uninstall](#uninstall).
 - **Optional AI cleanup — also local.** Beyond the built-in rule polisher, Beers can
   tidy a pour with an on-device LLM: Apple's on-device model, or your own
   [Ollama](https://ollama.com) (`gemma4` by default). The two race on a shared
@@ -78,7 +80,7 @@ promise printed right on it: everything stays on this Mac.
 | **The Taproom** | Searchable history of every pour, grouped by day and app, with Keepers (starred), the drip tray (trash), and your daily streak. |
 | **Listening HUD** | A compact "pour" pill (position configurable, notch-friendly) shows the live state — taking order → pouring → settling → served — plus your running pint count. |
 | **Vocabulary** | The Brewer's Dictionary maps what Beers *heard* to what you *meant*, and auto-suggests fixes harvested from your keyboard corrections. |
-| **Pint leaderboard** | *(Coming soon — site not live yet.)* Opt in and 1,000 words = 1 pint on the community Pub Wall. Only a username and word count would ever leave the Mac. |
+| **Pint leaderboard** | *(Coming soon — site not live yet.)* Opt in and 1,000 words = 1 pint on the community Pub Wall. Only a username and word count would ever leave the Mac — though, like any web request, the submission would also expose standard HTTP metadata (your IP address) to Cloudflare, which fronts the site. |
 
 ## Install from source
 
@@ -90,9 +92,14 @@ one-command build once you have the tools.
 
 - **macOS 14.0 or later** (Sonoma+).
 - **Apple Silicon** (M1 or newer). Parakeet runs on the Neural Engine.
-- **Xcode Command Line Tools** — `xcode-select --install`. (A full Xcode install is
-  fine too; the build uses `xcodebuild`.) You need a working Xcode toolchain with a
-  team signed in, *or* let the installer mint a throwaway local certificate for you.
+- **Full Xcode** (not just the Command Line Tools). `install.sh` runs
+  `xcodebuild … archive`, which needs a complete Xcode install — install Xcode
+  from the App Store, launch it once, and make sure `xcode-select -p` points at
+  `…/Xcode.app/Contents/Developer` (if it still points at
+  `/Library/Developer/CommandLineTools`, run
+  `sudo xcode-select -s /Applications/Xcode.app`). You need a working toolchain
+  with a team signed in, *or* let the installer mint a throwaway local
+  certificate for you.
 - **XcodeGen** — `brew install xcodegen`. The Xcode project is generated from
   `project.yml`, not committed.
 - **Git LFS** — `brew install git-lfs && git lfs install`. The Bouncer Core ML model
@@ -151,6 +158,26 @@ once) to:
 ~/Library/Application Support/FluidAudio/Models/
 ```
 
+### Uninstall
+
+Beers is honest about where it puts things, so a full removal is a short list.
+Deleting the app alone leaves your data and models behind; to remove everything:
+
+- **The app** — delete `/Applications/Beers.app`.
+- **App data** — `~/Library/Application Support/Beers/` (your pours, the
+  `flywheel.jsonl` training log, and the `beers.log` app log).
+- **Speech models** — `~/Library/Application Support/FluidAudio/Models/` (the
+  downloaded Parakeet models cache, a few hundred MB).
+- **Login item** — if you enabled "Open bar at login," remove Beers under
+  **System Settings → General → Login Items**.
+- **Preferences** — `defaults delete com.llatser.listen` (clears saved settings
+  from UserDefaults).
+- **Log symlink** — `/tmp/llatser-listen.log` (a symlink to the owner-only
+  `beers.log` above; harmless, but tidy it if you like).
+
+Privacy permissions (Microphone, Input Monitoring, Accessibility) can be revoked
+in **System Settings → Privacy & Security** if you want them gone too.
+
 ## The flywheel — how the Bouncer learns
 
 Every pour and every keyboard correction is logged **locally only**, to
@@ -188,5 +215,6 @@ data never gets an upload path).
 
 ## License
 
-[Apache-2.0](LICENSE). Third-party dependencies and downloaded models follow their
-own upstream licenses.
+[Apache-2.0](LICENSE). Third-party dependencies, bundled fonts, and downloaded
+models follow their own upstream licenses — see
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for the full attributions.

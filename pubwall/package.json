@@ -10,7 +10,7 @@
     "schema": "wrangler d1 execute beers-pubwall --remote --file=./schema.sql"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240605.0",
+    "@cloudflare/workers-types": "^5.20260708.1",
     "wrangler": "^4.50.0"
   }
 }
