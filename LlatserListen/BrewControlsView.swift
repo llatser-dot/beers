@@ -42,8 +42,10 @@ struct BrewControlsView: View {
                 isPresented: $showRemoteEndpointSheet,
                 host: URL(string: endpointDraft)?.host ?? endpointDraft,
                 onConfirm: {
-                    UserDefaults.standard.set(true, forKey: AITranscriptRewriter.remoteEndpointAllowedKey)
-                    appState.aiRewriteEndpoint = endpointDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let candidate = endpointDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if AITranscriptRewriter.approveRemoteEndpoint(candidate) {
+                        appState.aiRewriteEndpoint = candidate
+                    }
                 },
                 onCancel: {
                     endpointDraft = appState.aiRewriteEndpoint  // revert the field
@@ -142,7 +144,7 @@ struct BrewControlsView: View {
 
             BeersSettingRow(
                 label: "Take orders",
-                hint: "Hold ⇧ + pour key over selected text, speak the change — Apple on-device model, or your local one",
+                hint: "Hold ⇧ + pour key over selected text, speak the change — Apple on-device model, or your configured endpoint",
                 showDivider: false
             ) {
                 Toggle("", isOn: $appState.commandModeEnabled)
@@ -245,7 +247,7 @@ struct BrewControlsView: View {
 
             BeersSettingRow(
                 label: "Say it badly, serve it well",
-                hint: "Fixes rambles and mid-sentence corrections — Apple on-device model",
+                hint: "Fixes rambles and mid-sentence corrections — Apple on-device model or your configured endpoint",
                 showDivider: appState.aiRewriteEnabled
             ) {
                 Toggle("", isOn: $appState.aiRewriteEnabled)
@@ -325,8 +327,10 @@ struct BrewControlsView: View {
 
     private func commitEndpoint() {
         let candidate = endpointDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        if AITranscriptRewriter.isLoopbackEndpoint(candidate)
-            || UserDefaults.standard.bool(forKey: AITranscriptRewriter.remoteEndpointAllowedKey) {
+        if AITranscriptRewriter.isLoopbackEndpoint(candidate) {
+            AITranscriptRewriter.revokeRemoteEndpointApproval()
+            appState.aiRewriteEndpoint = candidate
+        } else if AITranscriptRewriter.isRemoteEndpointAllowed(candidate) {
             appState.aiRewriteEndpoint = candidate
         } else {
             showRemoteEndpointSheet = true
@@ -379,7 +383,7 @@ struct BrewControlsView: View {
                 Image(systemName: "lock.fill")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(Beers.hopsDeep)
-                Text("Everything stays on this Mac. Nothing is uploaded, ever.")
+                Text("These learning records stay on this Mac. Beers never uploads them.")
                     .font(Beers.ui(11.5, .semibold))
                     .foregroundStyle(Beers.ink.opacity(0.6))
                 Spacer(minLength: 0)
@@ -494,7 +498,7 @@ struct PourItAwaySheet: View {
                 .font(Beers.display(18))
                 .foregroundStyle(Beers.stout)
 
-            Text("Every training record on this Mac — your logged pours and keyboard fixes — is deleted forever. Nothing was ever uploaded. Type POUR to confirm.")
+            Text("Every training record Beers stores on this Mac — your logged pours and keyboard fixes — is deleted forever. This only removes the local copies. Type POUR to confirm.")
                 .font(Beers.ui(13, .medium))
                 .foregroundStyle(Beers.ink.opacity(0.7))
                 .multilineTextAlignment(.center)
@@ -594,7 +598,7 @@ struct SmashTheGlassesSheet: View {
 
 /// Consent confirm for pointing the rewriter at a NON-loopback endpoint. Same
 /// scalloped-seal warning pattern as the destructive sheets: confirming opts in
-/// (sets `remoteEndpointAllowed`), cancelling reverts the field to loopback.
+/// (stores approval for that host), cancelling restores the previously saved value.
 struct RemoteEndpointSheet: View {
     @Binding var isPresented: Bool
     let host: String
@@ -616,7 +620,7 @@ struct RemoteEndpointSheet: View {
                 .font(Beers.display(18))
                 .foregroundStyle(Beers.stout)
 
-            Text("“\(host)” is a remote server, not your machine. Confirm and Beers will send your pours there to be rewritten — leaving this Mac like any web request. Keep it local unless you trust that server.")
+            Text("“\(host)” is a remote server, not your machine. Confirm and Beers will send your pours there to be rewritten — leaving this Mac like any web request. Keep it local unless you trust that server. Plain HTTP is unencrypted; prefer HTTPS.")
                 .font(Beers.ui(13, .medium))
                 .foregroundStyle(Beers.ink.opacity(0.7))
                 .multilineTextAlignment(.center)

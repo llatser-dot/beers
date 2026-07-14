@@ -8,7 +8,7 @@ APP_DEST="/Applications/$APP_NAME.app"
 LEGACY_APP_DEST="/Applications/Llatser Listen.app"
 LOG_FILE="/tmp/llatser-listen.log"
 SIGN_IDENTITY="${LLATSER_LISTEN_SIGN_IDENTITY:-}"
-TEAM_ID="${LLATSER_LISTEN_TEAM_ID:-6U9UFUUR48}"
+TEAM_ID="${LLATSER_LISTEN_TEAM_ID:-}"
 ALLOW_LOCAL_SIGNING="${LLATSER_ALLOW_LOCAL_SIGNING:-0}"
 DEVELOPER_IDENTITY="$(security find-identity -v -p codesigning | awk -F '"' '/Developer ID Application:/ { print $2; exit }')"
 STABLE_LOCAL_IDENTITY="$(security find-identity -v -p codesigning | awk -F '"' '/Llatser Listen Local Code Signing/ { print $2; exit }')"
@@ -24,7 +24,7 @@ if [ -z "$SIGN_IDENTITY" ]; then
     fi
 fi
 
-if [ -z "$DEVELOPER_IDENTITY" ]; then
+if [ -n "$TEAM_ID" ] && [ -z "$DEVELOPER_IDENTITY" ]; then
     echo "Note: no local Developer ID certificate; relying on Xcode cloud-managed signing for the archive."
 fi
 
@@ -36,11 +36,11 @@ echo "[1/6] Generating project..."
 cd "$PROJECT_DIR"
 xcodegen generate
 
-echo "[2/6] Building Developer ID export..."
+echo "[2/6] Building release app..."
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
-if xcodebuild -quiet \
+if [ -n "$TEAM_ID" ] && xcodebuild -quiet \
     -project "$PROJECT_DIR/LlatserListen.xcodeproj" \
     -scheme "LlatserListen" \
     -configuration Release \
@@ -71,10 +71,14 @@ if xcodebuild -quiet \
         fi
     fi
 else
-    echo "Developer ID archive failed."
+    if [ -z "$TEAM_ID" ]; then
+        echo "Skipping Developer ID archive (LLATSER_LISTEN_TEAM_ID is not set)."
+    else
+        echo "Developer ID archive failed."
+    fi
     if [ "$ALLOW_LOCAL_SIGNING" != "1" ]; then
         echo "Refusing local signing because it changes the macOS privacy identity and forces re-granting Microphone/Input Monitoring/Accessibility."
-        echo "Fix cloud signing (Xcode account for team $TEAM_ID), or rerun with LLATSER_ALLOW_LOCAL_SIGNING=1 for a throwaway install."
+        echo "Set LLATSER_LISTEN_TEAM_ID for your Developer ID team, or rerun with LLATSER_ALLOW_LOCAL_SIGNING=1 for a local-only install."
         exit 1
     fi
 fi
@@ -93,7 +97,7 @@ fi
 if ! grep -Fq "Authority=Developer ID Application:" <<<"$SIGN_DETAILS"; then
     if [ "$ALLOW_LOCAL_SIGNING" != "1" ]; then
         echo "Refusing to install a non-Developer-ID build because it will break macOS privacy permissions again."
-        echo "Set LLATSER_ALLOW_LOCAL_SIGNING=1 only for throwaway development installs."
+        echo "Set LLATSER_ALLOW_LOCAL_SIGNING=1 for a stable local-only install."
         exit 1
     fi
 

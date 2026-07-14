@@ -40,11 +40,13 @@ Per opted-in user, in `users`:
   `words_today`, `pours_today`) for rate-limiting and daily caps
 
 Short-lived rows in `pending_claims`: a `user_id`, the `email` you entered, a
-6-digit `code`, and a 15-minute expiry — created only during a claim/recover and
-deleted on use or expiry (purged opportunistically on writes).
+6-digit `code`, and a 15-minute expiry — created only during a claim/recover.
+Codes stop working at expiry; rows are deleted on use or opportunistically on a
+later registration/claim/recovery write.
 
-Throttle rows in `rate_events`: a coarse **bucket label** (a salted ip-hash or a
-user id) and a timestamp. No IP, no content — purged once older than one hour.
+Throttle rows in `rate_events`: a coarse **bucket label** (a secretly salted,
+truncated IP hash or a user id) and a timestamp. No raw IP, no content — stale
+rows are purged opportunistically on later registration/claim/recovery writes.
 
 ### What is *never* present — by construction, not by policy
 
@@ -55,14 +57,19 @@ There is **no column** for, and **no endpoint that accepts**:
 - ❌ any content of what you said, ever
 
 You can verify this by absence: grep the schema and the router — there is nowhere
-to put a transcript and no route that reads one. The app sends only two numbers
-per batch. Nothing you dictate leaves your Mac.
+to put a transcript and no route that reads one. The Pub Wall client sends only
+two numbers per batch; this service never receives what you dictated. A separately
+configured remote rewrite endpoint has its own explicit consent boundary in the app.
 
 ### Retention
 
 - `users` rows persist while your handle exists on the wall.
-- `pending_claims` codes live at most 15 minutes and are deleted on use.
-- `rate_events` are deleted once older than the 1-hour throttle window.
+- `pending_claims` codes are valid for at most 15 minutes and are deleted on use;
+  expired rows are removed opportunistically on later writes and may physically
+  remain longer if the service is idle.
+- `rate_events` stop counting after the 1-hour throttle window; stale rows are
+  removed opportunistically on later writes and may physically remain longer if
+  the service is idle.
 
 ### Third parties
 
@@ -84,7 +91,7 @@ per batch. Nothing you dictate leaves your Mac.
 | GET  | `/api/me` | Bearer | your own row |
 | POST | `/api/claim` | Bearer | `{email}` → email a 6-digit code (501 if email not enabled) |
 | POST | `/api/claim/verify` | Bearer | `{code}` → mark email verified (501 if email not enabled) |
-| POST | `/api/recover` | — | `{email, username}` → **initiate only**; emails a single-use code on a match. Response is a **generic 200 in every path** (match, no-match, throttled, or email-disabled) — no account-existence oracle and no feature-state leak. Never returns a token. |
+| POST | `/api/recover` | — | `{email, username}` → **initiate only**; emails a single-use code on a match. Valid match, no-match, matched-account throttle, and email-disabled paths share the same generic 200; malformed input is 400 and the IP throttle is 429. Never returns a token. |
 | POST | `/api/recover/verify` | — | `{email, username, code}` → checks + consumes the code, then rotates and returns a fresh `deviceToken` (400 generic on any bad/expired/wrong input; 501 if email not enabled) |
 
 ### Guardrails
@@ -117,9 +124,10 @@ per batch. Nothing you dictate leaves your Mac.
 
 ## Email (claim / recover) ships dark
 
-If no `RESEND_API_KEY` secret is configured, the three email endpoints return
-`501 {"error":"claiming not enabled yet"}` — the leaderboard still works fully.
-To enable:
+If no `RESEND_API_KEY` secret is configured, claim, claim verification, and
+recovery verification return `501 {"error":"claiming not enabled yet"}`;
+recovery initiation still returns its generic 200. The leaderboard works fully.
+To enable email:
 
 ```sh
 wrangler secret put RESEND_API_KEY
@@ -132,12 +140,15 @@ wrangler secret put RESEND_FROM   # optional, e.g. "Beers <newsletter@yourdomain
 npm ci                                               # reproducible install from package-lock.json
 wrangler d1 create beers-pubwall                    # once; put the id in wrangler.toml
 wrangler d1 execute beers-pubwall --remote --file=./schema.sql   # idempotent; creates rate_events too
+openssl rand -hex 32 | wrangler secret put IP_HASH_SALT          # required; no public fallback
 wrangler deploy
 ```
 
 (`npm install` also works, but `npm ci` installs the exact, committed
 `package-lock.json` for a reproducible build.)
 
-Auth uses the Cloudflare Global API Key via `CLOUDFLARE_API_KEY` + `CLOUDFLARE_EMAIL`.
+Authenticate Wrangler with `wrangler login` or a scoped Cloudflare API token.
+Never put Cloudflare or Resend credentials in this repository; local `.env*` and
+`.dev.vars*` files are ignored, and `.dev.vars.example` contains placeholders only.
 
 Database: **`beers-pubwall`** (D1, id `67ff7e23-b935-42c7-a702-b0cb720b5cb9`).

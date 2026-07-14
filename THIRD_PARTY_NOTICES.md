@@ -21,7 +21,7 @@ Version 1.1 (full text at the bottom of this file):
 
 Speech recognition runs through the
 [FluidAudio](https://github.com/FluidInference/FluidAudio) Swift package
-(pinned `from: 0.13.6` in `project.yml`), linked via Swift Package Manager.
+(pinned exactly to `0.14.1` in `project.yml`), linked via Swift Package Manager.
 FluidAudio is licensed under the Apache License 2.0 (verified against the
 `LICENSE` file in the SPM checkout). FluidAudio's own third-party notices
 (fastcluster, vbx) ship in its repository under `ThirdPartyLicenses/`.

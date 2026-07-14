@@ -8,9 +8,13 @@ binding = "DB"
 database_name = "beers-pubwall"
 database_id = "67ff7e23-b935-42c7-a702-b0cb720b5cb9"
 
+# REQUIRED before registration can work. There is deliberately no public
+# fallback because IPv4 hashes made with a known salt are easy to enumerate:
+#   openssl rand -hex 32 | wrangler secret put IP_HASH_SALT
+
 # Email (claim / recover) ships DARK unless a RESEND_API_KEY secret is set:
 #   wrangler secret put RESEND_API_KEY
 # Optional custom From line (defaults to a placeholder):
 #   wrangler secret put RESEND_FROM   # e.g. "Beers <newsletter@yourdomain>"
-# With no RESEND_API_KEY, /api/claim, /api/claim/verify and /api/recover
-# return 501 {"error":"claiming not enabled yet"}.
+# With no RESEND_API_KEY, claim/verify and recover/verify return 501;
+# recovery initiation remains a generic 200 so it reveals no account state.

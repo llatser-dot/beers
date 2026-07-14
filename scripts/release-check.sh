@@ -2,15 +2,44 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUILD_DIR="${LLATSER_RELEASE_CHECK_DIR:-/tmp/llatser-listen-release-check}"
+TMP_ROOT="${TMPDIR:-/tmp}"
+BUILD_DIR="$(mktemp -d "${TMP_ROOT%/}/beers-release-check.XXXXXX")"
 APP="$BUILD_DIR/Build/Products/Release/Beers.app"
 BINARY="$APP/Contents/MacOS/Beers"
 
-rm -rf "$BUILD_DIR"
+cleanup() {
+    rm -rf "$BUILD_DIR"
+}
+trap cleanup EXIT
 
-if command -v xcodegen >/dev/null 2>&1; then
-    (cd "$PROJECT_DIR" && xcodegen generate)
+if [[ -n "$(git -C "$PROJECT_DIR" status --porcelain --untracked-files=normal)" ]]; then
+    echo "Release check requires a clean Git worktree and index." >&2
+    exit 1
 fi
+
+git -C "$PROJECT_DIR" lfs fsck
+
+for command in xcodegen xcodebuild xcrun; do
+    if ! command -v "$command" >/dev/null 2>&1; then
+        echo "Missing required release-check command: $command" >&2
+        exit 1
+    fi
+done
+
+WEIGHT="$PROJECT_DIR/LlatserListen/Resources/Bouncer/Bouncer.mlpackage/Data/com.apple.CoreML/weights/weight.bin"
+if grep -aq '^version https://git-lfs.github.com/spec/v1' "$WEIGHT"; then
+    echo "Bouncer weights are still a Git LFS pointer; run git lfs pull." >&2
+    exit 1
+fi
+
+SMOKE_BINARY="$BUILD_DIR/endpoint-trust-smoke"
+xcrun swiftc \
+    "$PROJECT_DIR/LlatserListen/AIEndpointTrust.swift" \
+    "$PROJECT_DIR/scripts/endpoint-trust-smoke.swift" \
+    -o "$SMOKE_BINARY"
+"$SMOKE_BINARY"
+
+(cd "$PROJECT_DIR" && xcodegen generate)
 
 xcodebuild -quiet \
     -project "$PROJECT_DIR/LlatserListen.xcodeproj" \
@@ -35,5 +64,8 @@ done
 test "$(defaults read "$APP/Contents/Info" CFBundleIdentifier)" = "com.llatser.listen"
 test "$(defaults read "$APP/Contents/Info" LSUIElement)" = "1"
 plutil -extract NSMicrophoneUsageDescription raw "$APP/Contents/Info.plist" >/dev/null
+test -d "$APP/Contents/Resources/Bouncer.mlmodelc"
+test -s "$APP/Contents/Resources/threshold.json"
+test -s "$APP/Contents/Resources/vocab.txt"
 
-echo "Release check passed: $ARCHITECTURES, FluidAudio linked, app metadata valid."
+echo "Release check passed: clean Git, LFS complete, endpoint trust verified, $ARCHITECTURES, app metadata and Bouncer resources valid."

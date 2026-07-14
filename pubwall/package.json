@@ -2,7 +2,7 @@
   "name": "beers-pubwall",
   "version": "1.0.0",
   "private": true,
-  "description": "Beers Pub Wall API — opt-in community leaderboard. Stores only username, counts, streak, and (on explicit claim) email. Never transcripts or audio.",
+  "description": "Beers Pub Wall API — opt-in leaderboard that never receives transcripts or audio; see README/schema for its full metadata boundary.",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",

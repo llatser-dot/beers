@@ -324,7 +324,7 @@ enum BeersSnapshot {
                     Image(systemName: "lock.fill")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(Beers.hopsDeep)
-                    Text("Everything stays on this Mac. Nothing is uploaded, ever.")
+                    Text("These learning records stay on this Mac. Beers never uploads them.")
                         .font(Beers.ui(11.5, .semibold))
                         .foregroundStyle(Beers.ink.opacity(0.6))
                     Spacer(minLength: 0)
