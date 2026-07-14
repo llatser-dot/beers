@@ -43,6 +43,14 @@ final class PourStore: ObservableObject {
         load()
     }
 
+    /// An isolated store that never reads or writes the user's real pours.
+    /// The snapshot/demo harness MUST use this — a screenshot rendered from
+    /// the real store is a privacy leak waiting for a commit.
+    init(inMemory: Bool) {
+        fileURL = URL(fileURLWithPath: "/dev/null")
+        persistenceEnabled = false
+    }
+
     // MARK: Queries
 
     var active: [Pour] { pours.filter { $0.deletedAt == nil } }

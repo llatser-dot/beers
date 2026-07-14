@@ -63,10 +63,10 @@ sounds, the listening pill's position, and your local brew engine.
 
 ![Beers Brew Controls settings](docs/screenshots/brew-controls.png)
 
-**Brewer's Dictionary** — teach Beers a word, or accept the fixes it learned from
-your own keyboard corrections.
+**The Little Black Book** — every learning feature on one switchboard, with the
+promise printed right on it: everything stays on this Mac.
 
-![Beers vocabulary — Brewer's Dictionary](docs/screenshots/vocabulary.png)
+![Beers privacy controls — The Little Black Book](docs/screenshots/little-black-book.png)
 
 ## Features
 
