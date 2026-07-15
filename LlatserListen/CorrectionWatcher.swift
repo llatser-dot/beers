@@ -25,6 +25,12 @@ import ApplicationServices
 /// from `AppState` come from the @MainActor. AX errors are caught and ignored
 /// everywhere; the watcher must never block or affect the pour path.
 final class CorrectionWatcher {
+    /// Fired on the main thread immediately after a correction/rejection record
+    /// is appended to the flywheel. AppState uses this to run the fast
+    /// vocabulary learning loop (auto-teach recurring brand/name fixes) without
+    /// waiting for Brew Controls to be opened.
+    var onCorrectionRecorded: (() -> Void)?
+
     // Tunables.
     private let hardCapSeconds: TimeInterval = 120
     private let pollInterval: TimeInterval = 1.0
@@ -47,6 +53,7 @@ final class CorrectionWatcher {
     private var haveValue = false
     private var pourTs = ""
     private var appName = ""
+    private var inTerminal = false
 
     // Locate phase (before watching actually begins).
     private var pendingElement: AXUIElement?
@@ -85,11 +92,15 @@ final class CorrectionWatcher {
             llog("CorrectionWatcher: skip secure field app='\(name)'")
             return
         }
-        // Skip terminals (AXTextArea in a terminal app) — scrollback diffing is
-        // unreliable for v1. Log so we can see how often this bites.
-        if Self.isTerminalApp(bundle: bundle, name: name) && role == "AXTextArea" {
-            llog("CorrectionWatcher: skip terminal role=\(role) app='\(name)' bundle='\(bundle)'")
-            return
+        // Terminals expose the whole scrollback as one AXTextArea value, so
+        // naive diffing is dangerous (streamed output looks like edits). We DO
+        // watch them now — Ben's real usage is almost entirely in the terminal —
+        // but under extra guards: the span must be UNIQUE in the buffer to anchor
+        // safely (see attemptLocate), and only in-place edits with no net word
+        // growth are recorded (see evaluate). Streamed output is discarded.
+        inTerminal = Self.isTerminalApp(bundle: bundle, name: name) && role == "AXTextArea"
+        if inTerminal {
+            llog("CorrectionWatcher: terminal capture (guarded) app='\(name)' bundle='\(bundle)'")
         }
         // Value must be readable.
         guard Self.stringAttr(el, kAXValueAttribute) != nil else {
@@ -128,6 +139,14 @@ final class CorrectionWatcher {
             return
         }
         if let range = value.range(of: servedSpan) {
+            // In a terminal the value is the whole scrollback; if the span text
+            // occurs more than once we can't anchor to the right one, so bail
+            // rather than risk re-locating onto an unrelated copy.
+            if inTerminal && Self.occurrences(of: servedSpan, in: value) != 1 {
+                llog("CorrectionWatcher: terminal span not unique — not watching app='\(appName)'")
+                reset()
+                return
+            }
             beginWatching(element: el, baseline: value, span: range)
             return
         }
@@ -231,18 +250,19 @@ final class CorrectionWatcher {
         let suffix = suffixContext
         let ts = pourTs
         let app = appName
+        let terminal = inTerminal
 
         reset()  // tear down observer/timer, drop the element reference
 
         evaluate(finalValue: finalValue, served: served, prefix: prefix,
-                 suffix: suffix, pourTs: ts, app: app, reason: reason)
+                 suffix: suffix, pourTs: ts, app: app, terminal: terminal, reason: reason)
     }
 
     /// Diff the served span against the final span and, if it reads as a
     /// genuine correction, write exactly one flywheel record.
     private func evaluate(
         finalValue: String?, served: String, prefix: String, suffix: String,
-        pourTs: String, app: String, reason: String
+        pourTs: String, app: String, terminal: Bool, reason: String
     ) {
         guard let finalValue else {
             llog("CorrectionWatcher: end (\(reason)) — no readable value, discarding")
@@ -265,6 +285,7 @@ final class CorrectionWatcher {
             FlywheelLog.recordCorrection(type: "rejection", pourTs: pourTs, app: app,
                                          served: servedTrimmed, corrected: nil, changedWords: changes)
             llog("CorrectionWatcher: REJECTION recorded (\(reason)) app='\(app)'")
+            onCorrectionRecorded?()
             return
         }
 
@@ -282,6 +303,17 @@ final class CorrectionWatcher {
 
         let servedWords = servedTrimmed.split(whereSeparator: \.isWhitespace).map(String.init)
         let finalWords = finalTrimmed.split(whereSeparator: \.isWhitespace).map(String.init)
+
+        // Terminal guard: the span is anchored in live scrollback, so any net
+        // word GROWTH almost certainly means streamed output leaked into the
+        // re-anchored span (or the user submitted and the shell replied). A real
+        // dictation fix is a substitution or deletion, never an addition. Only
+        // accept same-or-fewer words in terminals — this is the line that keeps
+        // agent/shell output out of the training data.
+        if terminal && finalWords.count > servedWords.count {
+            llog("CorrectionWatcher: end (\(reason)) — terminal span grew \(servedWords.count)->\(finalWords.count) words, discarding (likely streamed output)")
+            return
+        }
 
         // Appended continued typing after the span — ignore.
         if finalWords.count > servedWords.count,
@@ -304,6 +336,7 @@ final class CorrectionWatcher {
         FlywheelLog.recordCorrection(type: "correction", pourTs: pourTs, app: app,
                                      served: servedTrimmed, corrected: finalTrimmed, changedWords: changes)
         llog("CorrectionWatcher: CORRECTION recorded \(changes.count)/\(servedWords.count) words (\(reason)) app='\(app)'")
+        onCorrectionRecorded?()
     }
 
     /// Tear down all live watch resources. Never retains the element past here.
@@ -326,6 +359,19 @@ final class CorrectionWatcher {
         pendingElement = nil
         latestValue = ""
         haveValue = false
+        inTerminal = false
+    }
+
+    /// Count non-overlapping occurrences of `needle` in `haystack`.
+    private static func occurrences(of needle: String, in haystack: String) -> Int {
+        guard !needle.isEmpty else { return 0 }
+        var count = 0
+        var searchStart = haystack.startIndex
+        while let r = haystack.range(of: needle, range: searchStart..<haystack.endIndex) {
+            count += 1
+            searchStart = r.upperBound
+        }
+        return count
     }
 
     // MARK: - AX helpers

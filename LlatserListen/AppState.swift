@@ -287,6 +287,12 @@ final class AppState: ObservableObject {
         startPermissionMonitor()
         loadSelectedEngine(showLoadingUI: false)
 
+        // Fast learning loop: the moment a hand-correction is harvested, try to
+        // auto-teach it if it's a recurring brand/name fix (see autoLearnVocabulary).
+        correctionWatcher.onCorrectionRecorded = { [weak self] in
+            self?.autoLearnVocabulary()
+        }
+
         MainWindowPresenter.shared.appStateProvider = { [weak self] in self }
 
         DispatchQueue.main.async { [weak self] in
@@ -408,6 +414,67 @@ final class AppState: ObservableObject {
     func dismissVocabularySuggestion(_ suggestion: VocabularySuggestion) {
         VocabularySuggestions.dismiss(suggestion)
         vocabularySuggestions.removeAll { $0.id == suggestion.id }
+    }
+
+    /// The fast learning loop. Called right after a hand-correction is harvested.
+    /// Promotes any correction-driven vocabulary suggestion that already cleared
+    /// the manual bar — recurred >= 2x, reads as a brand/name (not grammar or
+    /// casing), phonetically/orthographically related — straight into the live
+    /// dictionary, automatically. This is the same conservative filter the manual
+    /// Brew Controls suggestions use (VocabularySuggestions.suggestions), just
+    /// applied without waiting for a tap the user never makes.
+    ///
+    /// Fully reversible and local: each learned word lands in the normal
+    /// dictionary (removable in Brew Controls) and nothing leaves the Mac. A brief
+    /// HUD flash tells the user what was learned, but only when idle so it never
+    /// competes with a live pour.
+    func autoLearnVocabulary() {
+        // Respect the capture kill switch, and an optional auto-learn opt-out
+        // (defaults ON — this is the whole point of the feature).
+        guard correctionWatcherEnabled else { return }
+        guard Self.boolDefaultTrue(forKey: "autoLearnVocabularyEnabled") else { return }
+
+        let existing = vocabularyCorrections
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            // The correction that triggered us is written via queue.async, so it
+            // may not be on disk yet. Wait for pending appends before scanning,
+            // otherwise the fix that just hit count 2 is missed until next time.
+            FlywheelLog.flush()
+            let found = VocabularySuggestions.suggestions(
+                existing: existing,
+                dismissed: VocabularySuggestions.dismissedKeys(),
+                limit: 10
+            )
+            guard !found.isEmpty else { return }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                var learned: [VocabularySuggestion] = []
+                for s in found {
+                    // Re-check against the current dictionary on the main thread —
+                    // it may have changed since the background scan started.
+                    let taken = self.vocabularyCorrections.contains {
+                        $0.heard.caseInsensitiveCompare(s.heard) == .orderedSame
+                            || $0.replacement.lowercased() == s.replacement.lowercased()
+                    }
+                    if taken { continue }
+                    self.addVocabularyCorrection(heard: s.heard, replacement: s.replacement)
+                    VocabularySuggestions.dismiss(s)   // don't also surface it manually
+                    self.vocabularySuggestions.removeAll { $0.id == s.id }
+                    llog("AppState: auto-learned vocabulary '\(s.heard)' -> '\(s.replacement)' (seen \(s.count)x)")
+                    learned.append(s)
+                }
+                guard let first = learned.first else { return }
+                // Only flash the HUD when nothing is pouring, so we never stomp
+                // the pouring/settling/served overlay.
+                if self.status == .ready {
+                    let msg = learned.count == 1
+                        ? "Learned: \(first.replacement)"
+                        : "Learned \(learned.count) words, incl. \(first.replacement)"
+                    self.overlay.show(mode: .notice(msg))
+                    self.overlay.hide(after: 2.0)
+                }
+            }
+        }
     }
 
     func resetWritingPreferences() {
