@@ -59,6 +59,14 @@ final class CorrectionWatcher {
     private var pendingElement: AXUIElement?
     private var locateAttempts = 0
 
+    // cmux socket mode (see startCmuxCapture). cmux renders terminals on a
+    // canvas, so AX exposes nothing — we read the screen over the cmux socket
+    // instead and do the same anchor/diff dance on whitespace-normalized text.
+    private var cmuxMode = false
+    private var cmuxSurfaceID: String?
+    private var cmuxMissCount = 0
+    private let cmuxMissLimit = 3              // consecutive re-anchor misses => span left screen
+
     private enum DiffOp { case equal(Int); case del(Int); case ins(Int) }
 
     private static let terminalBundleIDs: Set<String> = [
@@ -79,11 +87,26 @@ final class CorrectionWatcher {
 
         guard FlywheelLog.isEnabled, FlywheelLog.correctionWatcherEnabled else { return }
         guard !servedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        guard let el = Self.focusedElement() else { return }
 
         let front = NSWorkspace.shared.frontmostApplication
         let bundle = front?.bundleIdentifier ?? ""
         let name = front?.localizedName ?? "?"
+
+        // cmux: xterm.js renders to a canvas and its AX tree exposes only an
+        // empty helper text area, so the AX path below can never anchor there
+        // (and may not even report a focused element). Read the screen over
+        // the cmux socket instead.
+        if Self.isCmuxApp(bundle: bundle, name: name) {
+            guard Self.boolDefaultTrue(forKey: "cmuxScreenCaptureEnabled") else { return }
+            guard CmuxScreenSource.isAvailable else {
+                llog("CorrectionWatcher: cmux CLI not found — not watching")
+                return
+            }
+            startCmuxCapture(servedText: servedText, pourTs: pourTs, appName: name)
+            return
+        }
+
+        guard let el = Self.focusedElement() else { return }
         let role = Self.stringAttr(el, kAXRoleAttribute) ?? ""
         let subrole = Self.stringAttr(el, kAXSubroleAttribute) ?? ""
 
@@ -119,7 +142,7 @@ final class CorrectionWatcher {
     /// Force the watch to end and evaluate now (used when a new recording
     /// starts — a new pour supersedes). No-op if nothing is being watched.
     func stop() {
-        guard active || pendingElement != nil else { return }
+        guard active || pendingElement != nil || cmuxMode else { return }
         if active {
             end(reason: "new recording")
         } else {
@@ -189,6 +212,120 @@ final class CorrectionWatcher {
 
         let words = servedSpan.split(whereSeparator: \.isWhitespace).count
         llog("CorrectionWatcher: watching \(words)-word span in '\(appName)' (observer=\(observer != nil ? "on" : "poll-only"))")
+    }
+
+    // MARK: - cmux socket capture
+
+    /// Same contract as the AX path, but the "element value" is the visible
+    /// screen text of the focused cmux terminal surface, read over the cmux
+    /// socket and whitespace-normalized (the terminal re-wraps lines, so raw
+    /// text never matches the served span exactly). The span is anchored to
+    /// the surface UUID captured at paste time, so it stays readable even if
+    /// the user switches panes; the watch ends when the span leaves the screen
+    /// (submit/scroll), the app is switched, or the 120s cap fires.
+    private func startCmuxCapture(servedText: String, pourTs: String, appName name: String) {
+        servedSpan = Self.normalizedScreen(servedText)
+        guard !servedSpan.isEmpty else { return }
+        self.pourTs = pourTs
+        appName = name
+        inTerminal = true   // same growth guard: streamed output must not train
+        cmuxMode = true
+        locateAttempts = 0
+
+        CmuxScreenSource.focusedTerminalSurfaceID { [weak self] surfaceID in
+            guard let self, self.cmuxMode, !self.active else { return }
+            guard let surfaceID else {
+                llog("CorrectionWatcher: cmux focused surface unavailable — not watching")
+                self.reset()
+                return
+            }
+            self.cmuxSurfaceID = surfaceID
+            self.attemptCmuxLocate()
+        }
+    }
+
+    private func attemptCmuxLocate() {
+        guard cmuxMode, !active, let surfaceID = cmuxSurfaceID else { return }
+        locateAttempts += 1
+
+        CmuxScreenSource.readScreen(surfaceID: surfaceID) { [weak self] screen in
+            guard let self, self.cmuxMode, !self.active else { return }
+            let value = Self.normalizedScreen(screen ?? "")
+            let hits = Self.occurrences(of: self.servedSpan, in: value)
+            if hits == 1, let range = value.range(of: self.servedSpan) {
+                self.beginCmuxWatching(baseline: value, span: range)
+                return
+            }
+            if hits > 1 {
+                llog("CorrectionWatcher: cmux span not unique on screen — not watching")
+                self.reset()
+                return
+            }
+            if self.locateAttempts >= self.locateMaxAttempts {
+                llog("CorrectionWatcher: cmux span not found on screen — not watching")
+                self.reset()
+                return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + self.locateRetryInterval) { [weak self] in
+                self?.attemptCmuxLocate()
+            }
+        }
+    }
+
+    private func beginCmuxWatching(baseline: String, span: Range<String.Index>) {
+        active = true
+        startedAt = Date()
+        latestValue = baseline
+        haveValue = true
+        cmuxMissCount = 0
+
+        let before = String(baseline[..<span.lowerBound])
+        let after = String(baseline[span.upperBound...])
+        prefixContext = String(before.suffix(contextChars))
+        suffixContext = String(after.prefix(contextChars))
+
+        pollTimer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
+            self?.cmuxPollTick()
+        }
+        workspaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.end(reason: "app switch")
+        }
+
+        let words = servedSpan.split(whereSeparator: \.isWhitespace).count
+        llog("CorrectionWatcher: watching \(words)-word span in '\(appName)' (cmux socket)")
+    }
+
+    private func cmuxPollTick() {
+        guard active, cmuxMode else { return }
+
+        if Date().timeIntervalSince(startedAt) >= hardCapSeconds {
+            end(reason: "120s cap")
+            return
+        }
+        guard let surfaceID = cmuxSurfaceID else {
+            end(reason: "no surface")
+            return
+        }
+        CmuxScreenSource.readScreen(surfaceID: surfaceID) { [weak self] screen in
+            guard let self, self.active, self.cmuxMode else { return }
+            let value = Self.normalizedScreen(screen ?? "")
+            if Self.relocate(in: value, prefix: self.prefixContext, suffix: self.suffixContext) != nil {
+                self.latestValue = value
+                self.haveValue = true
+                self.cmuxMissCount = 0
+            } else {
+                // The span left the visible screen (submitted, cleared, or
+                // scrolled away). Evaluate against the last snapshot where the
+                // anchors still held — that snapshot contains the user's fixes.
+                self.cmuxMissCount += 1
+                if self.cmuxMissCount >= self.cmuxMissLimit {
+                    self.end(reason: "span left screen")
+                }
+            }
+        }
     }
 
     // MARK: - AX observer + polling
@@ -360,6 +497,9 @@ final class CorrectionWatcher {
         latestValue = ""
         haveValue = false
         inTerminal = false
+        cmuxMode = false
+        cmuxSurfaceID = nil
+        cmuxMissCount = 0
     }
 
     /// Count non-overlapping occurrences of `needle` in `haystack`.
@@ -389,6 +529,23 @@ final class CorrectionWatcher {
         var v: CFTypeRef?
         guard AXUIElementCopyAttributeValue(el, attr as CFString, &v) == .success else { return nil }
         return v as? String
+    }
+
+    private static func isCmuxApp(bundle: String, name: String) -> Bool {
+        bundle == "com.cmuxterm.app" || (bundle + " " + name).lowercased().contains("cmux")
+    }
+
+    private static func boolDefaultTrue(forKey key: String) -> Bool {
+        UserDefaults.standard.object(forKey: key) == nil ? true : UserDefaults.standard.bool(forKey: key)
+    }
+
+    /// Terminal screen text re-wraps at the column edge, so exact matching is
+    /// hopeless: collapse all whitespace (including the wrap newlines) to
+    /// single spaces before locating, anchoring, and diffing. The word-level
+    /// diff downstream is whitespace-agnostic, so nothing is lost.
+    private static func normalizedScreen(_ s: String) -> String {
+        s.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func isTerminalApp(bundle: String, name: String) -> Bool {
