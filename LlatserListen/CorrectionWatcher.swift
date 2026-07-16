@@ -475,6 +475,20 @@ final class CorrectionWatcher {
             llog("CorrectionWatcher: end (\(reason)) — empty diff, discarding")
             return
         }
+
+        // Mid-edit harvest guard: ending because a NEW recording started means
+        // the user may have been caught mid-backspace, clearing the tail to
+        // re-dictate (seen live: "…Have we had any additional" -> "…Ha"). A
+        // diff that only touches a contiguous run ending at the span's last
+        // word is that half-deleted state, not a correction — never train on it.
+        if reason == "new recording" {
+            let idxs = changes.map(\.index)
+            if let lo = idxs.min(), idxs.max() == servedWords.count - 1,
+               Set(idxs).count == servedWords.count - lo {
+                llog("CorrectionWatcher: end (\(reason)) — trailing edit-in-progress, discarding")
+                return
+            }
+        }
         let ratio = Double(changes.count) / Double(max(1, servedWords.count))
         guard ratio <= editRatioCap else {
             llog("CorrectionWatcher: end (\(reason)) — \(Int(ratio * 100))% of words changed (>40%), discarding")
