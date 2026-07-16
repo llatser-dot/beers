@@ -312,7 +312,18 @@ final class CorrectionWatcher {
         CmuxScreenSource.readScreen(surfaceID: surfaceID) { [weak self] screen in
             guard let self, self.active, self.cmuxMode else { return }
             let value = Self.normalizedScreen(screen ?? "")
-            if Self.relocate(in: value, prefix: self.prefixContext, suffix: self.suffixContext) != nil {
+            if let span = Self.relocate(in: value, prefix: self.prefixContext, suffix: self.suffixContext) {
+                // Growth between the anchors means the pour was submitted and
+                // output is streaming where the composer used to be. The
+                // composer's final state — the one holding the user's fixes —
+                // is the snapshot we already have; end NOW so a grown snapshot
+                // never overwrites it (evaluate would discard the whole record).
+                let servedCount = self.servedSpan.split(whereSeparator: \.isWhitespace).count
+                let spanCount = span.split(whereSeparator: \.isWhitespace).count
+                if spanCount > servedCount {
+                    self.end(reason: "span grew on screen (submitted)")
+                    return
+                }
                 self.latestValue = value
                 self.haveValue = true
                 self.cmuxMissCount = 0
