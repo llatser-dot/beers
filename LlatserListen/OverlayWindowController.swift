@@ -62,7 +62,10 @@ final class OverlayWindowController {
             defer: false
         )
 
-        panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
+        // Menu-bar items are separate windows and can be ordered above another
+        // status-level panel. The pop-up layer keeps the HUD fully in front of
+        // crowded status items while remaining below system screen-saver UI.
+        panel.level = .popUpMenu
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
         panel.isFloatingPanel = true

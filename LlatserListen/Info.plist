@@ -29,5 +29,13 @@
     </dict>
     <key>LSUIElement</key>
     <true/>
+    <key>SUFeedURL</key>
+    <string>https://raw.githubusercontent.com/llatser-dot/beers/main/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>em2dvH194Ufxi87+qHTUdlFfb0Cb2KdED8NxXQrZJrk=</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUScheduledCheckInterval</key>
+    <integer>86400</integer>
 </dict>
 </plist>

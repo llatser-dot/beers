@@ -103,15 +103,16 @@ extension Color {
     }
 }
 
-// MARK: - The B-with-ear mark
+// MARK: - Brand marks
 
 struct BeersMark: View {
     let size: CGFloat
 
     var body: some View {
-        if let image = Beers.brandImage("logo-b-small") {
+        if let image = Beers.brandImage("brand-badge") {
             Image(nsImage: image)
                 .resizable()
+                .interpolation(.high)
                 .scaledToFit()
                 .frame(width: size, height: size)
                 .accessibilityLabel("Beers")
@@ -124,20 +125,11 @@ struct BeersMark: View {
     }
 }
 
-struct BeersAppIcon: View {
+struct BeersMenuBadge: View {
     let size: CGFloat
 
     var body: some View {
-        if let image = Beers.brandImage("app-icon") {
-            Image(nsImage: image)
-                .resizable()
-                .scaledToFit()
-                .frame(width: size, height: size)
-        } else {
-            RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
-                .fill(Beers.amber)
-                .frame(width: size, height: size)
-        }
+        BeersMark(size: size)
     }
 }
 

@@ -134,7 +134,7 @@ struct FirstRoundView: View {
                 .background(Beers.ink, in: Capsule())
                 .rotationEffect(.degrees(-6))
             Spacer()
-            BeersAppIcon(size: 30)
+            BeersMenuBadge(size: 30)
         }
         .padding(.bottom, 8)
     }
@@ -513,7 +513,7 @@ private struct DraggableAppBadge: View {
                             .strokeBorder(Beers.ink, lineWidth: 2.5)
                     )
                     .shadow(color: Beers.ink.opacity(0.35), radius: 0, x: 3, y: 3)
-                BeersAppIcon(size: 58)
+                BeersMenuBadge(size: 58)
                 AppBundleDragSource()
                     .frame(width: 76, height: 76)
             }

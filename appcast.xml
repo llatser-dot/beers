@@ -1,0 +1,20 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Beers</title>
+        <item>
+            <title>1.2.0</title>
+            <pubDate>Fri, 17 Jul 2026 17:20:51 +0000</pubDate>
+            <link>https://github.com/llatser-dot/beers/releases/tag/v1.2.0</link>
+            <sparkle:version>1</sparkle:version>
+            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure
+                url="https://github.com/llatser-dot/beers/releases/download/v1.2.0/Beers-1.2.0.app.zip"
+                sparkle:edSignature="xG7r8rLka9CBVG6+gLs4Hysbb23ywg1xMonSVdmAVlx5+exJboOxW7bB/dQoSznQ0PIO0L1QSPWBjjWMLZU/CA=="
+                length="123523988"
+                type="application/octet-stream" />
+        </item>
+    </channel>
+</rss>

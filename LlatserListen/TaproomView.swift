@@ -6,6 +6,7 @@ import SwiftUI
 struct TaproomView: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject var store: PourStore
+    @ObservedObject private var updater = UpdateController.shared
     @State private var filter: TapFilter = .all
     @State private var search = ""
 
@@ -41,7 +42,7 @@ struct TaproomView: View {
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
-                BeersAppIcon(size: 28)
+                BeersMenuBadge(size: 28)
                 Text("eers")
                     .font(Beers.display(19))
                     .foregroundStyle(Beers.lager)
@@ -58,12 +59,43 @@ struct TaproomView: View {
 
             Spacer()
 
+            updateButton
             streakCard
         }
         .padding(16)
         .frame(width: 200)
         .frame(maxHeight: .infinity)
         .background(Beers.ink)
+    }
+
+    private var updateButton: some View {
+        Button {
+            updater.checkForUpdates()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: updater.availableVersion == nil ? "arrow.triangle.2.circlepath" : "arrow.down.circle.fill")
+                    .font(.system(size: 11, weight: .bold))
+                Text(updater.actionTitle)
+                    .font(Beers.ui(12, .bold))
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(updater.availableVersion == nil ? Beers.cream : Beers.ink)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 9)
+            .background(
+                updater.availableVersion == nil ? Beers.stout : Beers.lager,
+                in: RoundedRectangle(cornerRadius: 11, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .strokeBorder(updater.availableVersion == nil ? Beers.cream.opacity(0.55) : Beers.ink, lineWidth: 2)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(!updater.canCheckForUpdates || updater.isChecking)
+        .opacity(updater.canCheckForUpdates ? 1 : 0.55)
+        .padding(.bottom, 8)
     }
 
     private func navItem(_ item: TapFilter, emoji: String) -> some View {

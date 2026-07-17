@@ -21,7 +21,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "Beers-Brand-Assets"
-SOURCES = ASSETS / "source-raster-v1"
+SOURCES = ASSETS / "source-raster-v2"
 OUTPUT = ASSETS / "exports-v1"
 SVG_DIR = OUTPUT / "svg"
 PNG_DIR = OUTPUT / "png-4k"
@@ -29,11 +29,11 @@ LEGACY_SVG_DIR = OUTPUT / "legacy" / "svg"
 LEGACY_PNG_DIR = OUTPUT / "legacy" / "png-4k"
 PREVIEW_DIR = OUTPUT / "preview"
 
-PRIMARY_SOURCE = ROOT / "LlatserListen/Resources/BrandAssets/logo-b-small.png"
-BADGE_SOURCE = ROOT / "LlatserListen/Resources/BrandAssets/app-icon.png"
+PRIMARY_SOURCE = SOURCES / "logo-b-small.png"
+BADGE_SOURCE = SOURCES / "beers-b-badge.png"
 FRAMED_SOURCE = SOURCES / "logo-framed-source.png"
 WORDMARK_SOURCE = SOURCES / "wordmark-source.png"
-LEGACY_SOURCE = ASSETS / "beers-ear-b.png"
+LEGACY_SOURCE = PRIMARY_SOURCE
 
 RSVG = shutil.which("rsvg-convert")
 
@@ -634,36 +634,7 @@ def source_paths() -> dict[str, dict[str, str]]:
         "eers_cream": vectorise(wordmark_eers_cream, width, height, 2.2),
     }
 
-    legacy_image, legacy_pixels = image_pixels(LEGACY_SOURCE)
-    width, height = legacy_image.size
-    legacy_base = soften(
-        select_components(alpha_mask(legacy_pixels, 128), width, height, lambda _, rank: rank == 0), width, height, 1.5
-    )
-    legacy_warm_raw = colour_mask(
-        legacy_pixels,
-        lambda hue, saturation, value, *_: (hue <= 0.19 or hue >= 0.97) and saturation >= 0.42 and value >= 0.45,
-    )
-    legacy_warm = soften(
-        dilate(select_components(legacy_warm_raw, width, height, lambda component, _: component.area >= 50), width, height, 2),
-        width,
-        height,
-        1.2,
-    )
-    legacy_yellow_raw = colour_mask(
-        legacy_pixels,
-        lambda hue, saturation, value, *_: 0.075 <= hue <= 0.19 and saturation >= 0.42 and value >= 0.45,
-    )
-    legacy_yellow = soften(
-        dilate(select_components(legacy_yellow_raw, width, height, lambda component, _: component.area >= 50), width, height, 2),
-        width,
-        height,
-        1.2,
-    )
-    result["legacy"] = {
-        "base": vectorise(legacy_base, width, height, 5.5),
-        "warm": vectorise(legacy_warm, width, height, 4.0),
-        "yellow": vectorise(legacy_yellow, width, height, 3.5),
-    }
+    result["legacy"] = dict(result["primary"])
 
     return result
 
@@ -704,10 +675,14 @@ def artworks(paths: dict[str, dict[str, str]]) -> list[Artwork]:
     )
     wordmark_layers = "\n  ".join(
         [
-            path_element(wordmark["base"], "url(#red)"),
-            path_element(wordmark["cream"], "url(#cream)"),
-            path_element(wordmark["warm"], "url(#orange)"),
-            path_element(wordmark["yellow"], "url(#yellow)"),
+            path_element(badge["base"], "url(#orange)"),
+            path_element(badge["scallop"], "url(#yellow)"),
+            path_element(badge["body"], "url(#navy)"),
+            path_element(badge["cream"], "url(#cream)"),
+            path_element(badge["warm"], "url(#orange)"),
+            path_element(badge["yellow"], "url(#yellow)"),
+            path_element(wordmark["eers"], "url(#red)"),
+            path_element(wordmark["eers_cream"], "url(#cream)"),
         ]
     )
     lockup_layers = "\n  ".join(
@@ -716,8 +691,8 @@ def artworks(paths: dict[str, dict[str, str]]) -> list[Artwork]:
             path_element(primary["cream"], "url(#cream)"),
             path_element(primary["warm"], "url(#orange)"),
             path_element(primary["yellow"], "url(#yellow)"),
-            path_element(wordmark["eers"], "url(#red)", transform="translate(-35 -30)"),
-            path_element(wordmark["eers_cream"], "url(#cream)", transform="translate(-35 -30)"),
+            path_element(wordmark["eers"], "url(#red)", transform="translate(-115 -20)"),
+            path_element(wordmark["eers_cream"], "url(#cream)", transform="translate(-115 -20)"),
         ]
     )
     monochrome_path = f"{primary['base']} {primary['ear']}"
@@ -738,9 +713,10 @@ def artworks(paths: dict[str, dict[str, str]]) -> list[Artwork]:
     )
     legacy_layers = "\n  ".join(
         [
-            path_element(legacy["base"], "url(#navy)", transform="translate(-303 -271)"),
-            path_element(legacy["warm"], "url(#orange)", transform="translate(-303 -271)"),
-            path_element(legacy["yellow"], "url(#yellow)", transform="translate(-303 -271)"),
+            path_element(legacy["base"], "url(#navy)"),
+            path_element(legacy["cream"], "url(#cream)"),
+            path_element(legacy["warm"], "url(#orange)"),
+            path_element(legacy["yellow"], "url(#yellow)"),
         ]
     )
 
@@ -748,7 +724,7 @@ def artworks(paths: dict[str, dict[str, str]]) -> list[Artwork]:
         Artwork("beers-b-primary", "Beers primary B mark", 135, 165, primary_layers),
         Artwork("beers-b-badge", "Beers scalloped app badge", 200, 212, badge_layers),
         Artwork("beers-b-framed", "Beers framed B mark", 765, 655, framed_layers),
-        Artwork("beers-wordmark", "Beers complete wordmark", 645, 205, wordmark_layers),
+        Artwork("beers-wordmark", "Beers complete wordmark", 645, 212, wordmark_layers),
         Artwork("beers-lockup-horizontal", "Beers horizontal B and eers lockup", 575, 165, lockup_layers),
         Artwork(
             "beers-b-one-colour-ink",
@@ -765,7 +741,7 @@ def artworks(paths: dict[str, dict[str, str]]) -> list[Artwork]:
             monochrome_cream_layers,
         ),
         Artwork("beers-b-reversed", "Beers reversed B tile", 205, 205, reversed_layers),
-        Artwork("beers-ear-b-legacy", "Legacy Beers ear B mark", 684, 684, legacy_layers, legacy=True),
+        Artwork("beers-ear-b-legacy", "Beers standalone B compatibility mark", 135, 165, legacy_layers, legacy=True),
     ]
 
 
@@ -865,7 +841,7 @@ def contact_sheet(generated: Sequence[tuple[Artwork, Path]]) -> None:
 
     draw.text(
         (100, 1740),
-        "Canonical v1 · Primary geometry follows the live app/site B · Legacy mark kept separate",
+        "Canonical v2 · Clean Imagen masters · One coherent badge and B geometry",
         fill=(75, 69, 60),
         font=small_font,
     )
@@ -888,7 +864,7 @@ def write_readme(dimensions: dict[str, tuple[int, int]]) -> None:
         f"| `{name}` | {purpose} | {dimensions[name][0]}×{dimensions[name][1]} | {background} |"
         for name, purpose, background in rows
     )
-    readme = f"""# Beers logo pack v1
+    readme = f"""# Beers logo pack v2
 
 This is the production-ready Beers logo pack. Every canonical asset is supplied as a true, editable SVG path and as a high-resolution PNG whose longest edge is exactly 4096 pixels. No SVG embeds a raster image or depends on a font.
 
@@ -908,9 +884,9 @@ SVG masters live in `svg/`; paired PNG exports live in `png-4k/`.
 - Use the one-colour files for embroidery, stamps, vinyl, laser work, and single-ink print.
 - Keep clear space around a mark equal to at least one quarter of the B's width. Do not stretch, recolour, rotate, outline, or rearrange it.
 
-## Legacy
+## Compatibility
 
-`legacy/beers-ear-b-legacy` is the older orange-ear/yellow-inner-ear B. It is included because it existed in the project, but it is not the current product mark and must not replace the scalloped badge or canonical cream-ear B.
+`legacy/beers-ear-b-legacy` now carries the clean standalone B geometry so old consumers no longer receive the rough retired artwork.
 
 ## Palette
 
@@ -933,7 +909,7 @@ From the repository root:
 python3 scripts/export-brand-assets.py
 ```
 
-Requirements: Python 3 with Pillow and `rsvg-convert`. The two raster-only wireframe sources used for vector reconstruction are preserved in `../source-raster-v1/`.
+Requirements: Python 3 with Pillow and `rsvg-convert`. The clean Imagen source masters used for vector reconstruction are preserved in `../source-raster-v2/`.
 """
     (OUTPUT / "README.md").write_text(readme, encoding="utf-8")
 

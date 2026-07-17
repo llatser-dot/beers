@@ -164,7 +164,7 @@ struct PourHUDView: View {
     }
 
     private var badge: some View {
-        BeersAppIcon(size: 44)
+        BeersMenuBadge(size: 44)
             .frame(width: 48, height: 48)
     }
 
@@ -264,10 +264,10 @@ private struct NotchIslandView: View {
 
     private var wings: (left: CGFloat, right: CGFloat) {
         switch presentation.mode {
-        case .pouring, .takingOrder: return (44, 118)
-        case .settling, .workingOrder: return (44, 64)
-        case .served: return (44, 96)
-        case .notice: return (44, 240)
+        case .pouring, .takingOrder: return (29, 136)
+        case .settling, .workingOrder: return (29, 64)
+        case .served: return (29, 96)
+        case .notice: return (29, 240)
         }
     }
 
@@ -296,6 +296,9 @@ private struct NotchIslandView: View {
                 .fill(.black)
                 .shadow(color: .black.opacity(presentation.isVisible ? 0.35 : 0), radius: 9, y: 5)
             )
+            // Move the complete island, including its background, so the clear
+            // gap remains centred on the physical camera housing with unequal wings.
+            .offset(x: (wings.right - wings.left) / 2)
             .opacity(presentation.isVisible ? 1 : 0)
             .animation(
                 reduceMotion ? .easeOut(duration: 0.15) : Beers.springTight,
@@ -308,8 +311,8 @@ private struct NotchIslandView: View {
     private var leftWing: some View {
         HStack {
             Spacer(minLength: 0)
-            BeersAppIcon(size: 19)
-            Spacer(minLength: 6)
+            BeersMenuBadge(size: 19)
+            Spacer(minLength: 2)
         }
     }
 
@@ -321,6 +324,7 @@ private struct NotchIslandView: View {
             case .pouring, .takingOrder:
                 IslandWaveform(active: !reduceMotion)
                     .frame(width: 52, height: 16)
+                    .padding(.leading, 8)
                 IslandTimer(start: presentation.pourStart)
             case .settling, .workingOrder:
                 IslandFoam(active: !reduceMotion)
@@ -368,7 +372,7 @@ private struct IslandWaveform: View {
             let time = timeline.date.timeIntervalSinceReferenceDate
             let level = CGFloat(LiveMicLevel.shared.level)
 
-            HStack(alignment: .center, spacing: 2.5) {
+            HStack(alignment: .center, spacing: 3) {
                 ForEach(0..<barCount, id: \.self) { index in
                     Capsule()
                         .fill(Beers.lager)

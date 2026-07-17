@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Law: the Beers palette is one fixed light appearance.
         NSApp.appearance = NSAppearance(named: .aqua)
         BeersFonts.registerOnce()
+        _ = UpdateController.shared
 
         // A menu-bar app starts windowless: macOS restoration otherwise
         // brings back whatever was open at quit (Brew Controls included)

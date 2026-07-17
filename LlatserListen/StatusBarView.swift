@@ -5,6 +5,7 @@ import SwiftUI
 /// fighting for attention.
 struct StatusBarView: View {
     @EnvironmentObject var appState: AppState
+    @ObservedObject private var updater = UpdateController.shared
     @Environment(\.openSettings) private var openSettings
     @Environment(\.dismiss) private var dismiss
 
@@ -25,7 +26,7 @@ struct StatusBarView: View {
     private var header: some View {
         VStack(spacing: 3) {
             HStack(spacing: 4) {
-                BeersAppIcon(size: 32)
+                BeersMenuBadge(size: 32)
                 Text("eers")
                     .font(Beers.display(21))
                     .foregroundStyle(Beers.paper)
@@ -154,6 +155,21 @@ struct StatusBarView: View {
                 Spacer()
                 Text("⚙️").font(.system(size: 12))
             }
+
+            popRow {
+                updater.checkForUpdates()
+            } content: {
+                Image(systemName: updater.availableVersion == nil ? "arrow.triangle.2.circlepath" : "arrow.down.circle.fill")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(updater.availableVersion == nil ? Beers.stout : Beers.amber)
+                Text(updater.actionTitle).font(Beers.ui(13, .semibold))
+                Spacer()
+                Text("v\(updater.currentVersion)")
+                    .font(Beers.ui(11, .semibold))
+                    .foregroundStyle(Beers.ink.opacity(0.55))
+            }
+            .disabled(!updater.canCheckForUpdates || updater.isChecking)
+            .opacity(updater.canCheckForUpdates ? 1 : 0.55)
 
             popRow {
                 NSApp.terminate(nil)
