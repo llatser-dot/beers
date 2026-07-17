@@ -27,6 +27,7 @@ final class AudioRecorder {
     private var recoveryWorkItem: DispatchWorkItem?
     private var recoveryAttempts = 0
     private let maxRecoveryAttempts = 5
+    private var lastBufferAt: CFAbsoluteTime = 0
 
     var isWarm: Bool {
         engine?.isRunning == true
@@ -63,6 +64,7 @@ final class AudioRecorder {
         selectedChannelLogCount = 0
         captureID += 1
         isCapturing = true
+        lastBufferAt = CFAbsoluteTimeGetCurrent()
         converter?.reset()
         lock.unlock()
         llog("AudioRecorder: capture started")
@@ -275,6 +277,7 @@ final class AudioRecorder {
         if isCapturing && captureID == activeCaptureID {
             buffer.append(contentsOf: samples)
             tapCallbackCount += 1
+            lastBufferAt = CFAbsoluteTimeGetCurrent()
         }
         lock.unlock()
     }
@@ -439,9 +442,51 @@ final class AudioRecorder {
             return
         }
 
-        llog("AudioRecorder: \(reason) mid-pour; recovering capture without dropping audio")
+        llog("AudioRecorder: \(reason) mid-pour; checking capture health")
         recoveryAttempts = 0
-        scheduleMidPourRecovery(after: 0.25)
+        scheduleHealthCheck(after: 0.25)
+    }
+
+    /// AirPods fire a config-change notification ~0.3s after EVERY engine
+    /// start (the output side renegotiates when the engine touches the
+    /// hardware), so the notification alone proves nothing. Escalate only on
+    /// evidence: buffers still flowing → do nothing; engine stopped itself →
+    /// restart the intact graph in place (~instant); only rebuild from
+    /// scratch (a 1-2s device re-open with Bluetooth attached) as a last
+    /// resort. Tearing down eagerly is what ate pours down to half a second.
+    private func scheduleHealthCheck(after delay: TimeInterval) {
+        recoveryWorkItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            self?.checkCaptureHealth()
+        }
+        recoveryWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
+    }
+
+    private func checkCaptureHealth() {
+        lock.lock()
+        let capturing = isCapturing
+        let last = lastBufferAt
+        lock.unlock()
+        guard capturing else { return }
+
+        if CFAbsoluteTimeGetCurrent() - last < 0.2 {
+            llog("AudioRecorder: capture healthy after route change; leaving engine alone")
+            return
+        }
+
+        recoveryAttempts += 1
+        if recoveryAttempts <= 2, let engine {
+            do {
+                try engine.start()
+                llog("AudioRecorder: engine restarted in place after route change")
+                scheduleHealthCheck(after: 0.3)
+                return
+            } catch {
+                llog("AudioRecorder: in-place restart failed: \(error.localizedDescription); rebuilding")
+            }
+        }
+        recoverMidPour()
     }
 
     private func scheduleMidPourRecovery(after delay: TimeInterval) {
