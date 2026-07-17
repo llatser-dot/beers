@@ -32,7 +32,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.llatser.listen
         PRODUCT_NAME: "Beers"
-        MARKETING_VERSION: "1.1.0"
+        MARKETING_VERSION: "1.2.0"
         CURRENT_PROJECT_VERSION: "1"
         INFOPLIST_FILE: LlatserListen/Info.plist
         CODE_SIGN_ENTITLEMENTS: LlatserListen/LlatserListen.entitlements
