@@ -82,12 +82,17 @@ if [ -z "$SOURCE_APP" ]; then
 
         SOURCE_APP="$BUILD_DIR/Build/Products/Release/$APP_NAME.app"
 
+        # Hardened runtime without the audio-input entitlement silently kills
+        # the microphone on the receiving Mac — always sign with entitlements.
+        ENTITLEMENTS="$PROJECT_DIR/LlatserListen/LlatserListen.entitlements"
         if [ -n "$SIGN_IDENTITY" ] && security find-identity -v -p codesigning | grep -Fq "$SIGN_IDENTITY"; then
-            codesign --force --deep --timestamp=none --options runtime --sign "$SIGN_IDENTITY" "$SOURCE_APP"
+            codesign --force --deep --timestamp=none --options runtime \
+                --entitlements "$ENTITLEMENTS" --sign "$SIGN_IDENTITY" "$SOURCE_APP"
             SIGNING_NOTE="Apple Development signed"
         else
             echo "No Apple Development signing identity found; using ad-hoc signature."
-            codesign --force --deep --options runtime --sign - "$SOURCE_APP"
+            codesign --force --deep --options runtime \
+                --entitlements "$ENTITLEMENTS" --sign - "$SOURCE_APP"
             SIGNING_NOTE="ad-hoc signed"
         fi
     fi
