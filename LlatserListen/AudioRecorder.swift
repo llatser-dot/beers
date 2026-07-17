@@ -24,6 +24,9 @@ final class AudioRecorder {
 
     private var deviceChangeListener: AudioObjectPropertyListenerBlock?
     private var configChangeObserver: NSObjectProtocol?
+    private var recoveryWorkItem: DispatchWorkItem?
+    private var recoveryAttempts = 0
+    private let maxRecoveryAttempts = 5
 
     var isWarm: Bool {
         engine?.isRunning == true
@@ -89,6 +92,10 @@ final class AudioRecorder {
             SystemAudioDucker.restoreIfNeeded()
         }
 
+        recoveryWorkItem?.cancel()
+        recoveryWorkItem = nil
+        recoveryAttempts = 0
+
         if let engine {
             engine.inputNode.removeTap(onBus: 0)
             engine.stop()
@@ -106,6 +113,22 @@ final class AudioRecorder {
         llog("AudioRecorder: engine stopped")
     }
 
+    /// Tears down the audio graph but keeps the capture state (buffer,
+    /// isCapturing, captureID) intact so a mid-pour engine rebuild never
+    /// drops audio the user already spoke.
+    private func teardownEngineOnly() {
+        if let engine {
+            engine.inputNode.removeTap(onBus: 0)
+            engine.stop()
+        }
+
+        lock.lock()
+        self.engine = nil
+        converter = nil
+        outputFormat = nil
+        lock.unlock()
+    }
+
     private func ensureEngineRunning() throws {
         if let engine, engine.isRunning {
             return
@@ -115,6 +138,28 @@ final class AudioRecorder {
         // graph must not restore it during the recorder's cold start.
         stopEngine(restoreOutput: false)
 
+        // Headphones connecting churn CoreAudio for a few seconds (the device
+        // list and defaults flap several times per connect). A start attempt
+        // in that window can fail or see a half-configured device, so retry
+        // briefly instead of failing the pour.
+        var lastError: Error = RecorderError.noInputDevice
+        for attempt in 1...3 {
+            do {
+                try startEngine()
+                return
+            } catch {
+                lastError = error
+                teardownEngineOnly()
+                llog("AudioRecorder: engine start attempt \(attempt) failed: \(error.localizedDescription)")
+                if attempt < 3 {
+                    Thread.sleep(forTimeInterval: 0.15 * Double(attempt))
+                }
+            }
+        }
+        throw lastError
+    }
+
+    private func startEngine() throws {
         let newEngine = AVAudioEngine()
         let inputNode = newEngine.inputNode
 
@@ -191,12 +236,32 @@ final class AudioRecorder {
         lock.lock()
         let shouldCapture = isCapturing
         let activeCaptureID = captureID
-        let activeConverter = converter
+        let lockedConverter = converter
         let activeOutputFormat = outputFormat
         lock.unlock()
 
-        guard shouldCapture, let activeConverter, let activeOutputFormat else { return }
+        guard shouldCapture, var activeConverter = lockedConverter, let activeOutputFormat else { return }
         guard pcmBuffer.frameLength > 0 else { return }
+
+        // A route change can shift the input sample rate underneath a running
+        // tap. A converter built for the old rate would reject every buffer
+        // (captured silence), so rebuild it for what the hardware now delivers.
+        if activeConverter.inputFormat.sampleRate != pcmBuffer.format.sampleRate {
+            guard let driftedMonoFormat = AVAudioFormat(
+                commonFormat: .pcmFormatFloat32,
+                sampleRate: pcmBuffer.format.sampleRate,
+                channels: 1,
+                interleaved: false
+            ), let rebuiltConverter = AVAudioConverter(from: driftedMonoFormat, to: activeOutputFormat) else {
+                return
+            }
+            rebuiltConverter.sampleRateConverterQuality = AVAudioQuality.max.rawValue
+            lock.lock()
+            converter = rebuiltConverter
+            lock.unlock()
+            activeConverter = rebuiltConverter
+            llog("AudioRecorder: input rate changed mid-pour to \(pcmBuffer.format.sampleRate)Hz; converter rebuilt")
+        }
         guard let monoBuffer = makeMonoBuffer(from: pcmBuffer) else { return }
         guard let convertedBuffer = convert(monoBuffer, with: activeConverter, to: activeOutputFormat) else { return }
         guard let channelData = convertedBuffer.floatChannelData else { return }
@@ -330,9 +395,7 @@ final class AudioRecorder {
     private func installDeviceChangeListeners() {
         let listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
             DispatchQueue.main.async {
-                guard let self, !self.isCapturing else { return }
-                self.stopEngine()
-                llog("AudioRecorder: audio devices changed; engine will restart on next capture")
+                self?.handleRouteChange(reason: "audio devices changed")
             }
         }
         deviceChangeListener = listener
@@ -357,8 +420,66 @@ final class AudioRecorder {
             queue: .main
         ) { [weak self] notification in
             guard let self, let engine = self.engine, notification.object as? AVAudioEngine === engine else { return }
-            self.stopEngine()
-            llog("AudioRecorder: engine configuration changed; engine will restart on next capture")
+            self.handleRouteChange(reason: "engine configuration changed")
+        }
+    }
+
+    /// Route changes while idle just tear the engine down (it rebuilds on the
+    /// next capture). Mid-pour they must NOT kill the capture: headphones
+    /// connecting fire several of these in a burst, so coalesce briefly, then
+    /// rebuild the graph in place with the buffered audio untouched.
+    private func handleRouteChange(reason: String) {
+        lock.lock()
+        let capturing = isCapturing
+        lock.unlock()
+
+        guard capturing else {
+            stopEngine()
+            llog("AudioRecorder: \(reason); engine will restart on next capture")
+            return
+        }
+
+        llog("AudioRecorder: \(reason) mid-pour; recovering capture without dropping audio")
+        recoveryAttempts = 0
+        scheduleMidPourRecovery(after: 0.25)
+    }
+
+    private func scheduleMidPourRecovery(after delay: TimeInterval) {
+        recoveryWorkItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            self?.recoverMidPour()
+        }
+        recoveryWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
+    }
+
+    private func recoverMidPour() {
+        lock.lock()
+        let capturing = isCapturing
+        lock.unlock()
+        guard capturing else { return }
+
+        teardownEngineOnly()
+        do {
+            try startEngine()
+            recoveryAttempts = 0
+            llog("AudioRecorder: engine recovered mid-pour")
+        } catch {
+            recoveryAttempts += 1
+            guard recoveryAttempts < maxRecoveryAttempts else {
+                llog("AudioRecorder: mid-pour recovery gave up after \(recoveryAttempts) attempts: \(error.localizedDescription)")
+                return
+            }
+            llog("AudioRecorder: mid-pour recovery attempt \(recoveryAttempts) failed: \(error.localizedDescription); retrying")
+            scheduleMidPourRecovery(after: 0.4)
+        }
+    }
+
+    /// Test seam for `--beers-route-test`: drives the exact same path the
+    /// CoreAudio listeners fire when headphones connect mid-pour.
+    func simulateRouteChangeForTesting() {
+        DispatchQueue.main.async { [weak self] in
+            self?.handleRouteChange(reason: "simulated route change")
         }
     }
 
