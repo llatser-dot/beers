@@ -305,6 +305,7 @@ final class AppState: ObservableObject {
             BeersSnapshot.runBouncerTestIfRequested()
             BeersSnapshot.runVocabSuggestTestIfRequested(appState: self)
             BeersSnapshot.runWipeTestIfRequested()
+            BeersSnapshot.runRouteTestIfRequested()
         }
     }
 

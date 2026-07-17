@@ -6,6 +6,45 @@ import SwiftUI
 /// `--beers-snapshot` and every surface renders to /tmp/beers-snapshots
 /// as PNGs, then the app exits. No screen recording required.
 enum BeersSnapshot {
+    /// Route-change resilience test: `--beers-route-test` records ~6s of
+    /// audio while firing the same route-change path an AirPods/headphone
+    /// connect fires mid-pour, then asserts the capture survived. Before the
+    /// mid-pour recovery existed this captured ~0s (buffer wiped).
+    @MainActor
+    static func runRouteTestIfRequested() {
+        guard CommandLine.arguments.contains("--beers-route-test") else { return }
+        let recorder = AudioRecorder()
+        recorder.setSuppressComputerAudio(false)
+        do {
+            try recorder.startRecording()
+        } catch {
+            llog("BeersSnapshot: ROUTE TEST FAILED to start: \(error.localizedDescription)")
+            exit(1)
+        }
+
+        // A connect is a burst of events, then more as profiles settle.
+        for delay in [1.5, 1.6, 1.7, 3.5] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                recorder.simulateRouteChangeForTesting()
+            }
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6.0) {
+            let samples = recorder.stopRecording()
+            recorder.stopEngine()
+            let duration = Double(samples.count) / 16000.0
+            // Two recovery cycles pause capture ~0.4s each; ≥4.5s of a 6s
+            // pour proves the buffer survived both rebuilds.
+            if duration >= 4.5 {
+                llog("BeersSnapshot: ROUTE TEST PASS captured \(String(format: "%.2f", duration))s across simulated route changes")
+                exit(0)
+            } else {
+                llog("BeersSnapshot: ROUTE TEST FAIL captured only \(String(format: "%.2f", duration))s")
+                exit(1)
+            }
+        }
+    }
+
     /// Kitchen self-test: `--beers-order-test "instruction" "text"` runs
     /// Command Mode's model tiers and prints the result to the log.
     @MainActor
