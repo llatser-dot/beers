@@ -2,6 +2,13 @@ import AVFoundation
 import AudioToolbox
 import CoreAudio
 
+/// Captures microphone audio through a dedicated HAL input unit bound
+/// explicitly to one device. AVAudioEngine's inputNode is hard-wired to the
+/// SYSTEM DEFAULT input; with AirPods connected that meant every engine start
+/// touched the Bluetooth device (HFP flip, 2-5s stalls, pins silently
+/// reverting to the 24kHz headset mic, zero-callback zombie engines). Binding
+/// our own AUHAL to the chosen device means the capture path never touches
+/// the default-device machinery at all.
 final class AudioRecorder {
     private struct InputDevice {
         let id: AudioDeviceID
@@ -9,7 +16,8 @@ final class AudioRecorder {
         let transport: UInt32
     }
 
-    private var engine: AVAudioEngine?
+    private var inputUnit: AudioUnit?
+    private var renderBuffer: AVAudioPCMBuffer?
     private var converter: AVAudioConverter?
     private var outputFormat: AVAudioFormat?
     private var buffer: [Float] = []
@@ -17,20 +25,18 @@ final class AudioRecorder {
     private var captureID = 0
     private var suppressComputerAudio = true
     private let targetSampleRate: Double = 16000
-    private let tapBufferSize: AVAudioFrameCount = 1024
     private let lock = NSLock()
     private var tapCallbackCount = 0
     private var selectedChannelLogCount = 0
 
     private var deviceChangeListener: AudioObjectPropertyListenerBlock?
-    private var configChangeObserver: NSObjectProtocol?
-    private var recoveryWorkItem: DispatchWorkItem?
+    private var watchdog: DispatchSourceTimer?
     private var recoveryAttempts = 0
     private let maxRecoveryAttempts = 5
     private var lastBufferAt: CFAbsoluteTime = 0
 
     var isWarm: Bool {
-        engine?.isRunning == true
+        inputUnit != nil
     }
 
     init() {
@@ -40,7 +46,7 @@ final class AudioRecorder {
     func setSuppressComputerAudio(_ enabled: Bool) {
         suppressComputerAudio = enabled
         // Preference only affects ducking + next capture path.
-        // Never keep the engine warm while idle — that lights the menu-bar mic.
+        // Never keep the unit warm while idle — that lights the menu-bar mic.
         if isWarm && !isCapturing {
             stopEngine()
         }
@@ -67,10 +73,13 @@ final class AudioRecorder {
         lastBufferAt = CFAbsoluteTimeGetCurrent()
         converter?.reset()
         lock.unlock()
+        recoveryAttempts = 0
+        startWatchdog()
         llog("AudioRecorder: capture started")
     }
 
     func stopRecording() -> [Float] {
+        stopWatchdog()
         lock.lock()
         isCapturing = false
         let captured = buffer
@@ -94,19 +103,11 @@ final class AudioRecorder {
             SystemAudioDucker.restoreIfNeeded()
         }
 
-        recoveryWorkItem?.cancel()
-        recoveryWorkItem = nil
+        stopWatchdog()
         recoveryAttempts = 0
-
-        if let engine {
-            engine.inputNode.removeTap(onBus: 0)
-            engine.stop()
-        }
+        teardownUnit()
 
         lock.lock()
-        self.engine = nil
-        converter = nil
-        outputFormat = nil
         buffer.removeAll()
         isCapturing = false
         captureID += 1
@@ -115,35 +116,36 @@ final class AudioRecorder {
         llog("AudioRecorder: engine stopped")
     }
 
-    /// Tears down the audio graph but keeps the capture state (buffer,
-    /// isCapturing, captureID) intact so a mid-pour engine rebuild never
-    /// drops audio the user already spoke.
-    private func teardownEngineOnly() {
-        if let engine {
-            engine.inputNode.removeTap(onBus: 0)
-            engine.stop()
-        }
-
+    /// Tears down the capture unit but keeps the capture state (buffer,
+    /// isCapturing, captureID) intact so a mid-pour rebuild never drops
+    /// audio the user already spoke.
+    private func teardownUnit() {
+        let unit: AudioUnit?
         lock.lock()
-        self.engine = nil
+        unit = inputUnit
+        inputUnit = nil
         converter = nil
         outputFormat = nil
         lock.unlock()
+
+        if let unit {
+            AudioOutputUnitStop(unit)
+            AudioUnitUninitialize(unit)
+            AudioComponentInstanceDispose(unit)
+        }
+        // renderBuffer is only touched by the render callback, which is dead
+        // once the unit above is stopped.
+        renderBuffer = nil
     }
 
     private func ensureEngineRunning() throws {
-        if let engine, engine.isRunning {
+        if inputUnit != nil {
             return
         }
 
-        // startRecording has already suppressed output. Rebuilding the audio
-        // graph must not restore it during the recorder's cold start.
-        stopEngine(restoreOutput: false)
-
-        // Headphones connecting churn CoreAudio for a few seconds (the device
-        // list and defaults flap several times per connect). A start attempt
-        // in that window can fail or see a half-configured device, so retry
-        // briefly instead of failing the pour.
+        // Headphones connecting churn CoreAudio for a few seconds. A start
+        // attempt in that window can fail or see a half-configured device,
+        // so retry briefly instead of failing the pour.
         var lastError: Error = RecorderError.noInputDevice
         for attempt in 1...3 {
             do {
@@ -151,8 +153,8 @@ final class AudioRecorder {
                 return
             } catch {
                 lastError = error
-                teardownEngineOnly()
-                llog("AudioRecorder: engine start attempt \(attempt) failed: \(error.localizedDescription)")
+                teardownUnit()
+                llog("AudioRecorder: capture unit start attempt \(attempt) failed: \(error.localizedDescription)")
                 if attempt < 3 {
                     Thread.sleep(forTimeInterval: 0.15 * Double(attempt))
                 }
@@ -162,76 +164,154 @@ final class AudioRecorder {
     }
 
     private func startEngine() throws {
-        let newEngine = AVAudioEngine()
-        let inputNode = newEngine.inputNode
-
-        // Capturing from a Bluetooth headset mic forces AirPods into low-quality
-        // HFP call mode and lags the whole system audio path, so when the default
-        // input is Bluetooth we pin the built-in microphone instead.
-        let pinnedDevice = Self.captureDeviceAvoidingBluetoothInput()
-
-        if let pinnedDevice {
-            pin(device: pinnedDevice, on: inputNode)
-        } else {
-            llog("AudioRecorder: using system default input device")
-        }
-
-        // Fast raw capture only. Suppress Mac audio is handled by SystemAudioDucker
-        // (volume duck) + software gain — not Apple voice processing.
-        llog("AudioRecorder: raw input mode")
-
-        let inputFormat = inputNode.outputFormat(forBus: 0)
-        llog("AudioRecorder: input format \(inputFormat.sampleRate)Hz \(inputFormat.channelCount)ch")
-        guard inputFormat.sampleRate > 0 && inputFormat.channelCount > 0 else {
+        guard let device = Self.captureDevice() else {
             throw RecorderError.noInputDevice
         }
 
-        guard let outputFormat = AVAudioFormat(
-            commonFormat: .pcmFormatFloat32,
-            sampleRate: targetSampleRate,
-            channels: 1,
-            interleaved: false
-        ) else {
-            throw RecorderError.unsupportedInputFormat
+        var description = AudioComponentDescription(
+            componentType: kAudioUnitType_Output,
+            componentSubType: kAudioUnitSubType_HALOutput,
+            componentManufacturer: kAudioUnitManufacturer_Apple,
+            componentFlags: 0,
+            componentFlagsMask: 0
+        )
+        guard let component = AudioComponentFindNext(nil, &description) else {
+            throw RecorderError.unitSetup("no HAL output component", noErr)
         }
 
-        guard let monoInputFormat = AVAudioFormat(
-            commonFormat: .pcmFormatFloat32,
-            sampleRate: inputFormat.sampleRate,
-            channels: 1,
-            interleaved: false
-        ) else {
-            throw RecorderError.unsupportedInputFormat
+        var newUnit: AudioUnit?
+        try check(AudioComponentInstanceNew(component, &newUnit), "instantiate")
+        guard let unit = newUnit else {
+            throw RecorderError.unitSetup("instantiate returned no unit", noErr)
         }
 
-        guard let newConverter = AVAudioConverter(from: monoInputFormat, to: outputFormat) else {
-            throw RecorderError.unsupportedInputFormat
-        }
-        newConverter.sampleRateConverterQuality = AVAudioQuality.max.rawValue
-
-        inputNode.installTap(onBus: 0, bufferSize: tapBufferSize, format: inputFormat) { [weak self] pcmBuffer, _ in
-            self?.handleBuffer(pcmBuffer)
-        }
-
-        lock.lock()
-        engine = newEngine
-        converter = newConverter
-        self.outputFormat = outputFormat
-        lock.unlock()
-
-        newEngine.prepare()
+        // From here on, dispose on any failure so we never leak a half-built unit.
         do {
-            try newEngine.start()
-            llog("AudioRecorder: engine started")
-        } catch {
-            inputNode.removeTap(onBus: 0)
+            var enable: UInt32 = 1
+            var disable: UInt32 = 0
+            try check(AudioUnitSetProperty(
+                unit, kAudioOutputUnitProperty_EnableIO,
+                kAudioUnitScope_Input, 1, &enable, UInt32(MemoryLayout<UInt32>.size)
+            ), "enable input")
+            try check(AudioUnitSetProperty(
+                unit, kAudioOutputUnitProperty_EnableIO,
+                kAudioUnitScope_Output, 0, &disable, UInt32(MemoryLayout<UInt32>.size)
+            ), "disable output")
+
+            // Bind to the chosen device BEFORE initialize — this is the whole
+            // point: the unit belongs to one device and the system default
+            // (possibly Bluetooth) is never opened.
+            var deviceID = device.id
+            try check(AudioUnitSetProperty(
+                unit, kAudioOutputUnitProperty_CurrentDevice,
+                kAudioUnitScope_Global, 0, &deviceID, UInt32(MemoryLayout<AudioDeviceID>.size)
+            ), "bind device")
+
+            var hardwareFormat = AudioStreamBasicDescription()
+            var formatSize = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+            try check(AudioUnitGetProperty(
+                unit, kAudioUnitProperty_StreamFormat,
+                kAudioUnitScope_Input, 1, &hardwareFormat, &formatSize
+            ), "read hardware format")
+            let sampleRate = hardwareFormat.mSampleRate
+            let channelCount = min(hardwareFormat.mChannelsPerFrame, 8)
+            guard sampleRate > 0, channelCount > 0 else {
+                throw RecorderError.unsupportedInputFormat
+            }
+
+            guard let clientFormat = AVAudioFormat(
+                commonFormat: .pcmFormatFloat32,
+                sampleRate: sampleRate,
+                channels: AVAudioChannelCount(channelCount),
+                interleaved: false
+            ) else {
+                throw RecorderError.unsupportedInputFormat
+            }
+            var clientDescription = clientFormat.streamDescription.pointee
+            try check(AudioUnitSetProperty(
+                unit, kAudioUnitProperty_StreamFormat,
+                kAudioUnitScope_Output, 1, &clientDescription, UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+            ), "set client format")
+
+            var callback = AURenderCallbackStruct(
+                inputProc: audioRecorderInputCallback,
+                inputProcRefCon: Unmanaged.passUnretained(self).toOpaque()
+            )
+            try check(AudioUnitSetProperty(
+                unit, kAudioOutputUnitProperty_SetInputCallback,
+                kAudioUnitScope_Global, 0, &callback, UInt32(MemoryLayout<AURenderCallbackStruct>.size)
+            ), "set input callback")
+
+            guard let newOutputFormat = AVAudioFormat(
+                commonFormat: .pcmFormatFloat32,
+                sampleRate: targetSampleRate,
+                channels: 1,
+                interleaved: false
+            ), let monoInputFormat = AVAudioFormat(
+                commonFormat: .pcmFormatFloat32,
+                sampleRate: sampleRate,
+                channels: 1,
+                interleaved: false
+            ), let newConverter = AVAudioConverter(from: monoInputFormat, to: newOutputFormat) else {
+                throw RecorderError.unsupportedInputFormat
+            }
+            newConverter.sampleRateConverterQuality = AVAudioQuality.max.rawValue
+
+            renderBuffer = AVAudioPCMBuffer(pcmFormat: clientFormat, frameCapacity: 8192)
+            guard renderBuffer != nil else {
+                throw RecorderError.unsupportedInputFormat
+            }
+
+            try check(AudioUnitInitialize(unit), "initialize")
+            do {
+                try check(AudioOutputUnitStart(unit), "start")
+            } catch {
+                AudioUnitUninitialize(unit)
+                throw error
+            }
+
             lock.lock()
-            engine = nil
-            converter = nil
-            self.outputFormat = nil
+            inputUnit = unit
+            converter = newConverter
+            outputFormat = newOutputFormat
             lock.unlock()
+
+            llog("AudioRecorder: capture unit started on '\(device.name)' @ \(Int(sampleRate))Hz \(channelCount)ch")
+        } catch {
+            AudioComponentInstanceDispose(unit)
+            renderBuffer = nil
             throw error
         }
+    }
+
+    private func check(_ status: OSStatus, _ step: String) throws {
+        guard status == noErr else {
+            throw RecorderError.unitSetup(step, status)
+        }
+    }
+
+    fileprivate func render(
+        actionFlags: UnsafeMutablePointer<AudioUnitRenderActionFlags>,
+        timeStamp: UnsafePointer<AudioTimeStamp>,
+        busNumber: UInt32,
+        frameCount: UInt32
+    ) -> OSStatus {
+        lock.lock()
+        let unit = inputUnit
+        lock.unlock()
+        guard let unit, let pcmBuffer = renderBuffer, frameCount > 0,
+              frameCount <= pcmBuffer.frameCapacity else {
+            return noErr
+        }
+
+        pcmBuffer.frameLength = frameCount
+        let status = AudioUnitRender(
+            unit, actionFlags, timeStamp, busNumber, frameCount,
+            pcmBuffer.mutableAudioBufferList
+        )
+        guard status == noErr else { return status }
+        handleBuffer(pcmBuffer)
+        return noErr
     }
 
     private func handleBuffer(_ pcmBuffer: AVAudioPCMBuffer) {
@@ -245,9 +325,9 @@ final class AudioRecorder {
         guard shouldCapture, var activeConverter = lockedConverter, let activeOutputFormat else { return }
         guard pcmBuffer.frameLength > 0 else { return }
 
-        // A route change can shift the input sample rate underneath a running
-        // tap. A converter built for the old rate would reject every buffer
-        // (captured silence), so rebuild it for what the hardware now delivers.
+        // A device format change under a running unit would make a converter
+        // built for the old rate reject every buffer (captured silence), so
+        // rebuild it for what the hardware now delivers.
         if activeConverter.inputFormat.sampleRate != pcmBuffer.format.sampleRate {
             guard let driftedMonoFormat = AVAudioFormat(
                 commonFormat: .pcmFormatFloat32,
@@ -264,6 +344,7 @@ final class AudioRecorder {
             activeConverter = rebuiltConverter
             llog("AudioRecorder: input rate changed mid-pour to \(pcmBuffer.format.sampleRate)Hz; converter rebuilt")
         }
+
         guard let monoBuffer = makeMonoBuffer(from: pcmBuffer) else { return }
         guard let convertedBuffer = convert(monoBuffer, with: activeConverter, to: activeOutputFormat) else { return }
         guard let channelData = convertedBuffer.floatChannelData else { return }
@@ -358,36 +439,23 @@ final class AudioRecorder {
         return boosted
     }
 
-    private func pin(device: InputDevice, on inputNode: AVAudioInputNode) {
-        guard let audioUnit = inputNode.audioUnit else {
-            llog("AudioRecorder: could not access input audio unit; using system default input device")
-            return
+    /// The device this pour should capture from. Capturing from a Bluetooth
+    /// headset mic forces AirPods into low-quality HFP call mode and lags the
+    /// whole system audio path, so when the default input is Bluetooth we use
+    /// the built-in microphone instead. The result is always an explicit
+    /// device — capture never follows the system default at runtime.
+    private static func captureDevice() -> InputDevice? {
+        if let defaultID = defaultInputDeviceID(),
+           let transport = deviceTransport(defaultID),
+           !isBluetoothTransport(transport) {
+            let name = deviceName(defaultID) ?? "Input \(defaultID)"
+            return InputDevice(id: defaultID, name: name, transport: transport)
         }
-
-        var deviceID = device.id
-        let status = AudioUnitSetProperty(
-            audioUnit,
-            kAudioOutputUnitProperty_CurrentDevice,
-            kAudioUnitScope_Global,
-            0,
-            &deviceID,
-            UInt32(MemoryLayout<AudioDeviceID>.size)
-        )
-
-        if status == noErr {
-            llog("AudioRecorder: pinned input device '\(device.name)' (avoiding Bluetooth mic)")
-        } else {
-            llog("AudioRecorder: failed to pin input device '\(device.name)' status=\(status); using system default")
+        if let builtIn = preferredInputDevice() {
+            llog("AudioRecorder: default input is Bluetooth or unavailable; using '\(builtIn.name)'")
+            return builtIn
         }
-    }
-
-    private static func captureDeviceAvoidingBluetoothInput() -> InputDevice? {
-        guard let defaultID = defaultInputDeviceID(),
-              let transport = deviceTransport(defaultID),
-              isBluetoothTransport(transport) else {
-            return nil
-        }
-        return preferredInputDevice()
+        return nil
     }
 
     private static func isBluetoothTransport(_ transport: UInt32) -> Bool {
@@ -416,107 +484,76 @@ final class AudioRecorder {
                 listener
             )
         }
-
-        configChangeObserver = NotificationCenter.default.addObserver(
-            forName: .AVAudioEngineConfigurationChange,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let self, let engine = self.engine, notification.object as? AVAudioEngine === engine else { return }
-            self.handleRouteChange(reason: "engine configuration changed")
-        }
     }
 
-    /// Route changes while idle just tear the engine down (it rebuilds on the
-    /// next capture). Mid-pour they must NOT kill the capture: headphones
-    /// connecting fire several of these in a burst, so coalesce briefly, then
-    /// rebuild the graph in place with the buffered audio untouched.
+    /// The capture unit is bound to an explicit device, so default-device
+    /// changes can't break a running pour — the watchdog handles the rare
+    /// case where our bound device itself dies. Idle, just tear down so the
+    /// next pour re-resolves which device to use.
     private func handleRouteChange(reason: String) {
         lock.lock()
         let capturing = isCapturing
         lock.unlock()
 
         guard capturing else {
-            stopEngine()
-            llog("AudioRecorder: \(reason); engine will restart on next capture")
+            if isWarm {
+                stopEngine()
+                llog("AudioRecorder: \(reason); capture unit will rebind on next pour")
+            }
             return
         }
-
-        llog("AudioRecorder: \(reason) mid-pour; checking capture health")
-        recoveryAttempts = 0
-        scheduleHealthCheck(after: 0.25)
+        llog("AudioRecorder: \(reason) mid-pour; bound capture unit unaffected")
     }
 
-    /// AirPods fire a config-change notification ~0.3s after EVERY engine
-    /// start (the output side renegotiates when the engine touches the
-    /// hardware), so the notification alone proves nothing. Escalate only on
-    /// evidence: buffers still flowing → do nothing; engine stopped itself →
-    /// restart the intact graph in place (~instant); only rebuild from
-    /// scratch (a 1-2s device re-open with Bluetooth attached) as a last
-    /// resort. Tearing down eagerly is what ate pours down to half a second.
-    private func scheduleHealthCheck(after delay: TimeInterval) {
-        recoveryWorkItem?.cancel()
-        let item = DispatchWorkItem { [weak self] in
-            self?.checkCaptureHealth()
+    /// Recovery is driven by evidence, not notifications: if the bound
+    /// device stops delivering buffers for ~1s mid-pour (unplugged, died),
+    /// rebuild the unit on whatever device is right now — with the buffered
+    /// audio untouched.
+    private func startWatchdog() {
+        stopWatchdog()
+        let timer = DispatchSource.makeTimerSource(queue: .main)
+        timer.schedule(deadline: .now() + 0.75, repeating: 0.75)
+        timer.setEventHandler { [weak self] in
+            self?.watchdogTick()
         }
-        recoveryWorkItem = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
+        watchdog = timer
+        timer.resume()
     }
 
-    private func checkCaptureHealth() {
+    private func stopWatchdog() {
+        watchdog?.cancel()
+        watchdog = nil
+    }
+
+    private func watchdogTick() {
         lock.lock()
         let capturing = isCapturing
         let last = lastBufferAt
         lock.unlock()
         guard capturing else { return }
 
-        if CFAbsoluteTimeGetCurrent() - last < 0.2 {
-            llog("AudioRecorder: capture healthy after route change; leaving engine alone")
+        if CFAbsoluteTimeGetCurrent() - last < 1.0 {
+            recoveryAttempts = 0
             return
         }
 
         recoveryAttempts += 1
-        if recoveryAttempts <= 2, let engine {
-            do {
-                try engine.start()
-                llog("AudioRecorder: engine restarted in place after route change")
-                scheduleHealthCheck(after: 0.3)
-                return
-            } catch {
-                llog("AudioRecorder: in-place restart failed: \(error.localizedDescription); rebuilding")
-            }
+        guard recoveryAttempts <= maxRecoveryAttempts else {
+            llog("AudioRecorder: capture stalled and recovery gave up after \(maxRecoveryAttempts) attempts")
+            stopWatchdog()
+            return
         }
-        recoverMidPour()
-    }
 
-    private func scheduleMidPourRecovery(after delay: TimeInterval) {
-        recoveryWorkItem?.cancel()
-        let item = DispatchWorkItem { [weak self] in
-            self?.recoverMidPour()
-        }
-        recoveryWorkItem = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
-    }
-
-    private func recoverMidPour() {
-        lock.lock()
-        let capturing = isCapturing
-        lock.unlock()
-        guard capturing else { return }
-
-        teardownEngineOnly()
+        llog("AudioRecorder: no audio for 1s mid-pour; rebuilding capture unit (attempt \(recoveryAttempts))")
+        teardownUnit()
         do {
             try startEngine()
-            recoveryAttempts = 0
-            llog("AudioRecorder: engine recovered mid-pour")
+            lock.lock()
+            lastBufferAt = CFAbsoluteTimeGetCurrent()
+            lock.unlock()
+            llog("AudioRecorder: capture unit recovered mid-pour")
         } catch {
-            recoveryAttempts += 1
-            guard recoveryAttempts < maxRecoveryAttempts else {
-                llog("AudioRecorder: mid-pour recovery gave up after \(recoveryAttempts) attempts: \(error.localizedDescription)")
-                return
-            }
-            llog("AudioRecorder: mid-pour recovery attempt \(recoveryAttempts) failed: \(error.localizedDescription); retrying")
-            scheduleMidPourRecovery(after: 0.4)
+            llog("AudioRecorder: mid-pour rebuild failed: \(error.localizedDescription); will retry")
         }
     }
 
@@ -541,26 +578,6 @@ final class AudioRecorder {
     private static func defaultInputDeviceID() -> AudioDeviceID? {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultInputDevice,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var deviceID = AudioDeviceID(0)
-        var dataSize = UInt32(MemoryLayout<AudioDeviceID>.size)
-        let status = AudioObjectGetPropertyData(
-            AudioObjectID(kAudioObjectSystemObject),
-            &address,
-            0,
-            nil,
-            &dataSize,
-            &deviceID
-        )
-        guard status == noErr else { return nil }
-        return deviceID
-    }
-
-    private static func defaultOutputDeviceID() -> AudioDeviceID? {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
@@ -678,24 +695,42 @@ final class AudioRecorder {
     enum RecorderError: LocalizedError {
         case noInputDevice
         case unsupportedInputFormat
+        case unitSetup(String, OSStatus)
 
         var errorDescription: String? {
             switch self {
             case .noInputDevice: return "No audio input device found."
             case .unsupportedInputFormat: return "The current microphone format is not supported."
+            case .unitSetup(let step, let status): return "Audio capture setup failed (\(step), status \(status))."
             }
         }
     }
 
     deinit {
-        if let configChangeObserver {
-            NotificationCenter.default.removeObserver(configChangeObserver)
-        }
-        if let engine {
-            engine.inputNode.removeTap(onBus: 0)
-            engine.stop()
+        stopWatchdog()
+        if let unit = inputUnit {
+            AudioOutputUnitStop(unit)
+            AudioUnitUninitialize(unit)
+            AudioComponentInstanceDispose(unit)
         }
     }
+}
+
+private func audioRecorderInputCallback(
+    inRefCon: UnsafeMutableRawPointer,
+    ioActionFlags: UnsafeMutablePointer<AudioUnitRenderActionFlags>,
+    inTimeStamp: UnsafePointer<AudioTimeStamp>,
+    inBusNumber: UInt32,
+    inNumberFrames: UInt32,
+    ioData: UnsafeMutablePointer<AudioBufferList>?
+) -> OSStatus {
+    let recorder = Unmanaged<AudioRecorder>.fromOpaque(inRefCon).takeUnretainedValue()
+    return recorder.render(
+        actionFlags: ioActionFlags,
+        timeStamp: inTimeStamp,
+        busNumber: inBusNumber,
+        frameCount: inNumberFrames
+    )
 }
 
 /// Live mic RMS for the HUD waveform. Written from the audio tap thread,
