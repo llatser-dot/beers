@@ -7,11 +7,35 @@ struct FirstRoundView: View {
     @AppStorage("firstRoundDone") private var firstRoundDone = false
     @State private var step: Int
     @State private var celebrated = false
+    @State private var guiding: GuidedGrant?
+
+    /// The two grants macOS won't prompt-and-toggle for you — they need the
+    /// switch flipped in System Settings, so we walk the user there.
+    enum GuidedGrant {
+        case accessibility
+        case inputMonitoring
+
+        var listName: String {
+            switch self {
+            case .accessibility: return "Accessibility"
+            case .inputMonitoring: return "Input Monitoring"
+            }
+        }
+    }
 
     /// `initialStep` lets the snapshot harness open First Round on a specific
-    /// step (e.g. the learning disclosure); production always starts at 0.
-    init(initialStep: Int = 0) {
-        _step = State(initialValue: initialStep)
+    /// step (e.g. the learning disclosure). Production resumes from the saved
+    /// step, because granting Input Monitoring/Accessibility relaunches the
+    /// app mid-onboarding and the user should land right back where they were.
+    /// Snapshot-only: keeps the doorman guide visible even when this Mac has
+    /// already granted everything, so the harness can render it.
+    private let forceGuideForSnapshot: Bool
+
+    init(initialStep: Int? = nil, initialGuide: GuidedGrant? = nil) {
+        let saved = UserDefaults.standard.integer(forKey: "firstRoundStep")
+        _step = State(initialValue: initialStep ?? min(max(saved, 0), 3))
+        _guiding = State(initialValue: initialGuide)
+        forceGuideForSnapshot = initialGuide != nil
     }
 
     private var allPermissionsGranted: Bool {
@@ -65,6 +89,39 @@ struct FirstRoundView: View {
                 celebrated = true
             }
         }
+        .onChange(of: step) { _, newStep in
+            UserDefaults.standard.set(newStep, forKey: "firstRoundStep")
+        }
+        // Live-poll while the doorman step is up: the moment a toggle flips in
+        // System Settings the row goes green (and the TCC relaunch fires) with
+        // no clicking back and forth.
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+            if step == 0 && !allPermissionsGranted {
+                appState.refreshPermissions()
+            }
+        }
+        .onChange(of: appState.accessibilityGranted) { _, granted in
+            if granted && guiding == .accessibility {
+                Beers.popCap()
+                withAnimation(Beers.spring) { advanceGuide() }
+            }
+        }
+        .onChange(of: appState.inputMonitoringGranted) { _, granted in
+            if granted && guiding == .inputMonitoring {
+                Beers.popCap()
+                withAnimation(Beers.spring) { advanceGuide() }
+            }
+        }
+    }
+
+    private func advanceGuide() {
+        if !appState.accessibilityGranted {
+            guiding = .accessibility
+        } else if !appState.inputMonitoringGranted {
+            guiding = .inputMonitoring
+        } else {
+            guiding = nil
+        }
     }
 
     private var stepBadge: some View {
@@ -85,39 +142,113 @@ struct FirstRoundView: View {
     // MARK: Step 1 — permissions
 
     private var permissionsStep: some View {
-        VStack(spacing: 14) {
-            Text("👂").font(.system(size: 52)).rotationEffect(.degrees(-5))
+        VStack(spacing: 12) {
+            if guiding == nil {
+                Text("👂").font(.system(size: 44)).rotationEffect(.degrees(-5))
 
-            Text("Can we borrow your ears?")
-                .font(Beers.display(19))
-                .foregroundStyle(Beers.stout)
-                .multilineTextAlignment(.center)
+                Text("Can we borrow your ears?")
+                    .font(Beers.display(19))
+                    .foregroundStyle(Beers.stout)
+                    .multilineTextAlignment(.center)
 
-            Text("Beers needs three grants — that’s how your words land wherever the cursor is.")
-                .font(Beers.ui(13, .medium))
-                .foregroundStyle(Beers.ink.opacity(0.7))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 12)
-
-            VStack(spacing: 9) {
-                grantRow("Microphone", granted: appState.microphoneGranted, action: appState.requestMicrophonePermission)
-                grantRow("Input Monitoring", granted: appState.inputMonitoringGranted, action: appState.requestInputMonitoringPermission)
-                grantRow("Accessibility", granted: appState.accessibilityGranted, action: appState.requestAccessibilityPermission)
+                Text("Beers needs three grants — that’s how your words land wherever the cursor is.")
+                    .font(Beers.ui(13, .medium))
+                    .foregroundStyle(Beers.ink.opacity(0.7))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 12)
             }
-            .padding(.top, 6)
 
-            if !allPermissionsGranted {
-                Text("Granting Input Monitoring or Accessibility relaunches Beers — that’s normal, it’ll come straight back.")
+            VStack(spacing: 8) {
+                grantRow("Microphone", granted: appState.microphoneGranted, highlighted: false) {
+                    appState.requestMicrophonePermission()
+                }
+                grantRow("Accessibility", granted: appState.accessibilityGranted, highlighted: guiding == .accessibility) {
+                    appState.requestAccessibilityPermission()
+                    withAnimation(Beers.spring) { guiding = .accessibility }
+                }
+                grantRow("Input Monitoring", granted: appState.inputMonitoringGranted, highlighted: guiding == .inputMonitoring) {
+                    appState.requestInputMonitoringPermission()
+                    Permissions.openInputMonitoringSettings()
+                    withAnimation(Beers.spring) { guiding = .inputMonitoring }
+                }
+            }
+            .padding(.top, guiding == nil ? 6 : 2)
+
+            if let guiding, forceGuideForSnapshot || !isGranted(guiding) {
+                guidePanel(for: guiding)
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+            } else if !allPermissionsGranted {
+                Text("Tap a grant and Beers walks you through it — no hunting through System Settings.")
                     .font(Beers.ui(11, .medium))
                     .foregroundStyle(Beers.ink.opacity(0.5))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 8)
             }
         }
-        .padding(.top, 18)
+        .padding(.top, guiding == nil ? 14 : 2)
     }
 
-    private func grantRow(_ title: String, granted: Bool, action: @escaping () -> Void) -> some View {
+    private func isGranted(_ grant: GuidedGrant) -> Bool {
+        switch grant {
+        case .accessibility: return appState.accessibilityGranted
+        case .inputMonitoring: return appState.inputMonitoringGranted
+        }
+    }
+
+    /// The doorman: System Settings is open next to us — the user drags the
+    /// badge straight into the permission list (no + button, no file picker),
+    /// flips the switch, and Beers pours itself back in.
+    private func guidePanel(for grant: GuidedGrant) -> some View {
+        VStack(spacing: 10) {
+            Text("System Settings just opened — find the \(grant.listName) list.")
+                .font(Beers.ui(12.5, .semibold))
+                .foregroundStyle(Beers.ink)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 6)
+
+            HStack(spacing: 14) {
+                DraggableAppBadge()
+
+                VStack(alignment: .leading, spacing: 7) {
+                    guideLine("1", "Beers not in the list? Drag this bottle straight in.")
+                    guideLine("2", "Flip the Beers switch on.")
+                    guideLine("3", "Beers restarts itself and lands right back here.")
+                }
+            }
+            .padding(.top, 2)
+
+            HStack(spacing: 6) {
+                WatchingDots()
+                Text("Watching the door…")
+                    .font(Beers.ui(11, .semibold))
+                    .foregroundStyle(Beers.ink.opacity(0.55))
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
+        .background(Beers.lager.opacity(0.22), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Beers.ink, style: StrokeStyle(lineWidth: 2.5, dash: [7, 5]))
+        )
+    }
+
+    private func guideLine(_ number: String, _ text: String) -> some View {
+        HStack(alignment: .top, spacing: 7) {
+            Text(number)
+                .font(Beers.display(11))
+                .foregroundStyle(Beers.paper)
+                .frame(width: 18, height: 18)
+                .background(Beers.stout, in: Circle())
+            Text(text)
+                .font(Beers.ui(11.5, .medium))
+                .foregroundStyle(Beers.ink)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func grantRow(_ title: String, granted: Bool, highlighted: Bool, action: @escaping () -> Void) -> some View {
         HStack {
             Text(title)
                 .font(Beers.ui(14, .semibold))
@@ -140,11 +271,14 @@ struct FirstRoundView: View {
             .disabled(granted)
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(Beers.cream, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .padding(.vertical, highlighted ? 8 : 10)
+        .background(
+            highlighted ? Beers.lager.opacity(0.35) : Beers.cream,
+            in: RoundedRectangle(cornerRadius: 13, style: .continuous)
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .strokeBorder(Beers.ink, lineWidth: 2)
+                .strokeBorder(highlighted ? Beers.amber : Beers.ink, lineWidth: highlighted ? 3 : 2)
         )
     }
 
@@ -333,6 +467,101 @@ struct FirstRoundView: View {
             }
         }
         .padding(.top, 12)
+    }
+}
+
+/// Three amber bubbles rising in turn — the brand's stand-in for a spinner
+/// while we poll for the grant to land.
+private struct WatchingDots: View {
+    @State private var animating = false
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(0..<3, id: \.self) { index in
+                Circle()
+                    .fill(Beers.amber)
+                    .frame(width: 6, height: 6)
+                    .overlay(Circle().strokeBorder(Beers.ink, lineWidth: 1))
+                    .offset(y: animating ? -3 : 2)
+                    .animation(
+                        .easeInOut(duration: 0.45)
+                            .repeatForever(autoreverses: true)
+                            .delay(Double(index) * 0.14),
+                        value: animating
+                    )
+            }
+        }
+        .onAppear { animating = true }
+    }
+}
+
+/// The draggable bottle: a Beers badge the user drags straight into the
+/// System Settings permission list, ChatGPT-style. The drag payload is the
+/// app bundle's file URL, which the TCC lists accept as a drop — no + button,
+/// no file picker.
+private struct DraggableAppBadge: View {
+    @State private var wiggle = false
+
+    var body: some View {
+        VStack(spacing: 5) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Beers.paper)
+                    .frame(width: 76, height: 76)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(Beers.ink, lineWidth: 2.5)
+                    )
+                    .shadow(color: Beers.ink.opacity(0.35), radius: 0, x: 3, y: 3)
+                BeersAppIcon(size: 58)
+                AppBundleDragSource()
+                    .frame(width: 76, height: 76)
+            }
+            .rotationEffect(.degrees(wiggle ? -3 : 3))
+            .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: wiggle)
+            .onAppear { wiggle = true }
+
+            Text("DRAG ME")
+                .font(Beers.display(10))
+                .foregroundStyle(Beers.paper)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 3)
+                .background(Beers.amber, in: Capsule())
+                .overlay(Capsule().strokeBorder(Beers.ink, lineWidth: 1.5))
+        }
+    }
+}
+
+/// Transparent AppKit layer that turns the badge into a real Finder-grade
+/// drag source for the app bundle. SwiftUI's onDrag can't reliably feed the
+/// System Settings TCC lists; an NSDraggingSession with the bundle URL can.
+private struct AppBundleDragSource: NSViewRepresentable {
+    func makeNSView(context: Context) -> AppBundleDragView {
+        AppBundleDragView()
+    }
+
+    func updateNSView(_ nsView: AppBundleDragView, context: Context) {}
+}
+
+final class AppBundleDragView: NSView, NSDraggingSource {
+    override func mouseDragged(with event: NSEvent) {
+        let bundleURL = Bundle.main.bundleURL
+        let draggingItem = NSDraggingItem(pasteboardWriter: bundleURL as NSURL)
+        let icon = NSWorkspace.shared.icon(forFile: bundleURL.path)
+        icon.size = NSSize(width: 64, height: 64)
+        draggingItem.setDraggingFrame(
+            NSRect(x: bounds.midX - 32, y: bounds.midY - 32, width: 64, height: 64),
+            contents: icon
+        )
+        beginDraggingSession(with: [draggingItem], event: event, source: self)
+        llog("FirstRound: dragging app bundle out to System Settings")
+    }
+
+    func draggingSession(
+        _ session: NSDraggingSession,
+        sourceOperationMaskFor context: NSDraggingContext
+    ) -> NSDragOperation {
+        context == .outsideApplication ? [.copy, .generic, .link] : []
     }
 }
 

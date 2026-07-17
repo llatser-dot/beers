@@ -1,6 +1,7 @@
 import AVFAudio
 import AppKit
 import ApplicationServices
+import IOKit.hid
 
 enum Permissions {
     enum MicrophoneStatus: String {
@@ -43,9 +44,13 @@ enum Permissions {
     }
 
     static func isInputMonitoringGranted() -> Bool {
-        // macOS often keeps this false until the process is fully relaunched
-        // after the System Settings toggle is flipped.
+        // CGPreflight often stays false until the process relaunches after
+        // the System Settings toggle flips, which used to leave onboarding
+        // blind to the grant. IOHIDCheckAccess reads the TCC database live,
+        // so the flip is seen the moment it happens — refreshPermissions
+        // then relaunches to make the grant apply to this process.
         CGPreflightListenEventAccess()
+            || IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) == kIOHIDAccessTypeGranted
     }
 
     @discardableResult

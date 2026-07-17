@@ -293,6 +293,10 @@ enum BeersSnapshot {
             snap(FirstRoundView(initialStep: 2).environmentObject(appState),
                  size: CGSize(width: 380, height: 540), name: "first-round-learning", in: dir)
 
+            // The doorman guide: drag-the-bottle walkthrough for Accessibility.
+            snap(FirstRoundView(initialStep: 0, initialGuide: .accessibility).environmentObject(appState),
+                 size: CGSize(width: 380, height: 540), name: "first-round-doorman", in: dir)
+
             snap(StatusBarView().environmentObject(appState),
                  size: nil, name: "bar-tap", in: dir)
 
