@@ -24,6 +24,8 @@ const MAX_POURS_PER_DAY = 400;
 // daily cap, so any single batch above MAX_WORDS_PER_DAY is rejected outright.
 const MAX_WORDS_PER_BATCH = MAX_WORDS_PER_DAY;
 const MAX_POURS_PER_BATCH = MAX_POURS_PER_DAY;
+const MAX_BACKFILL_WORDS = 250_000;
+const MAX_BACKFILL_POURS = 1_000; // matches the native app's retained-history ceiling
 const RATE_LIMIT_MS = 60_000; // ~1 accepted /api/pours per minute per token
 const CODE_TTL_MS = 15 * 60 * 1000;
 
@@ -33,6 +35,8 @@ const MAX_REGISTRATIONS_PER_WINDOW = 5; // per coarse ip-hash / hour
 const MAX_RECOVERS_PER_WINDOW = 3; // per coarse ip-hash / hour (initiate)
 const MAX_RECOVER_VERIFY_PER_WINDOW = 3; // per coarse ip-hash / hour (verify)
 const MAX_RECOVER_PER_ACCOUNT_PER_WINDOW = 3; // per matched account / hour
+const MAX_CLAIMS_PER_ACCOUNT_PER_WINDOW = 3; // verification emails / account / hour
+const MAX_CLAIM_VERIFY_PER_ACCOUNT_PER_WINDOW = 10; // code guesses / account / hour
 
 // Obvious-slur blocklist (substring, case-insensitive). Deliberately short —
 // the goal is to keep the wall free of the unambiguous ones, not to moderate.
@@ -54,7 +58,7 @@ function json(data: unknown, status = 200, extraHeaders: Record<string, string> 
 function corsHeaders(): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
     'Access-Control-Max-Age': '86400',
   };
@@ -83,6 +87,12 @@ function utcDateMinusOne(today: string): string {
   const d = new Date(today + 'T00:00:00Z');
   d.setUTCDate(d.getUTCDate() - 1);
   return d.toISOString().slice(0, 10);
+}
+
+function secondsUntilTomorrowUTC(now: number): number {
+  const next = new Date(now);
+  next.setUTCHours(24, 0, 0, 0);
+  return Math.max(60, Math.ceil((next.getTime() - now) / 1000));
 }
 
 function bearer(req: Request): string | null {
@@ -149,6 +159,16 @@ async function purgeExpired(env: Env, now: number): Promise<void> {
   try {
     await env.DB.batch([
       env.DB.prepare('DELETE FROM pending_claims WHERE expires_at < ?').bind(now),
+      // Unverified registrations are invisible and cannot upload counts. Release
+      // abandoned handle reservations after one day rather than squatting them forever.
+      env.DB.prepare(
+        `DELETE FROM users
+         WHERE email_verified = 0 AND created_at < ?
+           AND NOT EXISTS (
+             SELECT 1 FROM pending_claims
+             WHERE pending_claims.user_id = users.id AND pending_claims.expires_at >= ?
+           )`
+      ).bind(now - 24 * 60 * 60 * 1000, now),
       env.DB.prepare('DELETE FROM rate_events WHERE created_at < ?').bind(now - THROTTLE_WINDOW_MS),
     ]);
   } catch {
@@ -170,8 +190,11 @@ export default {
       }
       if (req.method === 'POST' && path === '/api/register') return register(req, env);
       if (req.method === 'POST' && path === '/api/pours') return pours(req, env);
+      if (req.method === 'POST' && path === '/api/backfill') return backfill(req, env);
       if (req.method === 'GET' && path === '/api/leaderboard') return leaderboard(req, env, url);
+      if (req.method === 'GET' && path === '/api/username-available') return usernameAvailable(env, url);
       if (req.method === 'GET' && path === '/api/me') return me(req, env);
+      if (req.method === 'DELETE' && path === '/api/me') return deleteMe(req, env);
       if (req.method === 'POST' && path === '/api/claim') return claim(req, env);
       if (req.method === 'POST' && path === '/api/claim/verify') return claimVerify(req, env);
       if (req.method === 'POST' && path === '/api/recover') return recover(req, env);
@@ -198,6 +221,26 @@ async function parseBody(req: Request): Promise<any> {
   }
 }
 
+function usernameValidationError(username: string): string | null {
+  if (username.length < 3 || username.length > 20) return 'username must be 3–20 characters';
+  if (!USERNAME_RE.test(username)) {
+    return 'username must be letters, numbers, and _ . - (not on the ends)';
+  }
+  if (PROFANITY.some((word) => username.toLowerCase().includes(word))) return 'username not allowed';
+  return null;
+}
+
+async function usernameAvailable(env: Env, url: URL): Promise<Response> {
+  const username = (url.searchParams.get('username') || '').trim();
+  const validationError = usernameValidationError(username);
+  if (validationError) return json({ available: false, error: validationError }, 400);
+
+  const existing = await env.DB.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE')
+    .bind(username)
+    .first<{ id: number }>();
+  return json({ available: !existing });
+}
+
 async function register(req: Request, env: Env): Promise<Response> {
   const now = Date.now();
   await purgeExpired(env, now);
@@ -211,16 +254,8 @@ async function register(req: Request, env: Env): Promise<Response> {
   const body = await parseBody(req);
   const username = typeof body.username === 'string' ? body.username.trim() : '';
 
-  if (username.length < 3 || username.length > 20) {
-    return json({ error: 'username must be 3–20 characters' }, 400);
-  }
-  if (!USERNAME_RE.test(username)) {
-    return json({ error: 'username must be letters, numbers, and _ . - (not on the ends)' }, 400);
-  }
-  const lower = username.toLowerCase();
-  if (PROFANITY.some((w) => lower.includes(w))) {
-    return json({ error: 'username not allowed' }, 400);
-  }
+  const validationError = usernameValidationError(username);
+  if (validationError) return json({ error: validationError }, 400);
 
   const existing = await env.DB.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE')
     .bind(username)
@@ -250,6 +285,7 @@ async function register(req: Request, env: Env): Promise<Response> {
 async function pours(req: Request, env: Env): Promise<Response> {
   const user = await userFromToken(env, bearer(req));
   if (!user) return json({ error: 'unauthorized' }, 401);
+  if (!user.email_verified) return json({ error: 'verify email before joining the leaderboard' }, 403);
 
   const body = await parseBody(req);
   const words = Number(body.words);
@@ -312,7 +348,11 @@ async function pours(req: Request, env: Env): Promise<Response> {
       const retryMs = RATE_LIMIT_MS - (now - fresh.last_pour_at);
       return json({ error: 'slow down' }, 429, { 'Retry-After': String(Math.ceil(retryMs / 1000)) });
     }
-    return json({ error: 'daily cap reached' }, 429);
+    return json(
+      { error: 'daily cap reached' },
+      429,
+      { 'Retry-After': String(secondsUntilTomorrowUTC(now)) }
+    );
   }
 
   // Return authoritative post-update totals.
@@ -331,13 +371,46 @@ async function pours(req: Request, env: Env): Promise<Response> {
   });
 }
 
+async function backfill(req: Request, env: Env): Promise<Response> {
+  const user = await userFromToken(env, bearer(req));
+  if (!user) return json({ error: 'unauthorized' }, 401);
+  if (!user.email_verified) return json({ error: 'verify email before joining the leaderboard' }, 403);
+
+  const body = await parseBody(req);
+  const words = Number(body.words);
+  const pourCount = Number(body.pours);
+  if (!Number.isInteger(words) || !Number.isInteger(pourCount) || words < 0 || pourCount < 0) {
+    return json({ error: 'words and pours must be non-negative integers' }, 400);
+  }
+  if (words > MAX_BACKFILL_WORDS || pourCount > MAX_BACKFILL_POURS) {
+    return json({ error: 'backfill exceeds retained-history limits' }, 422);
+  }
+
+  // One shot only: existing totals must both be zero. Ongoing traffic always
+  // uses /api/pours and keeps its strict daily and per-minute abuse controls.
+  const result = await env.DB.prepare(
+    'UPDATE users SET words = ?, pours = ? WHERE id = ? AND words = 0 AND pours = 0'
+  )
+    .bind(words, pourCount, user.id)
+    .run();
+  if (!result.meta.changes) return json({ error: 'history already imported' }, 409);
+
+  return json({
+    ok: true,
+    words,
+    pours: pourCount,
+    pints: Math.floor(words / 1000),
+    streakDays: user.streak_days,
+  });
+}
+
 async function leaderboard(_req: Request, env: Env, url: URL): Promise<Response> {
   let limit = parseInt(url.searchParams.get('limit') || '50', 10);
   if (!Number.isFinite(limit) || limit < 1) limit = 50;
   if (limit > 200) limit = 200;
 
   const rows = await env.DB.prepare(
-    'SELECT username, words, streak_days FROM users ORDER BY words DESC, id ASC LIMIT ?'
+    'SELECT username, words, streak_days FROM users WHERE email_verified = 1 ORDER BY words DESC, id ASC LIMIT ?'
   )
     .bind(limit)
     .all<{ username: string; words: number; streak_days: number }>();
@@ -351,7 +424,7 @@ async function leaderboard(_req: Request, env: Env, url: URL): Promise<Response>
   }));
 
   const agg = await env.DB.prepare(
-    'SELECT COALESCE(SUM(words),0) AS totalWords, COUNT(*) AS drinkers FROM users'
+    'SELECT COALESCE(SUM(words),0) AS totalWords, COUNT(*) AS drinkers FROM users WHERE email_verified = 1'
   ).first<{ totalWords: number; drinkers: number }>();
 
   const totalWords = agg?.totalWords ?? 0;
@@ -378,6 +451,20 @@ async function me(req: Request, env: Env): Promise<Response> {
     emailVerified: !!user.email_verified,
     createdAt: user.created_at,
   });
+}
+
+async function deleteMe(req: Request, env: Env): Promise<Response> {
+  const user = await userFromToken(env, bearer(req));
+  if (!user) return json({ error: 'unauthorized' }, 401);
+
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM pending_claims WHERE user_id = ?').bind(user.id),
+    env.DB.prepare('DELETE FROM rate_events WHERE bucket = ?').bind(`recover_acct:${user.id}`),
+    env.DB.prepare('DELETE FROM rate_events WHERE bucket = ?').bind(`claim:${user.id}`),
+    env.DB.prepare('DELETE FROM rate_events WHERE bucket = ?').bind(`claim_verify:${user.id}`),
+    env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.id),
+  ]);
+  return json({ ok: true });
 }
 
 // ---- email flows (ship dark when RESEND_API_KEY is not configured) ----
@@ -416,6 +503,9 @@ async function claim(req: Request, env: Env): Promise<Response> {
 
   const now = Date.now();
   await purgeExpired(env, now);
+  if (await throttle(env, `claim:${user.id}`, MAX_CLAIMS_PER_ACCOUNT_PER_WINDOW, THROTTLE_WINDOW_MS, now)) {
+    return json({ error: 'too many verification emails, try again later' }, 429, { 'Retry-After': '3600' });
+  }
 
   const body = await parseBody(req);
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
@@ -446,6 +536,9 @@ async function claimVerify(req: Request, env: Env): Promise<Response> {
   if (!/^\d{6}$/.test(code)) return json({ error: 'valid 6-digit code required' }, 400);
 
   const now = Date.now();
+  if (await throttle(env, `claim_verify:${user.id}`, MAX_CLAIM_VERIFY_PER_ACCOUNT_PER_WINDOW, THROTTLE_WINDOW_MS, now)) {
+    return json({ error: 'too many verification attempts, try again later' }, 429, { 'Retry-After': '3600' });
+  }
   const pc = await env.DB.prepare(
     'SELECT * FROM pending_claims WHERE user_id = ? AND purpose = ? ORDER BY id DESC LIMIT 1'
   )

@@ -5,6 +5,7 @@
   "description": "Beers Pub Wall API — opt-in leaderboard that never receives transcripts or audio; see README/schema for its full metadata boundary.",
   "type": "module",
   "scripts": {
+    "check": "tsc --noEmit",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "schema": "wrangler d1 execute beers-pubwall --remote --file=./schema.sql"

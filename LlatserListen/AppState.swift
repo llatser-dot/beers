@@ -170,6 +170,7 @@ final class AppState: ObservableObject {
         }
     }
     let pourStore = PourStore()
+    let pubWall = PubWallController()
     let appRecipeStore = AppRecipeStore()
     /// The last non-Beers app where a real pour began. Brew Controls only
     /// offers this explicit target; opening settings cannot target Beers.
@@ -286,6 +287,8 @@ final class AppState: ObservableObject {
         setupHotkey()
         startPermissionMonitor()
         loadSelectedEngine(showLoadingUI: false)
+        pubWall.configureInitialHistory(words: pourStore.totalWords, pours: pourStore.totalPours)
+        pubWall.start()
 
         // Fast learning loop: the moment a hand-correction is harvested, try to
         // auto-teach it if it's a recurring brand/name fix (see autoLearnVocabulary).
@@ -840,6 +843,7 @@ final class AppState: ObservableObject {
                     duration: TimeInterval(duration)
                 )
                 self.pourStore.add(pour)
+                self.pubWall.record(words: pour.words)
 
                 // Flywheel: capture this real (raw -> served) pair locally for
                 // future Bouncer retraining. Fire-and-forget; never blocks the
@@ -925,6 +929,7 @@ final class AppState: ObservableObject {
                 duration: duration
             )
             pourStore.add(pour)
+            pubWall.record(words: pour.words)
 
             let pasted = textPaster.paste(edited)
             if pasted {

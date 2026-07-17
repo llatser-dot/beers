@@ -22,6 +22,7 @@ LlatserListen/            Swift app source (xcodegen; project.yml is truth, .xco
   Bouncer.swift           On-device disfluency tagger: Swift WordPiece tokenizer + Core ML inference
   CorrectionWatcher.swift Post-paste AX watcher harvesting the user's keyboard fixes
   FlywheelLog.swift       Local-only training-data log (pours + corrections)
+  PubWallController.swift Opt-in leaderboard identity, Keychain-backed sync queue, live totals
   Resources/Bouncer/      Model bundle: Bouncer.mlpackage (Git LFS) + vocab/threshold/labels
 ml/                       Everything machine-learning (Python; ml/.venv and ALL of ml/data/ are local-only, gitignored — real speech never ships)
   DESIGN.md               The ML contract: label scheme, JSONL format, metrics, ship gate
@@ -112,6 +113,8 @@ tail -f /tmp/llatser-listen.log                                # live app log
 - The Bouncer only deletes — any feature that makes it write text is out of scope.
 - Flywheel data is private: no upload path or telemetry in the app. Keep external
   tooling separate and make any cloud boundary explicit before an operator runs it.
+- Pub Wall is explicit opt-in only. It may send a verified private email, public
+  handle and aggregate word/pour counts; it must never send transcripts or audio.
 - Build via `scripts/agent-install.sh` only (ad-hoc signing breaks TCC).
 - Site/brand: one logo (the transparent scalloped badge replacing the B)
   throughout the app and site. The orange square is reserved for OS-level app

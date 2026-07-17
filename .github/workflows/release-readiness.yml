@@ -53,5 +53,11 @@ jobs:
           test "$(xcodegen --version)" = "Version: $XCODEGEN_VERSION"
           git lfs version
 
+      - name: Check Pub Wall worker
+        working-directory: pubwall
+        run: |
+          npm ci
+          npm run check
+
       - name: Run non-installing release gate
         run: ./scripts/release-check.sh

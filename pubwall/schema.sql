@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX IF NOT EXISTS idx_users_words ON users (words DESC);
 CREATE INDEX IF NOT EXISTS idx_users_token ON users (token_hash);
+CREATE INDEX IF NOT EXISTS idx_users_wall ON users (email_verified, words DESC);
 
 -- Short-lived email verification codes for claim / recover. Only rows here ever
 -- reference an email, and only after the user typed one in.
@@ -42,13 +43,14 @@ CREATE INDEX IF NOT EXISTS idx_claims_user ON pending_claims (user_id);
 CREATE INDEX IF NOT EXISTS idx_claims_expires ON pending_claims (expires_at);
 
 -- Best-effort abuse throttle. Each row is one throttled action (a registration
--- attempt, a recovery-initiate, a recovery-verify) bucketed by a coarse key
--- (a salted hash of the source IP for anonymous endpoints, or a user id).
+-- attempt, email claim/verify, recovery-initiate, or recovery-verify) bucketed
+-- by a coarse key (a salted hash of the source IP for anonymous endpoints, or
+-- a user id).
 -- These rows carry NO dictation content — only a bucket label and a timestamp —
 -- and are purged opportunistically once older than the widest rate window.
 CREATE TABLE IF NOT EXISTS rate_events (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  bucket     TEXT    NOT NULL,   -- e.g. 'register:<iphash>', 'recover:<iphash>', 'recover_acct:<userId>'
+  bucket     TEXT    NOT NULL,   -- e.g. 'register:<iphash>', 'claim:<userId>', 'recover:<iphash>'
   created_at INTEGER NOT NULL    -- unix ms
 );
 CREATE INDEX IF NOT EXISTS idx_rate_events_bucket ON rate_events (bucket, created_at);

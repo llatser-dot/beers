@@ -65,6 +65,10 @@ final class PourStore: ObservableObject {
 
     var poursToday: Int { active.filter { Calendar.current.isDateInToday($0.date) }.count }
 
+    var totalPours: Int { pours.count }
+
+    var totalWords: Int { pours.reduce(0) { $0 + $1.words } }
+
     var wordsToday: Int {
         active.filter { Calendar.current.isDateInToday($0.date) }.reduce(0) { $0 + $1.words }
     }

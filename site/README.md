@@ -38,7 +38,6 @@ This branch creates and validates the website source only. It does **not**:
 - deploy or configure a host, domain, redirects, analytics or cookies;
 - create a notarised app artefact or a download endpoint;
 - add Homebrew distribution;
-- add the native app client for Pub Wall opt-in;
 - change the live Pub Wall API.
 
 The primary CTA therefore links to the source install guide. The page queries the
@@ -55,7 +54,7 @@ empty and failure states. It never substitutes mock people or counters.
 - [x] Local dictation is separated from optional remote rewriting.
 - [x] Pub Wall counts are separated from dictation content and Cloudflare's
   standard request metadata is acknowledged.
-- [x] Pub Wall app opt-in is clearly marked **coming soon**.
+- [x] Pub Wall app opt-in is available from the native Taproom.
 - [x] Bouncer is described as shadow-only after failed v1/v2 gates.
 - [x] The operator-run retraining loop and its Anthropic boundary are explicit.
 - [x] Live Pub Wall empty/failure states show no invented users or totals.
@@ -63,7 +62,8 @@ empty and failure states. It never substitutes mock people or counters.
 - [ ] Fresh-install, first-model-download and permission flows are verified on a
   clean Mac.
 - [ ] Production hosting, cache policy, CSP and final canonical URL are chosen.
-- [ ] Native Pub Wall opt-in exists and passes privacy and batching tests.
+- [x] Native Pub Wall opt-in exists with verified email, Keychain credentials,
+  aggregate-only batching, live rows and account deletion.
 
 When the first notarised release is real and independently verified, the build CTA
 can be promoted to a download CTA. Until then, do not weaken this boundary.
