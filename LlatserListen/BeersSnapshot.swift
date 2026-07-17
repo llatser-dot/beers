@@ -384,6 +384,10 @@ enum BeersSnapshot {
             let store = seededStore()
             snap(TaproomView(store: store).environmentObject(appState),
                  size: CGSize(width: 940, height: 620), name: "taproom", in: dir)
+            // Pub Wall uses only its live public response. Never seed invented
+            // members or totals into this snapshot.
+            snap(PubWallView().environmentObject(appState),
+                 size: CGSize(width: 740, height: 620), name: "pub-wall", in: dir)
 
             snapHUD(mode: .pouring, name: "hud-pouring", in: dir)
             snapHUD(mode: .settling, name: "hud-settling", in: dir)

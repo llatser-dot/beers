@@ -12,6 +12,7 @@ struct TaproomView: View {
 
     enum TapFilter: Hashable {
         case all
+        case pubWall
         case keepers
         case app(String)
         case dripTray
@@ -19,6 +20,7 @@ struct TaproomView: View {
         var title: String {
             switch self {
             case .all: return "All pours"
+            case .pubWall: return "Pub Wall"
             case .keepers: return "Keepers"
             case .app(let name): return name
             case .dripTray: return "The drip tray"
@@ -51,6 +53,7 @@ struct TaproomView: View {
             .padding(.bottom, 12)
 
             navItem(.all, emoji: "🍺")
+            navItem(.pubWall, emoji: "🏆")
             navItem(.keepers, emoji: "⭐")
             ForEach(store.appNames.prefix(4), id: \.self) { app in
                 navItem(.app(app), emoji: "→")
@@ -148,32 +151,38 @@ struct TaproomView: View {
     // MARK: Main
 
     private var main: some View {
-        VStack(spacing: 0) {
-            toolbar
-            ScrollView {
-                LazyVStack(spacing: 0, pinnedViews: []) {
-                    if visiblePours.isEmpty {
-                        emptyState.padding(.top, 90)
-                    } else {
-                        ForEach(groupedByDay, id: \.0) { day, pours in
-                            dayDivider(day, pours: pours)
-                            ForEach(pours) { pour in
-                                PourRowView(
-                                    pour: pour,
-                                    inDripTray: filter == .dripTray,
-                                    onCopy: { copy(pour) },
-                                    onKeeper: { store.toggleKeeper(pour) },
-                                    onDelete: { withAnimation(Beers.spring) { store.moveToDripTray(pour) } },
-                                    onRestore: { withAnimation(Beers.spring) { store.restore(pour) } }
-                                )
-                                .padding(.horizontal, 22)
-                                .padding(.bottom, 11)
+        Group {
+            if filter == .pubWall {
+                PubWallView()
+            } else {
+                VStack(spacing: 0) {
+                    toolbar
+                    ScrollView {
+                        LazyVStack(spacing: 0, pinnedViews: []) {
+                            if visiblePours.isEmpty {
+                                emptyState.padding(.top, 90)
+                            } else {
+                                ForEach(groupedByDay, id: \.0) { day, pours in
+                                    dayDivider(day, pours: pours)
+                                    ForEach(pours) { pour in
+                                        PourRowView(
+                                            pour: pour,
+                                            inDripTray: filter == .dripTray,
+                                            onCopy: { copy(pour) },
+                                            onKeeper: { store.toggleKeeper(pour) },
+                                            onDelete: { withAnimation(Beers.spring) { store.moveToDripTray(pour) } },
+                                            onRestore: { withAnimation(Beers.spring) { store.restore(pour) } }
+                                        )
+                                        .padding(.horizontal, 22)
+                                        .padding(.bottom, 11)
+                                    }
+                                }
                             }
                         }
+                        .padding(.top, 6)
+                        .padding(.bottom, 24)
                     }
                 }
-                .padding(.top, 6)
-                .padding(.bottom, 24)
             }
         }
     }
@@ -240,6 +249,7 @@ struct TaproomView: View {
         var pours: [Pour]
         switch filter {
         case .all: pours = store.active
+        case .pubWall: pours = []
         case .keepers: pours = store.keepers
         case .app(let name): pours = store.active.filter { $0.appName == name }
         case .dripTray: pours = store.dripTray

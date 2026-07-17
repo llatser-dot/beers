@@ -83,7 +83,7 @@ promise printed right on it: Beers never uploads those learning records.
 | **The Taproom** | Searchable history of every pour, grouped by day and app, with Keepers (starred), the drip tray (trash), and your daily streak. |
 | **Listening HUD** | A compact "pour" pill (position configurable, notch-friendly) shows the live state — taking order → pouring → settling → served — plus your running pint count. |
 | **Vocabulary** | The Brewer's Dictionary maps what Beers *heard* to what you *meant*, and auto-suggests fixes harvested from your keyboard corrections. |
-| **Pint leaderboard** | *(Coming soon — site not live yet.)* Opt in and 1,000 words = 1 pint on the community Pub Wall. The service receives a username, aggregate word/pour counts and a device token (stored only as a hash), plus standard HTTP metadata such as your IP at Cloudflare's edge. Email is optional and only used if you claim a handle. The [complete boundary is public](pubwall/README.md). |
+| **Pint leaderboard** | Opt in from the Taproom with a verified private email and unique public `@handle`; 1,000 words = 1 pint on the live community Pub Wall. The service receives aggregate word/pour counts, never transcripts or audio. The [complete boundary is public](pubwall/README.md). |
 
 ## Download
 

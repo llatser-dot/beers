@@ -87,8 +87,11 @@ configured remote rewrite endpoint has its own explicit consent boundary in the 
 |---|---|---|---|
 | POST | `/api/register` | — | `{username}` → `{userId, deviceToken}` (token shown once; only its hash is stored) |
 | POST | `/api/pours` | Bearer | `{words, pours}` → increment totals + update streak (capped & rate-limited) |
+| POST | `/api/backfill` | Bearer | one-time import of retained local history, only while verified server totals are zero (max 1,000 pours / 250,000 words) |
 | GET  | `/api/leaderboard?limit=50` | — | ranked `[{rank, username, words, pints, streakDays}]` + `{totalPints, totalWords}` |
+| GET  | `/api/username-available?username=name` | — | validate and check a handle without reserving it |
 | GET  | `/api/me` | Bearer | your own row |
+| DELETE | `/api/me` | Bearer | leave the wall and delete the user, pending claims and private email |
 | POST | `/api/claim` | Bearer | `{email}` → email a 6-digit code (501 if email not enabled) |
 | POST | `/api/claim/verify` | Bearer | `{code}` → mark email verified (501 if email not enabled) |
 | POST | `/api/recover` | — | `{email, username}` → **initiate only**; emails a single-use code on a match. Valid match, no-match, matched-account throttle, and email-disabled paths share the same generic 200; malformed input is 400 and the IP throttle is 429. Never returns a token. |
@@ -97,13 +100,22 @@ configured remote rewrite endpoint has its own explicit consent boundary in the 
 ### Guardrails
 - **Username:** 3–20 chars, letters/numbers/`_ . -` (not on the ends), case-insensitively
   unique, obvious-slur blocklist.
+- **Verification gate:** unverified registrations never appear on the public wall
+  and cannot upload counts. Abandoned unverified registrations are released after
+  roughly 24 hours by opportunistic cleanup.
 - **Empty batches rejected:** a `/api/pours` batch with `pours < 1` is rejected `400`
   — it represents no dictation and must not touch totals or keep a streak alive.
 - **Caps:** 25,000 words/day and 400 pours/day per user; implausible single batches
   (e.g. `words=999999`) are rejected `422`.
+- **Historical import:** `/api/backfill` is a separate one-time write for a newly
+  verified account whose server totals are still exactly zero. It is capped to
+  the native app's retained 1,000 pours and never affects current-day/streak data.
 - **Rate limit (atomic):** ~1 accepted `/api/pours` per minute per token (`429`
   otherwise). The limit and the counter update are one conditional `UPDATE ... WHERE`
   checked by affected-rows, so concurrent requests cannot both slip through.
+- **Email abuse controls:** at most 3 verification emails and 10 claim-code
+  attempts per account per hour. Recovery has separate per-IP and per-account
+  limits; successful account deletion also removes its account throttle rows.
 - **Registration throttle:** best-effort ~5 registrations/hour per coarse ip-hash
   (`429`). See the limitations note below.
 - **Recovery throttle:** best-effort ~3/hour per coarse ip-hash on *both*
@@ -111,10 +123,10 @@ configured remote rewrite endpoint has its own explicit consent boundary in the 
 - **Generic errors:** unexpected server exceptions return `500 {"error":"internal","incident":"<id>"}`
   — the internal message is logged server-side under that incident id and never
   sent to the client.
-- **CORS:** `GET /api/leaderboard` is readable from anywhere; POSTs accept any origin
+- **CORS:** public GETs are readable from anywhere; POSTs/DELETE accept any origin
   (the native app calls them) and are protected by the caps + Bearer token above.
 
-> **Throttle limitations (by design, best-effort):** the registration/recovery
+> **Throttle limitations (by design, best-effort):** the registration/claim/recovery
 > throttles bucket on a salted hash of the source IP. Users behind the same NAT or
 > corporate proxy share a bucket (may over-limit); an attacker who can rotate IPs
 > (botnet, IPv6, VPN) can evade it. It is a speed-bump against casual abuse, not a
