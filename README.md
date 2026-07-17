@@ -85,11 +85,23 @@ promise printed right on it: Beers never uploads those learning records.
 | **Vocabulary** | The Brewer's Dictionary maps what Beers *heard* to what you *meant*, and auto-suggests fixes harvested from your keyboard corrections. |
 | **Pint leaderboard** | *(Coming soon — site not live yet.)* Opt in and 1,000 words = 1 pint on the community Pub Wall. The service receives a username, aggregate word/pour counts and a device token (stored only as a hash), plus standard HTTP metadata such as your IP at Cloudflare's edge. Email is optional and only used if you claim a handle. The [complete boundary is public](pubwall/README.md). |
 
+## Download
+
+Grab the latest release from **[Releases](https://github.com/llatser-dot/beers/releases/latest)**:
+
+1. Download `Beers.AirDrop.zip` and unzip it.
+2. Double-click **Install Beers.command**. If macOS says it "cannot be opened",
+   right-click it → **Open** → **Open** (or System Settings → Privacy & Security →
+   **Open Anyway**). One-time step — the release isn't notarized yet
+   (see [Gatekeeper](#a-note-on-gatekeeper) below).
+3. Grant **Microphone**, **Accessibility** and **Input Monitoring** when asked,
+   then hold **Right Option** and speak.
+
+Apple Silicon only. Everything runs on-device.
+
 ## Install from source
 
-Right now, **building from source is the only supported install path** — there is
-no notarized download yet (see [Gatekeeper](#a-note-on-gatekeeper) below). It's a
-one-command build once you have the tools.
+Prefer to build it yourself? It's a one-command build once you have the tools.
 
 ### Requirements
 
