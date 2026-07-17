@@ -34,6 +34,8 @@ final class AudioRecorder {
     private var recoveryAttempts = 0
     private let maxRecoveryAttempts = 5
     private var lastBufferAt: CFAbsoluteTime = 0
+    private var captureStartedAt: CFAbsoluteTime = 0
+    private var droppedRenderLogCount = 0
 
     var isWarm: Bool {
         inputUnit != nil
@@ -53,24 +55,24 @@ final class AudioRecorder {
     }
 
     func startRecording() throws {
-        // Duck immediately so suppress feels instant, then start a fast raw capture.
-        // Voice processing is intentionally skipped: it adds multi-second cold-start lag
-        // and keeps the system mic indicator lit while the graph is warm.
+        // Start the bound capture unit FIRST (milliseconds on a wired mic),
+        // then duck. Ducking mutes the default output — often Bluetooth —
+        // and poking that device while the unit spins up risks CoreAudio
+        // churn at the worst moment. Voice processing is intentionally
+        // skipped: it adds multi-second cold-start lag and keeps the system
+        // mic indicator lit while the graph is warm.
+        try ensureEngineRunning()
         SystemAudioDucker.duckIfNeeded(enabled: suppressComputerAudio)
-        do {
-            try ensureEngineRunning()
-        } catch {
-            SystemAudioDucker.restoreIfNeeded()
-            throw error
-        }
 
         lock.lock()
         buffer.removeAll()
         tapCallbackCount = 0
         selectedChannelLogCount = 0
+        droppedRenderLogCount = 0
         captureID += 1
         isCapturing = true
         lastBufferAt = CFAbsoluteTimeGetCurrent()
+        captureStartedAt = lastBufferAt
         converter?.reset()
         lock.unlock()
         recoveryAttempts = 0
@@ -257,6 +259,15 @@ final class AudioRecorder {
             }
             newConverter.sampleRateConverterQuality = AVAudioQuality.max.rawValue
 
+            // Ask for a sane slice size so the render buffer can never be
+            // outrun by a device that defaults to huge buffers. Best effort —
+            // some devices refuse.
+            var preferredFrames: UInt32 = 512
+            _ = AudioUnitSetProperty(
+                unit, kAudioDevicePropertyBufferFrameSize,
+                kAudioUnitScope_Global, 0, &preferredFrames, UInt32(MemoryLayout<UInt32>.size)
+            )
+
             renderBuffer = AVAudioPCMBuffer(pcmFormat: clientFormat, frameCapacity: 8192)
             guard renderBuffer != nil else {
                 throw RecorderError.unsupportedInputFormat
@@ -268,6 +279,17 @@ final class AudioRecorder {
             } catch {
                 AudioUnitUninitialize(unit)
                 throw error
+            }
+
+            // The whole AVAudioEngine failure class was "bind accepted, then
+            // silently reverted" — verify the running unit is still ours.
+            var boundDevice = AudioDeviceID(0)
+            var boundSize = UInt32(MemoryLayout<AudioDeviceID>.size)
+            if AudioUnitGetProperty(
+                unit, kAudioOutputUnitProperty_CurrentDevice,
+                kAudioUnitScope_Global, 0, &boundDevice, &boundSize
+            ) == noErr, boundDevice != device.id {
+                llog("AudioRecorder: WARNING bound device reverted (\(boundDevice) != \(device.id)) — the pin race is back")
             }
 
             lock.lock()
@@ -299,8 +321,17 @@ final class AudioRecorder {
         lock.lock()
         let unit = inputUnit
         lock.unlock()
-        guard let unit, let pcmBuffer = renderBuffer, frameCount > 0,
-              frameCount <= pcmBuffer.frameCapacity else {
+        guard let unit, let pcmBuffer = renderBuffer, frameCount > 0 else {
+            return noErr
+        }
+        guard frameCount <= pcmBuffer.frameCapacity else {
+            lock.lock()
+            let shouldLog = droppedRenderLogCount < 3
+            if shouldLog { droppedRenderLogCount += 1 }
+            lock.unlock()
+            if shouldLog {
+                llog("AudioRecorder: dropped render slice (\(frameCount) frames > \(pcmBuffer.frameCapacity) capacity)")
+            }
             return noErr
         }
 
@@ -355,12 +386,19 @@ final class AudioRecorder {
         LiveMicLevel.shared.update(samples)
 
         lock.lock()
+        var firstBufferLatency: CFAbsoluteTime?
         if isCapturing && captureID == activeCaptureID {
             buffer.append(contentsOf: samples)
             tapCallbackCount += 1
             lastBufferAt = CFAbsoluteTimeGetCurrent()
+            if tapCallbackCount == 1 {
+                firstBufferLatency = lastBufferAt - captureStartedAt
+            }
         }
         lock.unlock()
+        if let firstBufferLatency {
+            llog("AudioRecorder: first buffer after \(Int(firstBufferLatency * 1000))ms")
+        }
     }
 
     private func makeMonoBuffer(from pcmBuffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
@@ -529,10 +567,14 @@ final class AudioRecorder {
         lock.lock()
         let capturing = isCapturing
         let last = lastBufferAt
+        let callbacks = tapCallbackCount
         lock.unlock()
         guard capturing else { return }
 
-        if CFAbsoluteTimeGetCurrent() - last < 1.0 {
+        // A unit that has never delivered gets extra grace — tearing down a
+        // healthy-but-slow first start would rebuild mid-sentence for nothing.
+        let stallThreshold: CFAbsoluteTime = callbacks == 0 ? 2.5 : 1.0
+        if CFAbsoluteTimeGetCurrent() - last < stallThreshold {
             recoveryAttempts = 0
             return
         }
