@@ -23,7 +23,7 @@ HTTP server is the useful check because it exercises the live Pub Wall request.
 The page references these existing repository paths relative to `site/`:
 
 - `LlatserListen/Resources/Fonts/`
-- `LlatserListen/Resources/BrandAssets/logo-b-small.png`
+- `LlatserListen/Resources/BrandAssets/brand-badge.png`
 - `docs/screenshots/`
 
 A deployment must therefore publish the repository tree with those paths intact,

@@ -36,7 +36,8 @@ ml/                       Everything machine-learning (Python; ml/.venv and ALL 
 scripts/agent-install.sh  THE build+install command (stable signing, TCC preserved)
 scripts/export-brand-assets.py  Rebuild the true-SVG + longest-edge 4096px logo pack
 site/                     Tracked public website source (source-build CTA; no deploy pipeline yet)
-Beers-Brand-Assets/exports-v1/  Canonical SVG/4K PNG logo pack + separated legacy mark
+Beers-Brand-Assets/source-raster-v2/  Approved clean Imagen badge + square application-icon masters
+Beers-Brand-Assets/exports-v1/  Current clean v2 SVG/4K PNG logo pack + compatibility mark
 ```
 
 ## The cleanup pipeline (OrderKitchen.polish)
@@ -112,14 +113,18 @@ tail -f /tmp/llatser-listen.log                                # live app log
 - Flywheel data is private: no upload path or telemetry in the app. Keep external
   tooling separate and make any cloud boundary explicit before an operator runs it.
 - Build via `scripts/agent-install.sh` only (ad-hoc signing breaks TCC).
-- Site/brand: one logo (the scalloped badge replacing the B), no beer-strip
-  hero dividers, pour = dictation everywhere.
+- Site/brand: one logo (the transparent scalloped badge replacing the B)
+  throughout the app and site. The orange square is reserved for OS-level app
+  icons such as the macOS Dock/Finder icon. No beer-strip hero dividers; pour =
+  dictation everywhere.
 
 ## Related (outside this repo)
 
 - Tracked public site: `site/index.html` (NOT deployed; source-build CTA until notarisation).
 - Earlier loose site draft: `~/Projects/beers-wireframes/site.html` (reference only).
 - Brand assets: `~/Projects/beers-wireframes/brand/`, `Beers-Brand-Assets/` here.
-- Production logo exports: `Beers-Brand-Assets/exports-v1/` (SVG masters,
+- Current raster masters: `Beers-Brand-Assets/source-raster-v2/` (clean
+  transparent menu badge and opaque square application icon).
+- Current logo exports: `Beers-Brand-Assets/exports-v1/` (clean v2 SVG masters,
   4K PNG pairs, preview, usage guide; rebuild with
   `python3 scripts/export-brand-assets.py`).

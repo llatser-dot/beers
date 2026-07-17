@@ -66,7 +66,7 @@ struct BrewControlsView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            BeersAppIcon(size: 44)
+            BeersMenuBadge(size: 44)
             VStack(alignment: .leading, spacing: 1) {
                 Text("Brew Controls")
                     .font(Beers.display(22))
@@ -488,7 +488,7 @@ struct BrewControlsView: View {
 
     private var footer: some View {
         VStack(spacing: 6) {
-            BeersAppIcon(size: 26)
+            BeersMenuBadge(size: 26)
             Text("There’s nothing better than a free Beer.")
                 .font(Beers.display(12))
                 .foregroundStyle(Beers.ink.opacity(0.55))

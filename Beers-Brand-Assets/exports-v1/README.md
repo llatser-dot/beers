@@ -1,4 +1,4 @@
-# Beers logo pack v1
+# Beers logo pack v2
 
 This is the production-ready Beers logo pack. Every canonical asset is supplied as a true, editable SVG path and as a high-resolution PNG whose longest edge is exactly 4096 pixels. No SVG embeds a raster image or depends on a font.
 
@@ -9,7 +9,7 @@ This is the production-ready Beers logo pack. Every canonical asset is supplied 
 | `beers-b-primary` | Standalone canonical B | 3351×4096 | Transparent |
 | `beers-b-badge` | Scalloped app/site badge | 3864×4096 | Transparent |
 | `beers-b-framed` | Decorative framed B | 4096×3507 | Transparent |
-| `beers-wordmark` | Complete red Beers wordmark | 4096×1302 | Transparent |
+| `beers-wordmark` | Complete red Beers wordmark | 4096×1346 | Transparent |
 | `beers-lockup-horizontal` | B replaces the B in Beers | 4096×1175 | Transparent |
 | `beers-b-one-colour-ink` | Single-colour navy mark | 3351×4096 | Transparent |
 | `beers-b-one-colour-cream` | Single-colour reverse mark | 3351×4096 | Transparent; dark backgrounds |
@@ -25,9 +25,9 @@ SVG masters live in `svg/`; paired PNG exports live in `png-4k/`.
 - Use the one-colour files for embroidery, stamps, vinyl, laser work, and single-ink print.
 - Keep clear space around a mark equal to at least one quarter of the B's width. Do not stretch, recolour, rotate, outline, or rearrange it.
 
-## Legacy
+## Compatibility
 
-`legacy/beers-ear-b-legacy` is the older orange-ear/yellow-inner-ear B. It is included because it existed in the project, but it is not the current product mark and must not replace the scalloped badge or canonical cream-ear B.
+`legacy/beers-ear-b-legacy` now carries the clean standalone B geometry so old consumers no longer receive the rough retired artwork.
 
 ## Palette
 
@@ -50,4 +50,4 @@ From the repository root:
 python3 scripts/export-brand-assets.py
 ```
 
-Requirements: Python 3 with Pillow and `rsvg-convert`. The two raster-only wireframe sources used for vector reconstruction are preserved in `../source-raster-v1/`.
+Requirements: Python 3 with Pillow and `rsvg-convert`. The clean Imagen source masters used for vector reconstruction are preserved in `../source-raster-v2/`.
