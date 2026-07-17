@@ -87,15 +87,19 @@ promise printed right on it: Beers never uploads those learning records.
 
 ## Download
 
-Grab the latest release from **[Releases](https://github.com/llatser-dot/beers/releases/latest)**:
+Grab the latest release from **[Releases](https://github.com/llatser-dot/beers/releases/latest)**
+— no Xcode, no build step:
 
-1. Download `Beers.AirDrop.zip` and unzip it.
-2. Double-click **Install Beers.command**. If macOS says it "cannot be opened",
-   right-click it → **Open** → **Open** (or System Settings → Privacy & Security →
-   **Open Anyway**). One-time step — the release isn't notarized yet
-   (see [Gatekeeper](#a-note-on-gatekeeper) below).
-3. Grant **Microphone**, **Accessibility** and **Input Monitoring** when asked,
+1. Download `Beers.app.zip` and unzip it.
+2. Drag **Beers.app** into **Applications** and open it.
+3. macOS blocks the first launch (not notarized yet — see
+   [Gatekeeper](#a-note-on-gatekeeper) below): System Settings →
+   Privacy & Security → **Open Anyway**, then open Beers again. One-time step.
+4. Grant **Microphone**, **Accessibility** and **Input Monitoring** when asked,
    then hold **Right Option** and speak.
+
+Prefer a guided install? `Beers.AirDrop.zip` on the same page bundles an
+installer script that copies the app to /Applications for you.
 
 Apple Silicon only. Everything runs on-device.
 
