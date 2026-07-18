@@ -45,9 +45,10 @@ Beers-Brand-Assets/exports-v1/  Current clean v2 SVG/4K PNG logo pack + compatib
 ## The production dictation pipeline
 
 Every ordinary pour now flows: audio → ASR (Parakeet v3, multilingual auto) →
-explicit vocabulary corrections → paste. This `parakeet-fast` path is the default
-for new and migrated installs. It has no automatic deletion rules, Bouncer pass,
-ramble gate or generative rewrite.
+minimal transcript sanitation → explicit vocabulary corrections → paste. This
+`parakeet-fast` path is the default for new and migrated installs. Sanitation
+collapses whitespace and removes isolated one-letter consonant artefacts while
+preserving `a` and `I`; it has no Bouncer pass, ramble gate or generative rewrite.
 
 The old deterministic normaliser/rule polisher remains as an explicit **Legacy
 rule polish** comparison switch; it is off by default. `OrderKitchen` and the

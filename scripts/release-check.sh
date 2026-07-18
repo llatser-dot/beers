@@ -90,6 +90,13 @@ POLISH_RESULT="$("$POLISH_SMOKE_BINARY" "visit example dot com.")"
     fail "polish smoke returned '$POLISH_RESULT' instead of 'Visit example.com'."
 echo "Transcript polish smoke passed."
 
+SANITIZER_SMOKE_BINARY="$BUILD_DIR/transcript-sanitizer-smoke"
+xcrun swiftc \
+    "$PROJECT_DIR/LlatserListen/TranscriptSanitizer.swift" \
+    "$PROJECT_DIR/scripts/transcript-sanitizer-smoke.swift" \
+    -o "$SANITIZER_SMOKE_BINARY"
+"$SANITIZER_SMOKE_BINARY"
+
 # Ordinary pours must remain structurally incapable of calling a generative
 # rewrite. Command Mode still uses OrderKitchen.applyInstruction.
 if grep -q 'OrderKitchen\.polish(' "$PROJECT_DIR/LlatserListen/AppState.swift"; then
