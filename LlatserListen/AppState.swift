@@ -85,21 +85,6 @@ final class AppState: ObservableObject {
             UserDefaults.standard.set(addSpaceAfterPaste, forKey: "addSpaceAfterPaste")
         }
     }
-    @Published var aiRewriteEnabled: Bool {
-        didSet {
-            UserDefaults.standard.set(aiRewriteEnabled, forKey: "aiRewriteEnabled")
-        }
-    }
-    @Published var aiRewriteEndpoint: String {
-        didSet {
-            UserDefaults.standard.set(aiRewriteEndpoint, forKey: "aiRewriteEndpoint")
-        }
-    }
-    @Published var aiRewriteModel: String {
-        didSet {
-            UserDefaults.standard.set(aiRewriteModel, forKey: "aiRewriteModel")
-        }
-    }
     @Published var suppressComputerAudio: Bool {
         didSet {
             UserDefaults.standard.set(suppressComputerAudio, forKey: "suppressComputerAudio")
@@ -226,12 +211,7 @@ final class AppState: ObservableObject {
             normalizeLinks: normalizeLinks,
             removeTrailingFullStop: removeTrailingFullStop,
             adaptiveTone: adaptiveTone,
-            addSpaceAfterPaste: addSpaceAfterPaste,
-            aiRewrite: AIRewriteSettings(
-                isEnabled: aiRewriteEnabled,
-                endpoint: aiRewriteEndpoint,
-                model: aiRewriteModel
-            )
+            addSpaceAfterPaste: addSpaceAfterPaste
         )
     }
 
@@ -268,9 +248,6 @@ final class AppState: ObservableObject {
         self.removeTrailingFullStop = Self.boolDefaultTrue(forKey: "removeTrailingFullStop")
         self.adaptiveTone = UserDefaults.standard.bool(forKey: "adaptiveTone")
         self.addSpaceAfterPaste = UserDefaults.standard.bool(forKey: "addSpaceAfterPaste")
-        self.aiRewriteEnabled = UserDefaults.standard.bool(forKey: "aiRewriteEnabled")
-        self.aiRewriteEndpoint = UserDefaults.standard.string(forKey: "aiRewriteEndpoint") ?? AIRewriteSettings.defaults.endpoint
-        self.aiRewriteModel = UserDefaults.standard.string(forKey: "aiRewriteModel") ?? AIRewriteSettings.defaults.model
         self.suppressComputerAudio = Self.boolDefaultTrue(forKey: "suppressComputerAudio")
         self.clinkOnServe = Self.boolDefaultTrue(forKey: "clinkOnServe")
         self.commandModeEnabled = Self.boolDefaultTrue(forKey: "commandModeEnabled")
@@ -315,8 +292,8 @@ final class AppState: ObservableObject {
             BeersSnapshot.runIfRequested(appState: self)
             BeersSnapshot.runPasteTestIfRequested()
             BeersSnapshot.runCorrectionTestIfRequested(appState: self)
-            BeersSnapshot.runOrderTestIfRequested(appState: self)
-            BeersSnapshot.runPolishTestIfRequested(appState: self)
+            BeersSnapshot.runOrderTestIfRequested()
+            BeersSnapshot.runPolishTestIfRequested()
             BeersSnapshot.runBouncerTestIfRequested()
             BeersSnapshot.runVocabSuggestTestIfRequested(appState: self)
             BeersSnapshot.runWipeTestIfRequested()
@@ -495,7 +472,6 @@ final class AppState: ObservableObject {
 
     func resetWritingPreferences() {
         let defaults = WritingPreferences.defaults
-        AITranscriptRewriter.revokeRemoteEndpointApproval()
         polishBeforePaste = false
         writingMode = defaults.mode
         cleanSpeechScaffolding = defaults.cleanSpeechScaffolding
@@ -505,9 +481,6 @@ final class AppState: ObservableObject {
         removeTrailingFullStop = defaults.removeTrailingFullStop
         adaptiveTone = defaults.adaptiveTone
         addSpaceAfterPaste = defaults.addSpaceAfterPaste
-        aiRewriteEnabled = defaults.aiRewrite.isEnabled
-        aiRewriteEndpoint = defaults.aiRewrite.endpoint
-        aiRewriteModel = defaults.aiRewrite.model
         suppressComputerAudio = true
     }
 
@@ -734,10 +707,10 @@ final class AppState: ObservableObject {
             status = .recording
             LiveMicLevel.shared.reset()
             overlay.show(mode: isCommandOrder ? .takingOrder : .pouring)
-            // Generative models are reserved for explicit Command Mode. An
-            // ordinary pour never loads or calls one.
+            // Command Mode may warm Apple's system-managed on-device model.
+            // Ordinary pours never load or call a text-generation model.
             if isCommandOrder {
-                OrderKitchen.prewarmPolish(settings: preferences.aiRewrite)
+                OrderKitchen.prewarmPolish()
             }
             Beers.popCap()
             llog("AppState: recording started\(isCommandOrder ? " (order)" : "")")
@@ -834,8 +807,8 @@ final class AppState: ObservableObject {
                     servingTier = .parakeetFast
                     llog("AppState: Parakeet fast path transcription='\(outputText)'")
                 }
-                // The production path is deliberately non-generative. Gemma /
-                // Ollama and Apple's model remain available only in Command Mode.
+                // The production path is deliberately non-generative. Apple's
+                // system model is available only in explicit Command Mode.
                 let vocabularyFinal = VocabularyCorrections.apply(to: outputText)
                 if vocabularyFinal != outputText {
                     outputText = vocabularyFinal
@@ -906,7 +879,7 @@ final class AppState: ObservableObject {
     }
 
     /// Command Mode serve: apply the spoken instruction to the captured
-    /// selection via the local model, then paste over the selection.
+    /// selection via Apple's on-device model, then paste over the selection.
     private func serveOrder(
         instruction: String,
         duration: TimeInterval,
@@ -917,17 +890,10 @@ final class AppState: ObservableObject {
         llog("AppState: order '\(instruction)' on \(selection.count) selected chars")
         overlay.show(mode: .workingOrder)
 
-        let settings = AIRewriteSettings(
-            isEnabled: true,
-            endpoint: aiRewriteEndpoint,
-            model: aiRewriteModel
-        )
-
         do {
             let edited = try await OrderKitchen.applyInstruction(
                 instruction,
-                to: String(selection.prefix(12_000)),
-                settings: settings
+                to: String(selection.prefix(6_000))
             )
             lastTargetApp = context.name
             lastTranscription = edited
@@ -951,7 +917,7 @@ final class AppState: ObservableObject {
             }
         } catch {
             llog("AppState: order failed: \(error.localizedDescription)")
-            overlay.show(mode: .notice("Kitchen's closed — no on-device or local model"))
+            overlay.show(mode: .notice("Kitchen's closed — Apple model unavailable"))
             overlay.hide(after: 1.8)
         }
         reconcilePermissions()
@@ -990,7 +956,7 @@ final class AppState: ObservableObject {
     /// One-way preference migration for this reversible code baseline. It
     /// disables every automatic deletion/generative layer once, including for
     /// existing installs whose old UserDefaults had them enabled. Reverting the
-    /// commit restores the old code; the user's endpoint/model values remain.
+    /// commit restores the old code; retired endpoint preferences are ignored.
     private static func applyParakeetFirstMigrationIfNeeded() {
         let defaults = UserDefaults.standard
         let versionKey = "parakeetFirstPipelineMigrationVersion"

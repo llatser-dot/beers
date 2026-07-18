@@ -22,7 +22,7 @@ if [[ -n "$(git -C "$PROJECT_DIR" status --porcelain --untracked-files=normal)" 
     fail "the Git worktree and index must be clean."
 fi
 
-for command in git grep lipo plutil python3 xcodegen xcodebuild xcrun; do
+for command in git grep lipo plutil python3 strings xcodegen xcodebuild xcrun; do
     if ! command -v "$command" >/dev/null 2>&1; then
         fail "missing required command: $command"
     fi
@@ -71,13 +71,6 @@ if not isinstance(manifest, dict) or not manifest:
     raise SystemExit("Bouncer.mlpackage/Manifest.json is empty or invalid")
 PY
 
-SMOKE_BINARY="$BUILD_DIR/endpoint-trust-smoke"
-xcrun swiftc \
-    "$PROJECT_DIR/LlatserListen/AIEndpointTrust.swift" \
-    "$PROJECT_DIR/scripts/endpoint-trust-smoke.swift" \
-    -o "$SMOKE_BINARY"
-"$SMOKE_BINARY"
-
 POLISH_SMOKE_BINARY="$BUILD_DIR/polish-smoke"
 xcrun swiftc \
     "$PROJECT_DIR/LlatserListen/WritingMode.swift" \
@@ -98,7 +91,7 @@ xcrun swiftc \
 "$SANITIZER_SMOKE_BINARY"
 
 # Ordinary pours must remain structurally incapable of calling a generative
-# rewrite. Command Mode still uses OrderKitchen.applyInstruction.
+# rewrite. Command Mode is Apple-on-device only.
 if grep -q 'OrderKitchen\.polish(' "$PROJECT_DIR/LlatserListen/AppState.swift"; then
     fail "ordinary AppState pours call OrderKitchen.polish; Parakeet-first boundary regressed."
 fi
@@ -106,6 +99,17 @@ grep -q 'case parakeetFast = "parakeet-fast"' "$PROJECT_DIR/LlatserListen/OrderK
     fail "Parakeet fast serving tier is missing."
 grep -q 'return text' "$PROJECT_DIR/LlatserListen/TranscriptionEngine.swift" || \
     fail "TranscriptionEngine no longer exposes raw Parakeet output."
+for retired_source in AIEndpointTrust.swift AITranscriptRewriter.swift; do
+    grep -q -- "- \"$retired_source\"" "$PROJECT_DIR/project.yml" || \
+        fail "$retired_source is no longer excluded from the production app target."
+done
+if grep -Eq 'AITranscriptRewriter|aiRewriteEndpoint|aiRewriteModel' \
+    "$PROJECT_DIR/LlatserListen/AppState.swift" \
+    "$PROJECT_DIR/LlatserListen/BrewControlsView.swift" \
+    "$PROJECT_DIR/LlatserListen/OrderKitchen.swift" \
+    "$PROJECT_DIR/LlatserListen/BeersSnapshot.swift"; then
+    fail "production code still references the retired external rewrite client."
+fi
 echo "Parakeet-first boundary smoke passed."
 python3 "$PROJECT_DIR/scripts/score-asr-benchmark.py" --self-test
 
@@ -126,6 +130,10 @@ xcodebuild -quiet \
 ARCHITECTURES="$(lipo -archs "$BINARY")"
 [[ "$ARCHITECTURES" == "arm64" ]] || \
     fail "the public build must contain arm64 only; found: $ARCHITECTURES"
+if strings "$BINARY" | grep -Eqi 'gemma4|127\.0\.0\.1:11434|/api/chat|AITranscriptRewriter'; then
+    fail "the production binary still contains the retired Ollama client."
+fi
+echo "No-Ollama binary gate passed."
 
 INFO_PLIST="$APP/Contents/Info.plist"
 [[ "$(plutil -extract CFBundleIdentifier raw "$INFO_PLIST")" == "com.llatser.listen" ]] || \
@@ -146,4 +154,4 @@ for resource in threshold.json labels.json vocab.txt; do
     [[ -s "$APP/Contents/Resources/$resource" ]] || fail "bundled resource is missing or empty: $resource"
 done
 
-echo "Release readiness passed: clean Git, $LFS_COUNT LFS objects, endpoint and polish smokes, unsigned arm64 build, metadata and Bouncer resources."
+echo "Release readiness passed: clean Git, $LFS_COUNT LFS objects, polish/sanitiser smokes, no-Ollama binary gate, unsigned arm64 build, metadata and Bouncer resources."

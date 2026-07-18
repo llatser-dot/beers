@@ -24,6 +24,10 @@ targets:
       - path: LlatserListen
         excludes:
           - "Resources/Bouncer/Bouncer.mlpackage"
+          # Retained only as historical/reference source. Production Beers has
+          # no endpoint client and cannot launch, prewarm or call Ollama.
+          - "AIEndpointTrust.swift"
+          - "AITranscriptRewriter.swift"
       # The Bouncer model: a compile source so Xcode's Core ML compiler emits
       # Bouncer.mlmodelc into the app bundle. vocab.txt / threshold.json /
       # labels.json under Resources/Bouncer are picked up as resources by the

@@ -6,9 +6,6 @@ struct BrewControlsView: View {
     @EnvironmentObject var appState: AppState
     @State private var showSmashSheet = false
     @State private var showWipeSheet = false
-    @State private var endpointDraft = ""
-    @State private var endpointError: String?
-    @State private var showRemoteEndpointSheet = false
 
     var body: some View {
         ScrollView {
@@ -39,29 +36,9 @@ struct BrewControlsView: View {
                 ASRBenchmarkCapture.wipe()
             }
         }
-        .sheet(isPresented: $showRemoteEndpointSheet) {
-            RemoteEndpointSheet(
-                isPresented: $showRemoteEndpointSheet,
-                origin: AIEndpointTrust.normalizedOrigin(from: endpointDraft) ?? endpointDraft,
-                onConfirm: {
-                    let candidate = endpointDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if AITranscriptRewriter.approveRemoteEndpoint(candidate) {
-                        appState.aiRewriteEndpoint = candidate
-                        endpointError = nil
-                    } else {
-                        endpointDraft = appState.aiRewriteEndpoint
-                        endpointError = "That endpoint couldn't be approved."
-                    }
-                },
-                onCancel: {
-                    endpointDraft = appState.aiRewriteEndpoint  // revert the field
-                }
-            )
-        }
         .onAppear {
             appState.refreshPermissions()
             appState.refreshVocabularySuggestions()
-            endpointDraft = appState.aiRewriteEndpoint
         }
     }
 
@@ -150,7 +127,7 @@ struct BrewControlsView: View {
 
             BeersSettingRow(
                 label: "Take orders",
-                hint: "Hold ⇧ + pour key over selected text, speak the change — Apple on-device model, or your configured endpoint",
+                hint: "Optional Apple-on-device edits; never launches Ollama or sends text to an endpoint",
                 showDivider: false
             ) {
                 Toggle("", isOn: $appState.commandModeEnabled)
@@ -267,22 +244,6 @@ struct BrewControlsView: View {
                 polishToggleGrid
             }
 
-            BeersSettingRow(
-                label: "Command Mode model",
-                hint: "Used only when you hold ⇧ + pour key over selected text",
-                showDivider: appState.commandModeEnabled
-            ) {
-                BeersChip { Text(appState.aiRewriteModel) }
-            }
-
-            if appState.commandModeEnabled {
-                VStack(spacing: 8) {
-                    endpointField
-                    aiField("Model", text: $appState.aiRewriteModel)
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 14)
-            }
         }
     }
 
@@ -311,70 +272,6 @@ struct BrewControlsView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 7)
             DashedDivider().padding(.horizontal, 12)
-        }
-    }
-
-    private func aiField(_ placeholder: String, text: Binding<String>) -> some View {
-        TextField(placeholder, text: text)
-            .textFieldStyle(.plain)
-            .font(Beers.ui(13, .medium))
-            .foregroundStyle(Beers.ink)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Beers.cream, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Beers.ink, lineWidth: 2)
-            )
-    }
-
-    /// The endpoint the rewriter POSTs your pours to. A loopback address commits
-    /// silently; a remote origin trips a confirm sheet before it's saved.
-    private var endpointField: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            TextField("Local endpoint", text: $endpointDraft)
-                .textFieldStyle(.plain)
-                .font(Beers.ui(13, .medium))
-                .foregroundStyle(Beers.ink)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Beers.cream, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(Beers.ink, lineWidth: 2)
-                )
-                .onSubmit(commitEndpoint)
-                .onChange(of: endpointDraft) { _, newValue in
-                    if newValue != appState.aiRewriteEndpoint {
-                        endpointError = nil
-                    }
-                }
-
-            if let endpointError {
-                Text(endpointError)
-                    .font(Beers.ui(11.5, .medium))
-                    .foregroundStyle(Beers.stout)
-            }
-        }
-    }
-
-    private func commitEndpoint() {
-        let candidate = endpointDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard AIEndpointTrust.normalizedOrigin(from: candidate) != nil else {
-            endpointDraft = appState.aiRewriteEndpoint
-            endpointError = "Use a valid HTTP or HTTPS endpoint."
-            return
-        }
-
-        if AITranscriptRewriter.isLoopbackEndpoint(candidate) {
-            AITranscriptRewriter.revokeRemoteEndpointApproval()
-            appState.aiRewriteEndpoint = candidate
-            endpointError = nil
-        } else if AITranscriptRewriter.isRemoteEndpointAllowed(candidate) {
-            appState.aiRewriteEndpoint = candidate
-            endpointError = nil
-        } else {
-            showRemoteEndpointSheet = true
         }
     }
 
@@ -635,56 +532,6 @@ struct SmashTheGlassesSheet: View {
                 .buttonStyle(BeersButtonStyle(kind: .amber, small: true))
                 .disabled(!armed)
                 .opacity(armed ? 1 : 0.45)
-            }
-        }
-        .padding(28)
-        .frame(width: 360)
-        .background(Beers.paper)
-        .environment(\.colorScheme, .light)
-    }
-}
-
-/// Consent confirm for pointing the rewriter at a NON-loopback endpoint. Same
-/// scalloped-seal warning pattern as the destructive sheets: confirming opts in
-/// (stores approval for that origin), cancelling restores the previously saved value.
-struct RemoteEndpointSheet: View {
-    @Binding var isPresented: Bool
-    let origin: String
-    let onConfirm: () -> Void
-    let onCancel: () -> Void
-
-    var body: some View {
-        VStack(spacing: 16) {
-            ZStack {
-                SealShape()
-                    .fill(Beers.lager)
-                SealShape()
-                    .stroke(Beers.ink, lineWidth: 2.5)
-                Text("🌐").font(.system(size: 26))
-            }
-            .frame(width: 74, height: 74)
-
-            Text("Send pours off this Mac?")
-                .font(Beers.display(18))
-                .foregroundStyle(Beers.stout)
-
-            Text("“\(origin)” is a remote server, not your machine. Confirm and Command Mode may send selected text and your spoken edit there — leaving this Mac like any web request. Ordinary pours never use this endpoint. Keep it local unless you trust that server. Plain HTTP is unencrypted; prefer HTTPS.")
-                .font(Beers.ui(13, .medium))
-                .foregroundStyle(Beers.ink.opacity(0.7))
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-
-            HStack(spacing: 12) {
-                Button("Keep it local") {
-                    onCancel()
-                    isPresented = false
-                }
-                .buttonStyle(BeersButtonStyle(kind: .ghost, small: true))
-                Button("Send to remote 🌐") {
-                    onConfirm()
-                    isPresented = false
-                }
-                .buttonStyle(BeersButtonStyle(kind: .amber, small: true))
             }
         }
         .padding(28)
