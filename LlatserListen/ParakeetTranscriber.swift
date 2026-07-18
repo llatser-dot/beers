@@ -1,6 +1,11 @@
 import FluidAudio
 import Foundation
 
+enum ASRLanguageMode: String {
+    case automatic
+    case english
+}
+
 final class ParakeetTranscriber {
     private var manager: AsrManager?
     private let version: AsrModelVersion
@@ -32,7 +37,10 @@ final class ParakeetTranscriber {
         onProgress(1, "\(label) ready")
     }
 
-    func transcribe(_ audio: [Float]) async throws -> String {
+    func transcribe(
+        _ audio: [Float],
+        languageMode: ASRLanguageMode = .automatic
+    ) async throws -> String {
         guard let manager else {
             throw TranscriptionEngine.TranscriptionError.modelNotLoaded
         }
@@ -48,15 +56,16 @@ final class ParakeetTranscriber {
         case .v2:
             language = .english
         case .v3:
-            // v3 is multilingual. With no language hint it can decode the
-            // language being spoken instead of filtering output to English.
-            language = nil
+            // Keep multilingual auto-detection as the production baseline,
+            // but make the English hint independently benchmarkable against
+            // exactly the same audio before changing that default.
+            language = languageMode == .english ? .english : nil
         default:
             language = nil
         }
         let result = try await manager.transcribe(audio, decoderState: &decoderState, language: language)
         let cleanedText = sanitize(result.text)
-        llog("ParakeetTranscriber: result='\(cleanedText)' rtfx=\(String(format: "%.2f", result.rtfx)) confidence=\(String(format: "%.3f", result.confidence))")
+        llog("ParakeetTranscriber: result='\(cleanedText)' language=\(languageMode.rawValue) rtfx=\(String(format: "%.2f", result.rtfx)) confidence=\(String(format: "%.3f", result.confidence))")
         return cleanedText
     }
 

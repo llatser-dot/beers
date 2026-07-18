@@ -37,7 +37,13 @@ final class TranscriptionEngine {
         onProgress(1, "\(engine.displayName) ready")
     }
 
-    func transcribe(_ audio: [Float]) async throws -> String {
+    /// Returns Parakeet's sanitised transcript without semantic normalisation.
+    /// The production fast path applies only explicit vocabulary corrections
+    /// after this point; legacy rules are opt-in at the caller.
+    func transcribe(
+        _ audio: [Float],
+        languageMode: ASRLanguageMode = .automatic
+    ) async throws -> String {
         guard let loadedEngine else {
             throw TranscriptionError.modelNotLoaded
         }
@@ -46,10 +52,16 @@ final class TranscriptionEngine {
         switch loadedEngine {
         case .parakeetV3, .parakeetV2:
             guard let parakeet = lock.withLock({ parakeets[loadedEngine] }) else { throw TranscriptionError.modelNotLoaded }
-            text = try await parakeet.transcribe(audio)
+            text = try await parakeet.transcribe(audio, languageMode: languageMode)
         }
 
-        return TranscriptNormalizer.normalize(text)
+        return text
+    }
+
+    /// The pre-baseline normaliser, retained only for the explicit legacy
+    /// polish comparison. It must never run in the default Parakeet path.
+    static func legacyNormalize(_ text: String) -> String {
+        TranscriptNormalizer.normalize(text)
     }
 
     enum TranscriptionError: LocalizedError {

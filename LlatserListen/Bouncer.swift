@@ -5,12 +5,10 @@ import Foundation
 /// model that can only DELETE words (fillers, stutters, false starts, self
 /// corrections), never write, so it cannot hallucinate or answer the dictation.
 ///
-/// PHASE 2 SHIPS IN SHADOW MODE: `review` predicts and returns a verdict, but
-/// `OrderKitchen` only logs it — the returned pour text is never touched. The
-/// current bundled model is a stand-in that fails the gold ship gate
-/// (`threshold.json "target_met": false`). When a v2 model passes the gate the
-/// bundle's `target_met` flips to true and tier-0 activation becomes a pure
-/// file swap (see `OrderKitchen.polish`). No Swift change required.
+/// PARKED RESEARCH: v1/v2/v3 failed the real-speech precision gate. Production
+/// ordinary pours do not call this type, even in shadow. `review` remains for
+/// explicit diagnostics and future checkpoint evaluation; reactivation needs
+/// both a passing bundle and a reviewed code change at the AppState boundary.
 ///
 /// Everything here is self-contained: a pure-Swift WordPiece tokenizer that
 /// mirrors HF's cased `BertTokenizer`, first-subtoken logit extraction, and a
@@ -32,7 +30,8 @@ struct BouncerVerdict {
     /// False when the model files are absent or failed to load — the caller
     /// must treat the pour as a clean no-op in that case.
     let modelAvailable: Bool
-    /// The gold ship gate. When true, tier-0 may activate (serve `cleanedText`).
+    /// The gold ship gate recorded in the bundle. Production activation also
+    /// requires a reviewed code change; this flag alone cannot serve a pour.
     let targetMet: Bool
     /// Calibrated DELETE probability threshold used for the decisions.
     let threshold: Double

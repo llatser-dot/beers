@@ -249,11 +249,17 @@ def print_summary(pours: list[dict], unique: list[dict], events: list[dict],
     print("serving tier".ljust(22) + "count   share")
     print("-" * 60)
     total = max(1, len(unique))
-    for tier in ("bouncer-shadow-only", "clean-gate", "apple", "local", "rule-fallback"):
+    for tier in (
+        "parakeet-fast", "rule-polish", "bouncer-shadow-only",
+        "clean-gate", "apple", "local", "rule-fallback",
+    ):
         c = tiers.get(tier, 0)
         print(f"{tier.ljust(22)}{str(c).rjust(5)}   {bar(c, total)} {100*c/total:4.0f}%")
     other = sum(v for k, v in tiers.items()
-                if k not in ("bouncer-shadow-only", "clean-gate", "apple", "local", "rule-fallback"))
+                if k not in (
+                    "parakeet-fast", "rule-polish", "bouncer-shadow-only",
+                    "clean-gate", "apple", "local", "rule-fallback",
+                ))
     if other:
         print(f"{'(other)'.ljust(22)}{str(other).rjust(5)}")
     print()

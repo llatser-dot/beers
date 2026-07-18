@@ -7,8 +7,14 @@ import FoundationModels
 /// Which tier ultimately produced the served text for a pour. Raw values are
 /// the strings the flywheel log records verbatim.
 enum ServingTier: String {
-    /// The tier-0 Bouncer served its cleaned text (dormant until a v2 model
-    /// passes the gold gate; today the shadow only logs and this never wins).
+    /// Parakeet output plus the user's explicit vocabulary corrections. This
+    /// is the production default: no deletion rules and no generative model.
+    case parakeetFast = "parakeet-fast"
+    /// The optional legacy rule polisher served the pour. Kept as an explicit
+    /// comparison mode, never the default.
+    case rulePolish = "rule-polish"
+    /// Historical/diagnostic tier: Bouncer served its cleaned text. Production
+    /// no longer invokes it after v1/v2/v3 failed the gate.
     case bouncerShadowOnly = "bouncer-shadow-only"
     /// The ramble gate judged the pour clean and served it unchanged, no model.
     case cleanGate = "clean-gate"
@@ -135,10 +141,9 @@ enum OrderKitchen {
         return Double(outWords) / Double(inWords)
     }
 
-    /// Per-pour polish: turn rambling speech into what the speaker meant.
-    /// Same tiers as orders. Never throws — on any failure the rule-polished
-    /// input serves (tier `.ruleFallback`). Returns which tier served plus the
-    /// tier-0 shadow verdict so the caller can feed the flywheel.
+    /// Legacy diagnostic polish retained for `--beers-polish-test`. Production
+    /// ordinary pours do not call this function; Command Mode calls only
+    /// `applyInstruction`.
     static func polish(
         _ text: String,
         detectOn rawTranscript: String? = nil,
@@ -151,12 +156,9 @@ enum OrderKitchen {
         // line per pour, but never alters the served text.
         let shadow = runBouncerShadow(text)
 
-        // --- TIER-0 ACTIVATION GATE (dormant until v2) ---------------------
-        // target_met is false for the current stand-in model, so this branch is
-        // never taken and the pour falls through to the ramble gate + LLM tiers
-        // exactly as before. When a v2 model passes the gold gate, the bundled
-        // threshold.json flips target_met to true and tier 0 serves — a pure
-        // file swap, no code edit.
+        // Diagnostic-only activation gate. Even a future passing bundle cannot
+        // affect production unless AppState is deliberately changed to invoke
+        // this legacy function again.
         if let shadow, shadow.targetMet {
             llog("OrderKitchen: pour served by tier-0 Bouncer")
             return PolishResult(text: shadow.cleanedText, tier: .bouncerShadowOnly, shadow: shadow)

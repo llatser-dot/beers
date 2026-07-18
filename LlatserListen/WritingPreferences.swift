@@ -13,12 +13,12 @@ struct WritingPreferences {
 
     static let defaults = WritingPreferences(
         mode: .automatic,
-        cleanSpeechScaffolding: true,
-        collapseRepeats: true,
+        cleanSpeechScaffolding: false,
+        collapseRepeats: false,
         smartCapitalization: true,
         normalizeLinks: true,
         removeTrailingFullStop: true,
-        adaptiveTone: true,
+        adaptiveTone: false,
         addSpaceAfterPaste: false,
         aiRewrite: .defaults
     )
