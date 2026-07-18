@@ -36,6 +36,7 @@ struct BrewControlsView: View {
         .sheet(isPresented: $showWipeSheet) {
             PourItAwaySheet(isPresented: $showWipeSheet) {
                 FlywheelLog.wipe()
+                ASRBenchmarkCapture.wipe()
             }
         }
         .sheet(isPresented: $showRemoteEndpointSheet) {
@@ -234,40 +235,47 @@ struct BrewControlsView: View {
 
     private var polishCrate: some View {
         BeersCrate(title: "The Polish", emoji: "✍️", headerColor: Beers.lager) {
-            BeersSettingRow(label: "Adapt to the app you’re pouring into", hint: "Chat, code or prose — matched automatically") {
-                Toggle("", isOn: adaptiveWriting)
-                    .labelsHidden()
-                    .toggleStyle(BeersToggleStyle())
+            BeersSettingRow(
+                label: "Fast Parakeet baseline",
+                hint: "Vocabulary only — no deletion rules or generative rewrite"
+            ) {
+                BeersChip { Text("Default") }
             }
 
-            AppRecipeEditorView(
-                store: appState.appRecipeStore,
-                target: appState.recipeTargetContext,
-                globalWritingMode: appState.writingMode,
-                globalAddSpaceAfterPaste: appState.addSpaceAfterPaste
-            )
-
-            BeersSettingRow(label: "Polish before serving", hint: "Cleans fillers, repeats and casing") {
+            BeersSettingRow(
+                label: "Legacy rule polish",
+                hint: "Optional comparison mode; may remove genuine speech"
+            ) {
                 Toggle("", isOn: $appState.polishBeforePaste)
                     .labelsHidden()
                     .toggleStyle(BeersToggleStyle())
             }
 
             if appState.polishBeforePaste {
+                BeersSettingRow(label: "Adapt to the app you’re pouring into", hint: "Chat, code or prose — matched automatically") {
+                    Toggle("", isOn: adaptiveWriting)
+                        .labelsHidden()
+                        .toggleStyle(BeersToggleStyle())
+                }
+
+                AppRecipeEditorView(
+                    store: appState.appRecipeStore,
+                    target: appState.recipeTargetContext,
+                    globalWritingMode: appState.writingMode,
+                    globalAddSpaceAfterPaste: appState.addSpaceAfterPaste
+                )
                 polishToggleGrid
             }
 
             BeersSettingRow(
-                label: "Say it badly, serve it well",
-                hint: "Fixes rambles and mid-sentence corrections — Apple on-device model or your configured endpoint",
-                showDivider: appState.aiRewriteEnabled
+                label: "Command Mode model",
+                hint: "Used only when you hold ⇧ + pour key over selected text",
+                showDivider: appState.commandModeEnabled
             ) {
-                Toggle("", isOn: $appState.aiRewriteEnabled)
-                    .labelsHidden()
-                    .toggleStyle(BeersToggleStyle())
+                BeersChip { Text(appState.aiRewriteModel) }
             }
 
-            if appState.aiRewriteEnabled {
+            if appState.commandModeEnabled {
                 VStack(spacing: 8) {
                     endpointField
                     aiField("Model", text: $appState.aiRewriteModel)
@@ -396,9 +404,16 @@ struct BrewControlsView: View {
 
             BeersSettingRow(
                 label: "Bouncer on the door",
-                hint: "The disfluency model runs in shadow — it predicts and logs, never touches your text"
+                hint: "Research paused after failing the real-speech precision gate"
             ) {
-                Toggle("", isOn: $appState.bouncerShadowEnabled)
+                BeersChip { Text("Parked") }
+            }
+
+            BeersSettingRow(
+                label: "Capture ASR benchmark audio",
+                hint: "Opt in to local audio + raw transcripts for same-audio engine tests"
+            ) {
+                Toggle("", isOn: $appState.asrBenchmarkCaptureEnabled)
                     .labelsHidden()
                     .toggleStyle(BeersToggleStyle())
             }
@@ -416,7 +431,7 @@ struct BrewControlsView: View {
                 Image(systemName: "lock.fill")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(Beers.hopsDeep)
-                Text("These learning records stay on this Mac. Beers never uploads them.")
+                Text("Learning and benchmark records stay on this Mac. Beers never uploads them.")
                     .font(Beers.ui(11.5, .semibold))
                     .foregroundStyle(Beers.ink.opacity(0.6))
                 Spacer(minLength: 0)
@@ -531,7 +546,7 @@ struct PourItAwaySheet: View {
                 .font(Beers.display(18))
                 .foregroundStyle(Beers.stout)
 
-            Text("Every training record Beers stores on this Mac — your logged pours and keyboard fixes — is deleted forever. This only removes the local copies. Type POUR to confirm.")
+            Text("Every training and benchmark record Beers stores on this Mac — logged pours, keyboard fixes and opted-in audio — is deleted forever. This only removes the local copies. Type POUR to confirm.")
                 .font(Beers.ui(13, .medium))
                 .foregroundStyle(Beers.ink.opacity(0.7))
                 .multilineTextAlignment(.center)
@@ -653,7 +668,7 @@ struct RemoteEndpointSheet: View {
                 .font(Beers.display(18))
                 .foregroundStyle(Beers.stout)
 
-            Text("“\(origin)” is a remote server, not your machine. Confirm and Beers will send your pours there to be rewritten — leaving this Mac like any web request. Keep it local unless you trust that server. Plain HTTP is unencrypted; prefer HTTPS.")
+            Text("“\(origin)” is a remote server, not your machine. Confirm and Command Mode may send selected text and your spoken edit there — leaving this Mac like any web request. Ordinary pours never use this endpoint. Keep it local unless you trust that server. Plain HTTP is unencrypted; prefer HTTPS.")
                 .font(Beers.ui(13, .medium))
                 .foregroundStyle(Beers.ink.opacity(0.7))
                 .multilineTextAlignment(.center)

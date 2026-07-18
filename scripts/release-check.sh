@@ -90,6 +90,18 @@ POLISH_RESULT="$("$POLISH_SMOKE_BINARY" "visit example dot com.")"
     fail "polish smoke returned '$POLISH_RESULT' instead of 'Visit example.com'."
 echo "Transcript polish smoke passed."
 
+# Ordinary pours must remain structurally incapable of calling a generative
+# rewrite. Command Mode still uses OrderKitchen.applyInstruction.
+if grep -q 'OrderKitchen\.polish(' "$PROJECT_DIR/LlatserListen/AppState.swift"; then
+    fail "ordinary AppState pours call OrderKitchen.polish; Parakeet-first boundary regressed."
+fi
+grep -q 'case parakeetFast = "parakeet-fast"' "$PROJECT_DIR/LlatserListen/OrderKitchen.swift" || \
+    fail "Parakeet fast serving tier is missing."
+grep -q 'return text' "$PROJECT_DIR/LlatserListen/TranscriptionEngine.swift" || \
+    fail "TranscriptionEngine no longer exposes raw Parakeet output."
+echo "Parakeet-first boundary smoke passed."
+python3 "$PROJECT_DIR/scripts/score-asr-benchmark.py" --self-test
+
 (cd "$PROJECT_DIR" && xcodegen generate)
 
 xcodebuild -quiet \

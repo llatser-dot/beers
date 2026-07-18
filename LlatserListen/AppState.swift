@@ -164,6 +164,11 @@ final class AppState: ObservableObject {
             UserDefaults.standard.set(bouncerShadowEnabled, forKey: "bouncerShadowEnabled")
         }
     }
+    @Published var asrBenchmarkCaptureEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(asrBenchmarkCaptureEnabled, forKey: "asrBenchmarkCaptureEnabled")
+        }
+    }
     @Published var hudPosition: HUDPosition {
         didSet {
             UserDefaults.standard.set(hudPosition.rawValue, forKey: "hudPosition")
@@ -249,18 +254,19 @@ final class AppState: ObservableObject {
 
     init() {
         VocabularyCorrections.ensureSeeded()
+        Self.applyParakeetFirstMigrationIfNeeded()
 
         let savedEngine = UserDefaults.standard.string(forKey: "engineChoice")
         self.engineChoice = DictationEngine.savedValue(savedEngine)
-        self.polishBeforePaste = Self.boolDefaultTrue(forKey: "polishBeforePaste")
+        self.polishBeforePaste = UserDefaults.standard.bool(forKey: "polishBeforePaste")
         let savedWritingMode = UserDefaults.standard.string(forKey: "writingMode")
         self.writingMode = WritingMode(rawValue: savedWritingMode ?? "") ?? WritingPreferences.defaults.mode
-        self.cleanSpeechScaffolding = Self.boolDefaultTrue(forKey: "cleanSpeechScaffolding")
-        self.collapseRepeats = Self.boolDefaultTrue(forKey: "collapseRepeats")
+        self.cleanSpeechScaffolding = UserDefaults.standard.bool(forKey: "cleanSpeechScaffolding")
+        self.collapseRepeats = UserDefaults.standard.bool(forKey: "collapseRepeats")
         self.smartCapitalization = Self.boolDefaultTrue(forKey: "smartCapitalization")
         self.normalizeLinks = Self.boolDefaultTrue(forKey: "normalizeLinks")
         self.removeTrailingFullStop = Self.boolDefaultTrue(forKey: "removeTrailingFullStop")
-        self.adaptiveTone = Self.boolDefaultTrue(forKey: "adaptiveTone")
+        self.adaptiveTone = UserDefaults.standard.bool(forKey: "adaptiveTone")
         self.addSpaceAfterPaste = UserDefaults.standard.bool(forKey: "addSpaceAfterPaste")
         self.aiRewriteEnabled = UserDefaults.standard.bool(forKey: "aiRewriteEnabled")
         self.aiRewriteEndpoint = UserDefaults.standard.string(forKey: "aiRewriteEndpoint") ?? AIRewriteSettings.defaults.endpoint
@@ -270,7 +276,8 @@ final class AppState: ObservableObject {
         self.commandModeEnabled = Self.boolDefaultTrue(forKey: "commandModeEnabled")
         self.flywheelLoggingEnabled = Self.boolDefaultTrue(forKey: "flywheelLoggingEnabled")
         self.correctionWatcherEnabled = Self.boolDefaultTrue(forKey: "correctionWatcherEnabled")
-        self.bouncerShadowEnabled = Self.boolDefaultTrue(forKey: "bouncerShadowEnabled")
+        self.bouncerShadowEnabled = UserDefaults.standard.bool(forKey: "bouncerShadowEnabled")
+        self.asrBenchmarkCaptureEnabled = UserDefaults.standard.bool(forKey: "asrBenchmarkCaptureEnabled")
         self.hudPosition = HUDPosition.current
         self.hotkeyChoice = HotkeyOption.savedValue(UserDefaults.standard.string(forKey: "hotkeyChoice"))
 
@@ -283,12 +290,15 @@ final class AppState: ObservableObject {
         self.accessibilityGranted = Permissions.isAccessibilityGranted()
         self.recipeTargetContext = nil
 
-        audioRecorder.setSuppressComputerAudio(suppressComputerAudio)
-        setupHotkey()
-        startPermissionMonitor()
-        loadSelectedEngine(showLoadingUI: false)
-        pubWall.configureInitialHistory(words: pourStore.totalWords, pours: pourStore.totalPours)
-        pubWall.start()
+        let benchmarkRun = ASRBenchmarkRunner.isRequested
+        if !benchmarkRun {
+            audioRecorder.setSuppressComputerAudio(suppressComputerAudio)
+            setupHotkey()
+            startPermissionMonitor()
+            loadSelectedEngine(showLoadingUI: false)
+            pubWall.configureInitialHistory(words: pourStore.totalWords, pours: pourStore.totalPours)
+            pubWall.start()
+        }
 
         // Fast learning loop: the moment a hand-correction is harvested, try to
         // auto-teach it if it's a recurring brand/name fix (see autoLearnVocabulary).
@@ -300,6 +310,8 @@ final class AppState: ObservableObject {
 
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
+            ASRBenchmarkRunner.runIfRequested()
+            if benchmarkRun { return }
             BeersSnapshot.runIfRequested(appState: self)
             BeersSnapshot.runPasteTestIfRequested()
             BeersSnapshot.runCorrectionTestIfRequested(appState: self)
@@ -484,7 +496,7 @@ final class AppState: ObservableObject {
     func resetWritingPreferences() {
         let defaults = WritingPreferences.defaults
         AITranscriptRewriter.revokeRemoteEndpointApproval()
-        polishBeforePaste = true
+        polishBeforePaste = false
         writingMode = defaults.mode
         cleanSpeechScaffolding = defaults.cleanSpeechScaffolding
         collapseRepeats = defaults.collapseRepeats
@@ -722,8 +734,9 @@ final class AppState: ObservableObject {
             status = .recording
             LiveMicLevel.shared.reset()
             overlay.show(mode: isCommandOrder ? .takingOrder : .pouring)
-            // Command Mode always uses the model, so prewarm for it too.
-            if preferences.aiRewrite.isEnabled || isCommandOrder {
+            // Generative models are reserved for explicit Command Mode. An
+            // ordinary pour never loads or calls one.
+            if isCommandOrder {
                 OrderKitchen.prewarmPolish(settings: preferences.aiRewrite)
             }
             Beers.popCap()
@@ -795,38 +808,34 @@ final class AppState: ObservableObject {
 
                 self.lastTargetApp = context.name
 
+                ASRBenchmarkCapture.recordIfEnabled(
+                    audio: audio,
+                    rawTranscript: text,
+                    engine: self.engineChoice,
+                    languageMode: .automatic
+                )
+
                 var outputText: String
                 let rulePolished: String?
-                let resolvedMode = preferences.mode == .automatic ? context.inferredWritingMode : preferences.mode
+                var servingTier: ServingTier
                 if self.polishBeforePaste {
+                    let legacyNormalised = TranscriptionEngine.legacyNormalize(text)
                     outputText = TranscriptPolisher.polish(
-                        text,
+                        legacyNormalised,
                         options: preferences.polisherOptions,
                         context: context
                     )
                     rulePolished = outputText
-                    llog("AppState: polished transcription='\(outputText)'")
+                    servingTier = .rulePolish
+                    llog("AppState: legacy rule-polished transcription='\(outputText)'")
                 } else {
                     outputText = text
                     rulePolished = nil
+                    servingTier = .parakeetFast
+                    llog("AppState: Parakeet fast path transcription='\(outputText)'")
                 }
-                // Track which tier serves + the tier-0 shadow verdict for the
-                // flywheel. When AI rewrite is off, no model or shadow runs.
-                var servingTier: ServingTier = .ruleFallback
-                var bouncerShadow: BouncerVerdict? = nil
-                if preferences.aiRewrite.isEnabled {
-                    let result = await OrderKitchen.polish(
-                        outputText,
-                        detectOn: text,
-                        mode: resolvedMode,
-                        context: context,
-                        settings: preferences.aiRewrite
-                    )
-                    outputText = result.text
-                    servingTier = result.tier
-                    bouncerShadow = result.shadow
-                    llog("AppState: AI-polished transcription='\(outputText)' [tier=\(result.tier.rawValue)]")
-                }
+                // The production path is deliberately non-generative. Gemma /
+                // Ollama and Apple's model remain available only in Command Mode.
                 let vocabularyFinal = VocabularyCorrections.apply(to: outputText)
                 if vocabularyFinal != outputText {
                     outputText = vocabularyFinal
@@ -854,8 +863,8 @@ final class AppState: ObservableObject {
                     rulePolished: rulePolished,
                     served: outputText,
                     tier: servingTier.rawValue,
-                    bouncerWouldDelete: bouncerShadow?.deletedIndices,
-                    bouncerMs: bouncerShadow?.elapsedMillis
+                    bouncerWouldDelete: nil,
+                    bouncerMs: nil
                 )
 
                 // Re-dictation detector: a fresh pour that closely echoes the
@@ -976,5 +985,24 @@ final class AppState: ObservableObject {
     private static func boolDefaultTrue(forKey key: String) -> Bool {
         guard UserDefaults.standard.object(forKey: key) != nil else { return true }
         return UserDefaults.standard.bool(forKey: key)
+    }
+
+    /// One-way preference migration for this reversible code baseline. It
+    /// disables every automatic deletion/generative layer once, including for
+    /// existing installs whose old UserDefaults had them enabled. Reverting the
+    /// commit restores the old code; the user's endpoint/model values remain.
+    private static func applyParakeetFirstMigrationIfNeeded() {
+        let defaults = UserDefaults.standard
+        let versionKey = "parakeetFirstPipelineMigrationVersion"
+        guard defaults.integer(forKey: versionKey) < 1 else { return }
+
+        defaults.set(false, forKey: "polishBeforePaste")
+        defaults.set(false, forKey: "cleanSpeechScaffolding")
+        defaults.set(false, forKey: "collapseRepeats")
+        defaults.set(false, forKey: "adaptiveTone")
+        defaults.set(false, forKey: "aiRewriteEnabled")
+        defaults.set(false, forKey: "bouncerShadowEnabled")
+        defaults.set(1, forKey: versionKey)
+        llog("AppState: migrated to Parakeet-first pipeline (automatic rewrite, deletion rules and Bouncer shadow off)")
     }
 }

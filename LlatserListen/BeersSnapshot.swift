@@ -330,7 +330,7 @@ enum BeersSnapshot {
 
             // Focused capture of the privacy/learning crate — it lives below the
             // scroll fold in the full Brew Controls shot. Mirrors the live
-            // blackBookCrate; default state = learning ON (watch-my-fixes live).
+            // blackBookCrate; benchmark audio remains explicitly OFF.
             let blackBook = BeersCrate(
                 title: "The Little Black Book", emoji: "📓", headerColor: Beers.hopsDeep
             ) {
@@ -350,9 +350,15 @@ enum BeersSnapshot {
                 }
                 BeersSettingRow(
                     label: "Bouncer on the door",
-                    hint: "The disfluency model runs in shadow — it predicts and logs, never touches your text"
+                    hint: "Research paused after failing the real-speech precision gate"
                 ) {
-                    Toggle("", isOn: .constant(true))
+                    BeersChip { Text("Parked") }
+                }
+                BeersSettingRow(
+                    label: "Capture ASR benchmark audio",
+                    hint: "Opt in to local audio + raw transcripts for same-audio engine tests"
+                ) {
+                    Toggle("", isOn: .constant(false))
                         .labelsHidden().toggleStyle(BeersToggleStyle())
                 }
                 BeersSettingRow(
@@ -367,7 +373,7 @@ enum BeersSnapshot {
                     Image(systemName: "lock.fill")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(Beers.hopsDeep)
-                    Text("These learning records stay on this Mac. Beers never uploads them.")
+                    Text("Learning and benchmark records stay on this Mac. Beers never uploads them.")
                         .font(Beers.ui(11.5, .semibold))
                         .foregroundStyle(Beers.ink.opacity(0.6))
                     Spacer(minLength: 0)

@@ -27,32 +27,29 @@ never touches a server.
   key to paste, nothing to sign up for. Beers keeps its data in a couple of
   folders under your home Library (pours, the flywheel log, downloaded models);
   removing it is a short checklist — see [Uninstall](#uninstall).
-- **Optional AI cleanup — local by default.** Beyond the built-in rule polisher, Beers can
-  tidy a pour with an on-device LLM: Apple's on-device model, or your own
-  [Ollama](https://ollama.com) (`gemma4` by default). The two race on a shared
-  deadline; the first acceptable rewrite wins, and a keep-ratio guard rejects
-  anything that trims too hard. If you have no model, Beers just serves the
-  rule-polished text. Advanced users can point the rewriter at a remote endpoint,
-  but Beers names the host and requires explicit consent before sending a pour;
-  approval is scoped to that host.
-- **The Bouncer — a model that trains itself on you.** Beers ships an on-device
-  ~10 ms disfluency tagger that removes fillers, stutters, and false starts. It can
-  only *delete* words, never write them, so it can't hallucinate or answer your
-  dictation. Today it runs in **shadow mode**: it predicts and logs, but does not
-  touch your text. Meanwhile it learns from *your* pours locally (see
-  [the flywheel](#the-flywheel--how-the-bouncer-learns)) and retrains on your own
-  speech. It only ever goes live if a retrained version **passes a precision exam
-  on your data** — DELETE precision ≥ 0.98 on a frozen gold set *and* held-out real
-  dictation. A false deletion is the cardinal sin, so when it's unsure, it keeps.
-  We're being honest: as of this release the gate has not been met, and the Bouncer
-  stays in shadow. Activation is a deliberate, reviewed file-swap — never a silent
-  auto-update. The full story is in [`ml/DESIGN.md`](ml/DESIGN.md).
+- **Parakeet-first by design.** Ordinary pours now take the shortest trustworthy
+  path: Parakeet → your explicit vocabulary corrections → paste. There is no
+  automatic generative rewrite, deletion model or ramble gate in the default path.
+  The former deterministic cleanup rules remain available as an off-by-default
+  comparison mode.
+- **AI only when you explicitly order it.** Command Mode can edit selected text
+  with Apple's on-device model or your own [Ollama](https://ollama.com)
+  (`gemma4` by default). Advanced users can configure a remote endpoint, but Beers
+  names the origin and requires explicit host-scoped consent. Ordinary pours never
+  call that endpoint.
+- **The Bouncer is parked research.** The bundled disfluency tagger can only
+  delete words, never invent them, but three versions failed the real-speech
+  precision gate. The latest reached 0.222 DELETE precision against a required
+  0.98, so it does not run in the production path. Its local flywheel and frozen
+  evaluation harness remain for future evidence-led work; activation can happen
+  only after a reviewed model passes both gold and held-out real exams. The full
+  story is in [`ml/DESIGN.md`](ml/DESIGN.md).
 - **It learns your words.** Beers watches the keyboard corrections you make in the
   couple of minutes after a paste and turns them into vocabulary suggestions — so
   "plan watch" becomes "PlanWatch" next time, without you teaching it by hand.
 - **Private, actually.** Dictation stays on your Mac by default and there is no
-  telemetry. The one app path that can send transcript text is a remote rewrite
-  endpoint you explicitly configure and approve. The training-data directory is
+  telemetry. The one app path that can send transcript text is Command Mode using
+  a remote endpoint you explicitly configure and approve. The training-data directory is
   gitignored — even the author's own dictation isn't in this repo — and Beers
   itself has no upload path for the flywheel records.
 
@@ -79,7 +76,7 @@ promise printed right on it: Beers never uploads those learning records.
 |---|---|
 | **Push-to-talk** | Hold the pour key (Left Command ⌘ by default, configurable), speak, release. Text pastes at the cursor. |
 | **Command Mode** | Hold **Shift + pour key** over selected text, say the edit ("make this a bullet list"), and the Apple on-device model or your approved endpoint rewrites the selection in place. |
-| **Writing modes** | *Auto* (matches the active app), *Clean* (neutral written English), *Message* (short and conversational), *Command* (direct instructions for terminals, editors, and coding agents). |
+| **Optional legacy polish** | Off by default. Enables the former rule-based writing modes for controlled comparison against Fast Parakeet. |
 | **The Taproom** | Searchable history of every pour, grouped by day and app, with Keepers (starred), the drip tray (trash), and your daily streak. |
 | **Listening HUD** | A compact "pour" pill (position configurable, notch-friendly) shows the live state — taking order → pouring → settling → served — plus your running pint count. |
 | **Vocabulary** | The Brewer's Dictionary maps what Beers *heard* to what you *meant*, and auto-suggests fixes harvested from your keyboard corrections. |
@@ -190,7 +187,8 @@ Deleting the app alone leaves your data and models behind; to remove everything:
 
 - **The app** — delete `/Applications/Beers.app`.
 - **App data** — `~/Library/Application Support/Beers/` (your pours, the
-  `flywheel.jsonl` training log, and the `beers.log` app log).
+  `flywheel.jsonl` training log, the `beers.log` app log, and any explicitly
+  opted-in `ASR Benchmarks/` audio).
 - **Speech models** — `~/Library/Application Support/FluidAudio/Models/` (the
   downloaded Parakeet models cache, a few hundred MB).
 - **Login item** — if you enabled "Open bar at login," remove Beers under
@@ -232,7 +230,8 @@ Every pour and every keyboard correction is logged **locally only**, to
 `~/Library/Application Support/Beers/flywheel.jsonl` (outside this repo; the app
 never uploads it). A `launchd` standing loop periodically checks whether enough real data
 has accumulated and, if so, retrains the Bouncer on *your* speech, scores it against
-the frozen gold exam plus held-out real dictation, and writes a report. One honest
+the frozen gold exam plus held-out real dictation, and writes a report. The latest
+v3 run failed and the production path is parked. One honest
 caveat: the committed reference loop (`ml/standing-loop/`) is the author's personal
 automation and uses a cloud LLM agent (Claude) to label the training data — so
 running *that* loop sends flywheel text to Anthropic and requires your own Claude
@@ -240,11 +239,15 @@ access, which may cost money. The app neither installs nor runs the loop;
 nothing retrains unless you set it up yourself, and a fully on-device trainer is
 the roadmap item that closes this gap. It **never**
 activates the model and **never** commits anything — going live is a manual,
-reviewed step. Toggles for logging, correction-watching, and shadow prediction all
-live in the app (and all default on; turn them off any time).
+reviewed step. Flywheel logging and correction-watching remain controllable and
+default on; Bouncer execution is parked rather than exposed as a live toggle.
 
-If you'd rather not participate at all, switch off flywheel logging in the app — the
-dictation still works exactly the same, minus the self-improvement.
+If you'd rather not participate at all, switch off flywheel logging in the app —
+dictation still works exactly the same. Same-audio benchmark capture is a separate
+switch, is off by default, and stores 16 kHz mono WAVs locally until you use the
+confirmed **Pour it away** action. After filling the `gold` fields in its local
+manifest, `scripts/run-asr-benchmark.sh` compares Parakeet v3 auto, v3 English and
+v2 English on identical audio and reports WER, faulty-sentence rate and latency.
 
 ## Architecture
 

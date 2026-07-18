@@ -16,6 +16,7 @@ the cursor. **Terminology: a "pour" = one dictation. Pints are *pulled*
 ```
 LlatserListen/            Swift app source (xcodegen; project.yml is truth, .xcodeproj generated)
   AppState.swift          Central state; pour lifecycle lives in stopRecordingAndTranscribe
+  ASRBenchmark.swift      Opt-in local WAV capture + same-audio v3/v2 benchmark runner
   OrderKitchen.swift      The cleanup tier system (see pipeline below) + PolishResult
   AITranscriptRewriter.swift  LLM client (loopback by default; remote hosts require explicit host-scoped consent)
   AIEndpointTrust.swift   Pure URL/loopback classifier for the rewrite privacy boundary
@@ -41,26 +42,31 @@ Beers-Brand-Assets/source-raster-v2/  Approved clean Imagen badge + square appli
 Beers-Brand-Assets/exports-v1/  Current clean v2 SVG/4K PNG logo pack + compatibility mark
 ```
 
-## The cleanup pipeline (OrderKitchen.polish)
+## The production dictation pipeline
 
-Every pour flows: ASR (Parakeet v3) → rule polisher → **tier 0 Bouncer**
-(shadow mode: predicts deletions in ~10ms, logs, does NOT touch text) → ramble
-gate (clean pours serve instantly) → LLM race (Apple on-device model vs the
-configured endpoint, loopback Ollama `gemma4:latest` by default; remote hosts
-require explicit host-scoped consent; one shared 4s deadline, first acceptable answer wins;
-keep-ratio guard rejects over-trimmed rewrites) → vocabulary corrections → paste.
+Every ordinary pour now flows: audio → ASR (Parakeet v3, multilingual auto) →
+explicit vocabulary corrections → paste. This `parakeet-fast` path is the default
+for new and migrated installs. It has no automatic deletion rules, Bouncer pass,
+ramble gate or generative rewrite.
 
-**Bouncer activation is a file swap, not a code change**: when the bundle's
-`threshold.json` has `"target_met": true` (the export tool stamps it from the
-gold-set gate), tier 0 serves its cleaned text. Currently false — v1/v2 failed.
+The old deterministic normaliser/rule polisher remains as an explicit **Legacy
+rule polish** comparison switch; it is off by default. `OrderKitchen` and the
+configured endpoint (loopback Ollama `gemma4:latest` by default) are reserved for
+explicit Command Mode over selected text. Ordinary pours never call or prewarm a
+generative model and never use a remote rewrite endpoint.
 
-## Bouncer status (2026-07-14)
+Reactivation now requires two reviewed gates: a bundle whose `threshold.json`
+has `"target_met": true`, and an explicit code change restoring Bouncer to the
+production path. A file swap alone cannot affect text. Currently v1/v2/v3 all
+failed and the research is parked.
+
+## Bouncer status (2026-07-18)
 
 | Version | Gold DELETE precision | Verdict |
 |---|---|---|
 | v1 (synthetic) | 0.29 | failed — lookalike blindness |
 | v2 (synthetic + traps) | 0.07 calibrated / 1.0 only near-abstain | failed — solved the generator, not real speech |
-| v3 | pending | trains automatically on REAL flywheel data via the standing loop |
+| v3 (2026-07-15) | 0.222 calibrated / 0.333 ceiling at useful recall | failed — real data too thin; parked |
 
 Key lesson (proven, don't re-litigate): synthetic data cannot teach the user's
 register, and synthetic validation cannot calibrate the threshold. Sub-8B LLMs
@@ -76,8 +82,21 @@ held-out real data. False deletions are the cardinal sin; when unsure, KEEP.
   (CorrectionWatcher; terminals skipped in v1, secure fields always).
 - Immediate re-dictation → failure flag on the prior pour.
 - Reader: `ml/gen/flywheel_ingest.py` (counts, correction stats, clean-corpus export).
-- Toggles: UserDefaults `flywheelLoggingEnabled`, `correctionWatcherEnabled`,
-  `bouncerShadowEnabled` (all default on).
+- Toggles: UserDefaults `flywheelLoggingEnabled` and `correctionWatcherEnabled`
+  default on. `bouncerShadowEnabled` is migrated off and Bouncer is not invoked
+  by the production path while the research is parked.
+
+## ASR benchmark capture (explicit opt-in; local only)
+
+- Brew Controls → **Capture ASR benchmark audio** is off by default.
+- When enabled, each pour adds a 16 kHz mono WAV plus its raw production
+  transcript under `~/Library/Application Support/Beers/ASR Benchmarks/`.
+- Fill the `gold` fields in `manifest.jsonl`, then run
+  `scripts/run-asr-benchmark.sh`. One model-loading run compares v3 auto, v3
+  English-hinted and v2 English on exactly the same audio, writing WER, faulty
+  sentence rate and median latency.
+- The app has no upload path for these files. The confirmed **Pour it away**
+  action deletes the benchmark directory as well as flywheel records.
 
 ## Standing loop
 
@@ -95,10 +114,11 @@ flywheel text to Anthropic and requires the operator's own Claude access.
 
 ```
 bash scripts/agent-install.sh                                  # build + install (signing/TCC safe)
-/Applications/Beers.app/Contents/MacOS/Beers --beers-polish-test "text"     # end-to-end polish test
+/Applications/Beers.app/Contents/MacOS/Beers --beers-polish-test "text"     # legacy/model diagnostic only
 /Applications/Beers.app/Contents/MacOS/Beers --beers-bouncer-test "text"    # Bouncer word:prob dump
 /Applications/Beers.app/Contents/MacOS/Beers --beers-snapshot               # UI PNGs to /tmp/beers-snapshots
 ml/.venv/bin/python ml/gen/flywheel_ingest.py                  # flywheel counts + correction stats
+scripts/run-asr-benchmark.sh                                   # same-audio Parakeet comparison
 tail -f /tmp/llatser-listen.log                                # live app log
 ```
 
@@ -113,6 +133,8 @@ tail -f /tmp/llatser-listen.log                                # live app log
 - The Bouncer only deletes — any feature that makes it write text is out of scope.
 - Flywheel data is private: no upload path or telemetry in the app. Keep external
   tooling separate and make any cloud boundary explicit before an operator runs it.
+- Benchmark audio is more sensitive than text and must remain explicit opt-in,
+  local-only, disabled by default, and covered by the confirmed wipe action.
 - Pub Wall is explicit opt-in only. It may send a verified private email, public
   handle and aggregate word/pour counts; it must never send transcripts or audio.
 - Build via `scripts/agent-install.sh` only (ad-hoc signing breaks TCC).

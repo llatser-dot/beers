@@ -1,12 +1,14 @@
 # Bouncer — on-device disfluency tagger for Beers
 
-The Bouncer stands at the door of every pour and removes words that don't
-belong: fillers, stutters, false starts, and self-corrected text. It is a
+The Bouncer research harness classifies words that may not belong in a pour:
+fillers, stutters, false starts, and self-corrected text. It is a
 token-classification model (BERT-class encoder, token labels), NOT a
 generative model — it can only delete, never write, so it cannot
-hallucinate, answer the dictation, or summarise. It becomes tier 0 in
-`OrderKitchen` (instant, always-on); the Apple/Ollama LLM race stays as the
-fallback for pours needing semantic rewording.
+hallucinate, answer the dictation, or summarise. After v1/v2/v3 failed the
+real-speech precision gate, Bouncer was parked and removed from the production
+pour path. Ordinary pours are Parakeet-first; Apple/Ollama is explicit Command
+Mode only. The model may return only after a reviewed checkpoint passes both
+gold and held-out real gates.
 
 ## Why this exists (context for agents)
 gemma4:8b is the smallest local LLM that reliably edits-not-answers
