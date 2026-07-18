@@ -64,15 +64,8 @@ final class ParakeetTranscriber {
             language = nil
         }
         let result = try await manager.transcribe(audio, decoderState: &decoderState, language: language)
-        let cleanedText = sanitize(result.text)
+        let cleanedText = TranscriptSanitizer.sanitize(result.text)
         llog("ParakeetTranscriber: result='\(cleanedText)' language=\(languageMode.rawValue) rtfx=\(String(format: "%.2f", result.rtfx)) confidence=\(String(format: "%.3f", result.confidence))")
         return cleanedText
-    }
-
-    private func sanitize(_ text: String) -> String {
-        text
-            .replacingOccurrences(of: "\n", with: " ")
-            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

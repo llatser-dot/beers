@@ -28,7 +28,7 @@ never touches a server.
   folders under your home Library (pours, the flywheel log, downloaded models);
   removing it is a short checklist — see [Uninstall](#uninstall).
 - **Parakeet-first by design.** Ordinary pours now take the shortest trustworthy
-  path: Parakeet → your explicit vocabulary corrections → paste. There is no
+  path: Parakeet → minimal artefact cleanup → your explicit vocabulary corrections → paste. There is no
   automatic generative rewrite, deletion model or ramble gate in the default path.
   The former deterministic cleanup rules remain available as an off-by-default
   comparison mode.

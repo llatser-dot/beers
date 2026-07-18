@@ -7,8 +7,8 @@ import FoundationModels
 /// Which tier ultimately produced the served text for a pour. Raw values are
 /// the strings the flywheel log records verbatim.
 enum ServingTier: String {
-    /// Parakeet output plus the user's explicit vocabulary corrections. This
-    /// is the production default: no deletion rules and no generative model.
+    /// Minimally sanitised Parakeet output plus the user's explicit vocabulary
+    /// corrections. This is the production default: no generative model.
     case parakeetFast = "parakeet-fast"
     /// The optional legacy rule polisher served the pour. Kept as an explicit
     /// comparison mode, never the default.

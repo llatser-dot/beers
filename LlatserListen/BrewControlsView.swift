@@ -237,7 +237,7 @@ struct BrewControlsView: View {
         BeersCrate(title: "The Polish", emoji: "✍️", headerColor: Beers.lager) {
             BeersSettingRow(
                 label: "Fast Parakeet baseline",
-                hint: "Vocabulary only — no deletion rules or generative rewrite"
+                hint: "Vocabulary + obvious letter fragments — no generative rewrite"
             ) {
                 BeersChip { Text("Default") }
             }

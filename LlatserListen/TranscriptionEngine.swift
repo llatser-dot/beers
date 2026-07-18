@@ -37,9 +37,9 @@ final class TranscriptionEngine {
         onProgress(1, "\(engine.displayName) ready")
     }
 
-    /// Returns Parakeet's sanitised transcript without semantic normalisation.
-    /// The production fast path applies only explicit vocabulary corrections
-    /// after this point; legacy rules are opt-in at the caller.
+    /// Returns Parakeet's minimally sanitised transcript without semantic
+    /// normalisation. The production fast path then applies only explicit
+    /// vocabulary corrections; legacy rules are opt-in at the caller.
     func transcribe(
         _ audio: [Float],
         languageMode: ASRLanguageMode = .automatic
