@@ -7,9 +7,9 @@ enum OverlayMode: Equatable {
     case served(words: Int)
     /// Command Mode: recording the spoken instruction.
     case takingOrder
-    /// Command Mode: the local model is applying the instruction.
+    /// Command Mode: Apple's on-device model is applying the instruction.
     case workingOrder
-    /// Brief failure notice (e.g. no local model reachable).
+    /// Brief failure notice (e.g. Apple's model is unavailable).
     case notice(String)
 }
 

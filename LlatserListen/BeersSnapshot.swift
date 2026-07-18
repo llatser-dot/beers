@@ -46,21 +46,16 @@ enum BeersSnapshot {
     }
 
     /// Kitchen self-test: `--beers-order-test "instruction" "text"` runs
-    /// Command Mode's model tiers and prints the result to the log.
+    /// Command Mode's Apple-on-device tier and prints the result to the log.
     @MainActor
-    static func runOrderTestIfRequested(appState: AppState) {
+    static func runOrderTestIfRequested() {
         guard let index = CommandLine.arguments.firstIndex(of: "--beers-order-test"),
               CommandLine.arguments.count > index + 2 else { return }
         let instruction = CommandLine.arguments[index + 1]
         let text = CommandLine.arguments[index + 2]
         Task { @MainActor in
             do {
-                let settings = AIRewriteSettings(
-                    isEnabled: true,
-                    endpoint: appState.aiRewriteEndpoint,
-                    model: appState.aiRewriteModel
-                )
-                let result = try await OrderKitchen.applyInstruction(instruction, to: text, settings: settings)
+                let result = try await OrderKitchen.applyInstruction(instruction, to: text)
                 llog("BeersSnapshot: ORDER TEST RESULT='\(result)'")
             } catch {
                 llog("BeersSnapshot: ORDER TEST FAILED: \(error.localizedDescription)")
@@ -72,22 +67,16 @@ enum BeersSnapshot {
     /// Polish self-test: `--beers-polish-test "rambly text"` runs the
     /// per-pour cleanup tiers and prints the result to the log.
     @MainActor
-    static func runPolishTestIfRequested(appState: AppState) {
+    static func runPolishTestIfRequested() {
         guard let index = CommandLine.arguments.firstIndex(of: "--beers-polish-test"),
               CommandLine.arguments.count > index + 1 else { return }
         let text = CommandLine.arguments[index + 1]
         Task { @MainActor in
-            // Warm the Bouncer first so the shadow pass reflects the
-            // prewarmed steady state real pours see (prewarmPolish warms it
-            // during recording), not the one-off cold Core ML compile.
+            // Diagnostic only: warm Bouncer so this parity path reflects its
+            // steady state rather than the one-off cold Core ML compile.
             Bouncer.prewarm()
-            let settings = AIRewriteSettings(
-                isEnabled: true,
-                endpoint: appState.aiRewriteEndpoint,
-                model: appState.aiRewriteModel
-            )
             let result = await OrderKitchen.polish(
-                text, mode: .clean, context: .frontmost, settings: settings
+                text, mode: .clean, context: .frontmost
             )
             llog("BeersSnapshot: POLISH TEST RESULT='\(result.text)' [tier=\(result.tier.rawValue)]")
             // Exercise the flywheel end-to-end: this writes a real record to
@@ -399,7 +388,7 @@ enum BeersSnapshot {
             snapHUD(mode: .settling, name: "hud-settling", in: dir)
             snapHUD(mode: .served(words: 42), name: "hud-served", in: dir)
             snapHUD(mode: .takingOrder, name: "hud-taking-order", in: dir)
-            snapHUD(mode: .notice("Kitchen's closed — no model at your endpoint"), name: "hud-notice", in: dir)
+            snapHUD(mode: .notice("Kitchen's closed — Apple model unavailable"), name: "hud-notice", in: dir)
 
             llog("BeersSnapshot: wrote snapshots to \(dir.path)")
             exit(0)

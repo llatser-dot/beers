@@ -9,7 +9,6 @@ struct WritingPreferences {
     var removeTrailingFullStop: Bool
     var adaptiveTone: Bool
     var addSpaceAfterPaste: Bool
-    var aiRewrite: AIRewriteSettings
 
     static let defaults = WritingPreferences(
         mode: .automatic,
@@ -19,8 +18,7 @@ struct WritingPreferences {
         normalizeLinks: true,
         removeTrailingFullStop: true,
         adaptiveTone: false,
-        addSpaceAfterPaste: false,
-        aiRewrite: .defaults
+        addSpaceAfterPaste: false
     )
 
     var polisherOptions: TranscriptPolisher.Options {

@@ -20,10 +20,10 @@ enum ServingTier: String {
     case cleanGate = "clean-gate"
     /// Apple's on-device Foundation model won the race.
     case apple = "apple"
-    /// The user's configured endpoint (loopback by default) won the race.
+    /// Historical flywheel value from the retired external-model path.
     case local = "local"
-    /// No model served — the rule-polished text stands (race failed/timed out,
-    /// or AI rewrite was disabled for this pour).
+    /// No model served — the diagnostic rule-polished text stands because
+    /// Apple's on-device model was unavailable, failed or timed out.
     case ruleFallback = "rule-fallback"
 }
 
@@ -36,18 +36,15 @@ struct PolishResult {
     let shadow: BouncerVerdict?
 }
 
-/// The kitchen behind Command Mode. Tiered:
-/// 1. Apple's on-device Foundation model (macOS 26+, zero setup)
-/// 2. The user's approved OpenAI-compatible endpoint (loopback Ollama by default)
+/// The kitchen behind Command Mode. Production is Apple-on-device only: Beers
+/// never launches, prewarms or calls Ollama or another external text model.
 enum OrderKitchen {
-    /// Apple's on-device context window is small; longer selections go
-    /// straight to the configured endpoint.
+    /// Apple's on-device context window is deliberately bounded.
     private static let appleTierMaxChars = 6000
 
     static func applyInstruction(
         _ instruction: String,
-        to text: String,
-        settings: AIRewriteSettings
+        to text: String
     ) async throws -> String {
         #if canImport(FoundationModels)
         if #available(macOS 26.0, *), text.count <= appleTierMaxChars {
@@ -57,17 +54,14 @@ enum OrderKitchen {
                     llog("OrderKitchen: served by Apple on-device model")
                     return edited
                 } catch {
-                    llog("OrderKitchen: Apple model failed (\(error.localizedDescription)) — trying configured endpoint")
+                    llog("OrderKitchen: Apple model failed (\(error.localizedDescription)); no external fallback")
                 }
             } else {
-                llog("OrderKitchen: Apple model unavailable — trying configured endpoint")
+                llog("OrderKitchen: Apple on-device model unavailable")
             }
         }
         #endif
-
-        let edited = try await AITranscriptRewriter.applyInstruction(instruction, to: text, settings: settings)
-        llog("OrderKitchen: served by configured endpoint (\(settings.model))")
-        return edited
+        throw KitchenClosed()
     }
 
     /// Longest we'll ever make a pour wait on the model; past this the
@@ -148,8 +142,7 @@ enum OrderKitchen {
         _ text: String,
         detectOn rawTranscript: String? = nil,
         mode: WritingMode,
-        context: ActiveAppContext,
-        settings: AIRewriteSettings
+        context: ActiveAppContext
     ) async -> PolishResult {
         // Tier 0 — the Bouncer. Runs BEFORE the ramble gate. In this phase it
         // is SHADOW ONLY: it predicts which words it would delete and logs one
@@ -175,11 +168,10 @@ enum OrderKitchen {
         let minKeep = minimumKeepRatio(rawTranscript: rawTranscript ?? text)
         do {
             let (tier, polished) = try await withDeadline(polishTimeout) {
-                try await racePolish(text, minKeepRatio: minKeep, mode: mode, context: context, settings: settings)
+                try await racePolish(text, minKeepRatio: minKeep, mode: mode, context: context)
             }
             llog("OrderKitchen: pour polished by \(tier) in \(elapsed(since: start))")
-            let servingTier: ServingTier = tier.hasPrefix("Apple") ? .apple : .local
-            return PolishResult(text: polished, tier: servingTier, shadow: shadow)
+            return PolishResult(text: polished, tier: .apple, shadow: shadow)
         } catch {
             // Deadline exceeded or no tier available: keep the rule-polished text.
             llog("OrderKitchen: no model served (\(error)) — keeping rule-polished text")
@@ -222,8 +214,7 @@ enum OrderKitchen {
         _ text: String,
         minKeepRatio: Double,
         mode: WritingMode,
-        context: ActiveAppContext,
-        settings: AIRewriteSettings
+        context: ActiveAppContext
     ) async throws -> (tier: String, text: String) {
         try await withThrowingTaskGroup(of: (tier: String, output: String?).self) { group in
             var tiers = 0
@@ -243,20 +234,6 @@ enum OrderKitchen {
                 }
             }
             #endif
-            if settings.isEnabled {
-                let tier = "local model (\(settings.model))"
-                tiers += 1
-                group.addTask {
-                    do {
-                        return (tier, try await AITranscriptRewriter.rewrite(text, mode: mode, context: context, settings: settings))
-                    } catch {
-                        if !(error is CancellationError) {
-                            llog("OrderKitchen: local polish failed (\(error.localizedDescription))")
-                        }
-                        return (tier, nil)
-                    }
-                }
-            }
             guard tiers > 0 else { throw KitchenClosed() }
 
             defer { group.cancelAll() }
@@ -272,9 +249,9 @@ enum OrderKitchen {
         }
     }
 
-    /// Load the models while the user is still speaking so generation can
-    /// start the instant transcription lands.
-    static func prewarmPolish(settings: AIRewriteSettings) {
+    /// Warm only Apple's system-managed on-device model during an explicit
+    /// Command Mode recording. Ordinary pours never call this function.
+    static func prewarmPolish() {
         #if canImport(FoundationModels)
         if #available(macOS 26.0, *) {
             if case .available = SystemLanguageModel.default.availability {
@@ -284,10 +261,6 @@ enum OrderKitchen {
             }
         }
         #endif
-        AITranscriptRewriter.prewarm(settings: settings)
-        // Tier-0 Bouncer: warm the Core ML model off the main thread so the
-        // first pour's shadow pass costs a few ms, not the cold ~600ms.
-        Task.detached(priority: .utility) { Bouncer.prewarm() }
     }
 
     private static var prewarmedPolishSession: Any?

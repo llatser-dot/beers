@@ -17,9 +17,9 @@ the cursor. **Terminology: a "pour" = one dictation. Pints are *pulled*
 LlatserListen/            Swift app source (xcodegen; project.yml is truth, .xcodeproj generated)
   AppState.swift          Central state; pour lifecycle lives in stopRecordingAndTranscribe
   ASRBenchmark.swift      Opt-in local WAV capture + same-audio v3/v2 benchmark runner
-  OrderKitchen.swift      The cleanup tier system (see pipeline below) + PolishResult
-  AITranscriptRewriter.swift  LLM client (loopback by default; remote hosts require explicit host-scoped consent)
-  AIEndpointTrust.swift   Pure URL/loopback classifier for the rewrite privacy boundary
+  OrderKitchen.swift      Apple-on-device Command Mode + legacy diagnostic tiers
+  AITranscriptRewriter.swift  Retired endpoint client; excluded from the app target
+  AIEndpointTrust.swift   Retired endpoint classifier; excluded from the app target
   Bouncer.swift           On-device disfluency tagger: Swift WordPiece tokenizer + Core ML inference
   CorrectionWatcher.swift Post-paste AX watcher harvesting the user's keyboard fixes
   FlywheelLog.swift       Local-only training-data log (pours + corrections)
@@ -51,10 +51,10 @@ collapses whitespace and removes isolated one-letter consonant artefacts while
 preserving `a` and `I`; it has no Bouncer pass, ramble gate or generative rewrite.
 
 The old deterministic normaliser/rule polisher remains as an explicit **Legacy
-rule polish** comparison switch; it is off by default. `OrderKitchen` and the
-configured endpoint (loopback Ollama `gemma4:latest` by default) are reserved for
-explicit Command Mode over selected text. Ordinary pours never call or prewarm a
-generative model and never use a remote rewrite endpoint.
+rule polish** comparison switch; it is off by default. Command Mode can use only
+Apple's system-managed on-device Foundation model when the Mac supports it.
+The retired endpoint client is excluded from the application target: production
+Beers cannot launch, prewarm or call Ollama, and has no remote rewrite path.
 
 Reactivation now requires two reviewed gates: a bundle whose `threshold.json`
 has `"target_met": true`, and an explicit code change restoring Bouncer to the

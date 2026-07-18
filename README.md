@@ -32,11 +32,10 @@ never touches a server.
   automatic generative rewrite, deletion model or ramble gate in the default path.
   The former deterministic cleanup rules remain available as an off-by-default
   comparison mode.
-- **AI only when you explicitly order it.** Command Mode can edit selected text
-  with Apple's on-device model or your own [Ollama](https://ollama.com)
-  (`gemma4` by default). Advanced users can configure a remote endpoint, but Beers
-  names the origin and requires explicit host-scoped consent. Ordinary pours never
-  call that endpoint.
+- **No Ollama tax.** Beers cannot launch, prewarm or call Ollama, and it has no
+  external text-model endpoint in the production app. Optional Command Mode uses
+  only Apple's system-managed on-device model when the Mac supports it; otherwise
+  it fails closed without starting another process.
 - **The Bouncer is parked research.** The bundled disfluency tagger can only
   delete words, never invent them, but three versions failed the real-speech
   precision gate. The latest reached 0.222 DELETE precision against a required
@@ -47,9 +46,8 @@ never touches a server.
 - **It learns your words.** Beers watches the keyboard corrections you make in the
   couple of minutes after a paste and turns them into vocabulary suggestions — so
   "plan watch" becomes "PlanWatch" next time, without you teaching it by hand.
-- **Private, actually.** Dictation stays on your Mac by default and there is no
-  telemetry. The one app path that can send transcript text is Command Mode using
-  a remote endpoint you explicitly configure and approve. The training-data directory is
+- **Private, actually.** Dictation stays on your Mac and there is no telemetry or
+  remote transcript-rewrite endpoint. The training-data directory is
   gitignored — even the author's own dictation isn't in this repo — and Beers
   itself has no upload path for the flywheel records.
 
@@ -75,7 +73,7 @@ promise printed right on it: Beers never uploads those learning records.
 | Feature | What it does |
 |---|---|
 | **Push-to-talk** | Hold the pour key (Left Command ⌘ by default, configurable), speak, release. Text pastes at the cursor. |
-| **Command Mode** | Hold **Shift + pour key** over selected text, say the edit ("make this a bullet list"), and the Apple on-device model or your approved endpoint rewrites the selection in place. |
+| **Command Mode** | On supported Macs, hold **Shift + pour key** over selected text and say the edit ("make this a bullet list"); Apple's system-managed on-device model rewrites the selection in place. |
 | **Optional legacy polish** | Off by default. Enables the former rule-based writing modes for controlled comparison against Fast Parakeet. |
 | **The Taproom** | Searchable history of every pour, grouped by day and app, with Keepers (starred), the drip tray (trash), and your daily streak. |
 | **Listening HUD** | A compact "pour" pill (position configurable, notch-friendly) shows the live state — taking order → pouring → settling → served — plus your running pint count. |
@@ -213,8 +211,8 @@ Contributors and CI can run the same non-installing release-readiness gate:
 ```
 
 It requires a clean checkout, full Xcode, XcodeGen, Git LFS and Python 3. The
-gate verifies every current LFS object is materialised, exercises the remote
-endpoint trust boundary and transcript polisher, builds an **unsigned arm64**
+gate verifies every current LFS object is materialised, exercises transcript
+polish and sanitation, proves the binary contains no Ollama client, and builds an **unsigned arm64**
 Release app in a temporary directory, and checks its bundle metadata and Bouncer
 resources. It never launches or installs the app, touches TCC, signs with a local
 identity, notarises, uploads, deploys or publishes anything.
