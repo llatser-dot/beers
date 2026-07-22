@@ -238,7 +238,7 @@ final class AppState: ObservableObject {
 
         let savedEngine = UserDefaults.standard.string(forKey: "engineChoice")
         self.engineChoice = DictationEngine.savedValue(savedEngine)
-        self.polishBeforePaste = UserDefaults.standard.bool(forKey: "polishBeforePaste")
+        self.polishBeforePaste = Self.boolDefaultTrue(forKey: "polishBeforePaste")
         let savedWritingMode = UserDefaults.standard.string(forKey: "writingMode")
         self.writingMode = WritingMode(rawValue: savedWritingMode ?? "") ?? WritingPreferences.defaults.mode
         self.cleanSpeechScaffolding = UserDefaults.standard.bool(forKey: "cleanSpeechScaffolding")
@@ -247,7 +247,7 @@ final class AppState: ObservableObject {
         self.normalizeLinks = Self.boolDefaultTrue(forKey: "normalizeLinks")
         self.removeTrailingFullStop = Self.boolDefaultTrue(forKey: "removeTrailingFullStop")
         self.adaptiveTone = UserDefaults.standard.bool(forKey: "adaptiveTone")
-        self.addSpaceAfterPaste = UserDefaults.standard.bool(forKey: "addSpaceAfterPaste")
+        self.addSpaceAfterPaste = Self.boolDefaultTrue(forKey: "addSpaceAfterPaste")
         self.suppressComputerAudio = Self.boolDefaultTrue(forKey: "suppressComputerAudio")
         self.clinkOnServe = Self.boolDefaultTrue(forKey: "clinkOnServe")
         self.commandModeEnabled = Self.boolDefaultTrue(forKey: "commandModeEnabled")
@@ -472,7 +472,7 @@ final class AppState: ObservableObject {
 
     func resetWritingPreferences() {
         let defaults = WritingPreferences.defaults
-        polishBeforePaste = false
+        polishBeforePaste = true
         writingMode = defaults.mode
         cleanSpeechScaffolding = defaults.cleanSpeechScaffolding
         collapseRepeats = defaults.collapseRepeats
@@ -954,15 +954,15 @@ final class AppState: ObservableObject {
     }
 
     /// One-way preference migration for this reversible code baseline. It
-    /// disables every automatic deletion/generative layer once, including for
-    /// existing installs whose old UserDefaults had them enabled. Reverting the
-    /// commit restores the old code; retired endpoint preferences are ignored.
+    /// disables every generative/model-based layer once, including for existing
+    /// installs whose old UserDefaults had them enabled. The bounded legacy rule
+    /// polish remains available and is the standard new-install configuration.
     private static func applyParakeetFirstMigrationIfNeeded() {
         let defaults = UserDefaults.standard
         let versionKey = "parakeetFirstPipelineMigrationVersion"
         guard defaults.integer(forKey: versionKey) < 1 else { return }
 
-        defaults.set(false, forKey: "polishBeforePaste")
+        defaults.set(true, forKey: "polishBeforePaste")
         defaults.set(false, forKey: "cleanSpeechScaffolding")
         defaults.set(false, forKey: "collapseRepeats")
         defaults.set(false, forKey: "adaptiveTone")

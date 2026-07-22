@@ -11,14 +11,14 @@ struct WritingPreferences {
     var addSpaceAfterPaste: Bool
 
     static let defaults = WritingPreferences(
-        mode: .automatic,
+        mode: .clean,
         cleanSpeechScaffolding: false,
         collapseRepeats: false,
         smartCapitalization: true,
         normalizeLinks: true,
         removeTrailingFullStop: true,
         adaptiveTone: false,
-        addSpaceAfterPaste: false
+        addSpaceAfterPaste: true
     )
 
     var polisherOptions: TranscriptPolisher.Options {

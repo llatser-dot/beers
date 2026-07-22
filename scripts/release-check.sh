@@ -111,6 +111,20 @@ if grep -Eq 'AITranscriptRewriter|aiRewriteEndpoint|aiRewriteModel' \
     fail "production code still references the retired external rewrite client."
 fi
 echo "Parakeet-first boundary smoke passed."
+
+# The public download should open with the same proven daily profile as the
+# maintainer's installation. Keep these assertions close to the release gate so
+# a future refactor cannot silently drift the new-user experience.
+grep -q 'mode: \.clean' "$PROJECT_DIR/LlatserListen/WritingPreferences.swift" || \
+    fail "standard writing mode is no longer Clean."
+grep -q 'addSpaceAfterPaste: true' "$PROJECT_DIR/LlatserListen/WritingPreferences.swift" || \
+    fail "standard trailing-space setting is no longer enabled."
+grep -q '?? \.rightOption' "$PROJECT_DIR/LlatserListen/HotkeyOption.swift" || \
+    fail "standard pour key is no longer Right Option."
+grep -q 'self.polishBeforePaste = Self.boolDefaultTrue' "$PROJECT_DIR/LlatserListen/AppState.swift" || \
+    fail "standard legacy rule polish is no longer enabled."
+echo "Standard new-install configuration gate passed."
+
 python3 "$PROJECT_DIR/scripts/score-asr-benchmark.py" --self-test
 
 (cd "$PROJECT_DIR" && xcodegen generate)

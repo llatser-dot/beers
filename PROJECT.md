@@ -51,7 +51,9 @@ collapses whitespace and removes isolated one-letter consonant artefacts while
 preserving `a` and `I`; it has no Bouncer pass, ramble gate or generative rewrite.
 
 The old deterministic normaliser/rule polisher remains as an explicit **Legacy
-rule polish** comparison switch; it is off by default. Command Mode can use only
+rule polish** comparison switch; it is on in the standard new-install profile,
+matching the maintainer's proven daily configuration, and remains user-controlled.
+Command Mode can use only
 Apple's system-managed on-device Foundation model when the Mac supports it.
 The retired endpoint client is excluded from the application target: production
 Beers cannot launch, prewarm or call Ollama, and has no remote rewrite path.

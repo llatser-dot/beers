@@ -15,7 +15,7 @@ enum HotkeyOption: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     static func savedValue(_ value: String?) -> HotkeyOption {
-        HotkeyOption(rawValue: value ?? "") ?? .leftCommand
+        HotkeyOption(rawValue: value ?? "") ?? .rightOption
     }
 
     var displayName: String {
