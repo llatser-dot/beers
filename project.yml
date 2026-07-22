@@ -39,10 +39,10 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.llatser.listen
         PRODUCT_NAME: "Beers"
-        MARKETING_VERSION: "1.3.0"
+        MARKETING_VERSION: "1.3.1"
         # Sparkle compares this monotonically increasing build number.
-        # Bump it with every public release (1.2.0 -> 120, 1.3.0 -> 130).
-        CURRENT_PROJECT_VERSION: "130"
+        # Bump it with every public release (1.3.0 -> 130, 1.3.1 -> 131).
+        CURRENT_PROJECT_VERSION: "131"
         INFOPLIST_FILE: LlatserListen/Info.plist
         CODE_SIGN_ENTITLEMENTS: LlatserListen/LlatserListen.entitlements
         ENABLE_HARDENED_RUNTIME: true
