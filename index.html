@@ -196,6 +196,8 @@
     font-size:20px;line-height:1.35;opacity:.75;}
   .empty-wall span{display:block;margin-top:10px;font-size:15px;font-weight:600;opacity:.8;}
 
+.seg-label{font-weight:700;font-size:13px;opacity:.6;letter-spacing:.04em;}
+
   /* ============ podium ============ */
   .podium{
     display:flex;align-items:flex-end;justify-content:center;gap:clamp(10px,2.5vw,28px);
@@ -598,11 +600,7 @@
   <!-- table -->
   <div class="board-wrap">
     <div class="board-toolbar">
-      <div class="seg" id="rangeSeg">
-        <button class="on" data-range="all">All time</button>
-        <button data-range="month">This month</button>
-        <button data-range="week">This week</button>
-      </div>
+      <div class="seg-label">All time</div>
       <span class="spacer"></span>
       <div class="search">🔍<input id="boardSearch" type="text" placeholder="Find a drinker…"></div>
     </div>
@@ -753,13 +751,16 @@
       const data = await res.json();
       if(!Array.isArray(data.leaderboard) || data.leaderboard.length === 0) throw new Error('empty');
       // API shape {username, words, pints, streakDays} → site shape {name, words, streak}
-      return data.leaderboard.map(e=>({name:e.username, words:e.words, streak:e.streakDays}));
+      return {
+        drinkers: data.leaderboard.map(e=>({name:e.username, words:e.words, streak:e.streakDays})),
+        totals: {pints: data.totalPints, words: data.totalWords, people: data.drinkers}
+      };
     }catch(err){
       // Never substitute invented drinkers for real ones. The wall is public
       // and new, so an empty or unreachable board must read as empty rather
       // than borrow the sample data used for local layout work.
       console.warn('[pubwall] leaderboard unavailable:', err);
-      return [];
+      return {drinkers: [], totals: null};
     }
   }
 
@@ -775,7 +776,7 @@
     </div>`;
   }
 
-  function buildBoard(drinkers){
+  function buildBoard(drinkers, totals){
     const sorted = [...drinkers].sort((a,b)=>b.words-a.words);
 
     // The wall is opt-in and new, so empty is a normal, honest state. Say so
@@ -784,6 +785,10 @@
       document.getElementById('podium').innerHTML =
         '<div class="empty-wall">Nobody has pulled a pint yet.<span>The Pub Wall is opt-in from inside Beers — be the first one on it.</span></div>';
       document.getElementById('boardRows').innerHTML = '';
+      // Nothing to search through; hide the control rather than leave a box
+      // that silently does nothing.
+      const toolbar = document.querySelector('.board-toolbar');
+      if(toolbar) toolbar.style.display = 'none';
       document.getElementById('boardFoot').textContent =
         'No pints pulled yet. Every 1,000 words you dictate pulls one.';
       return;
@@ -840,22 +845,18 @@
     }
     render();
 
-    const totalPints = sorted.reduce((s,d)=>s+pints(d.words),0);
+    // Prefer the server's totals: the board only fetches a page of drinkers,
+    // so summing the rows undercounts the community once it outgrows one page.
+    const totalPints = totals ? totals.pints : sorted.reduce((s,d)=>s+pints(d.words),0);
+    const totalWords = totals ? totals.words : totalPints*WORDS_PER_PINT;
     document.getElementById('boardFoot').textContent =
-      `${fmt(totalPints)} pints pulled by the community so far — that's ${fmt(totalPints*WORDS_PER_PINT)} words nobody had to type.`;
+      `${fmt(totalPints)} pints pulled by the community so far — that's ${fmt(totalWords)} words nobody had to type.`;
 
     document.getElementById('boardSearch').oninput = e=>render(e.target.value);
   }
 
-  loadDrinkers().then(buildBoard);
+  loadDrinkers().then(({drinkers, totals}) => buildBoard(drinkers, totals));
 
-  // time-range segment (visual only until the API lands)
-  document.querySelectorAll('#rangeSeg button').forEach(b=>{
-    b.addEventListener('click',()=>{
-      document.querySelectorAll('#rangeSeg button').forEach(x=>x.classList.remove('on'));
-      b.classList.add('on');
-    });
-  });
 </script>
 
 </body>
