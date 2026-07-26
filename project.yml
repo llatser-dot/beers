@@ -1,4 +1,4 @@
-name: LlatserListen
+name: Beers
 options:
   bundleIdPrefix: com.llatser
   deploymentTarget:
@@ -15,13 +15,13 @@ packages:
     exactVersion: "2.9.4"
 
 targets:
-  LlatserListen:
+  Beers:
     type: application
     platform: macOS
     sources:
       # Everything except the Core ML package (added explicitly below so
       # xcodegen doesn't recurse into the .mlpackage as loose resources).
-      - path: LlatserListen
+      - path: Beers
         excludes:
           - "Resources/Bouncer/Bouncer.mlpackage"
           # Retained only as historical/reference source. Production Beers has
@@ -32,7 +32,7 @@ targets:
       # Bouncer.mlmodelc into the app bundle. vocab.txt / threshold.json /
       # labels.json under Resources/Bouncer are picked up as resources by the
       # glob above.
-      - path: LlatserListen/Resources/Bouncer/Bouncer.mlpackage
+      - path: Beers/Resources/Bouncer/Bouncer.mlpackage
         type: file
         buildPhase: sources
     settings:
@@ -43,8 +43,8 @@ targets:
         # Sparkle compares this monotonically increasing build number.
         # Bump it with every public release (1.3.0 -> 130, 1.3.1 -> 131).
         CURRENT_PROJECT_VERSION: "131"
-        INFOPLIST_FILE: LlatserListen/Info.plist
-        CODE_SIGN_ENTITLEMENTS: LlatserListen/LlatserListen.entitlements
+        INFOPLIST_FILE: Beers/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Beers/Beers.entitlements
         ENABLE_HARDENED_RUNTIME: true
         CODE_SIGN_IDENTITY: "-"
         SWIFT_VERSION: "5.9"
@@ -59,6 +59,6 @@ targets:
       - package: FluidAudio
       - package: Sparkle
     entitlements:
-      path: LlatserListen/LlatserListen.entitlements
+      path: Beers/Beers.entitlements
       properties:
         com.apple.security.device.audio-input: true

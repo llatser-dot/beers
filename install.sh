@@ -41,11 +41,11 @@ rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
 if [ -n "$TEAM_ID" ] && xcodebuild -quiet \
-    -project "$PROJECT_DIR/LlatserListen.xcodeproj" \
-    -scheme "LlatserListen" \
+    -project "$PROJECT_DIR/Beers.xcodeproj" \
+    -scheme "Beers" \
     -configuration Release \
     -destination "generic/platform=macOS" \
-    -archivePath "$BUILD_DIR/LlatserListen.xcarchive" \
+    -archivePath "$BUILD_DIR/Beers.xcarchive" \
     archive \
     -allowProvisioningUpdates \
     DEVELOPMENT_TEAM="$TEAM_ID" \
@@ -60,7 +60,7 @@ if [ -n "$TEAM_ID" ] && xcodebuild -quiet \
     plutil -insert stripSwiftSymbols -bool YES "$BUILD_DIR/ExportOptions.plist"
 
     if ! xcodebuild -exportArchive \
-        -archivePath "$BUILD_DIR/LlatserListen.xcarchive" \
+        -archivePath "$BUILD_DIR/Beers.xcarchive" \
         -exportPath "$BUILD_DIR/export" \
         -exportOptionsPlist "$BUILD_DIR/ExportOptions.plist" \
         -allowProvisioningUpdates >/dev/null; then
@@ -104,8 +104,8 @@ if ! grep -Fq "Authority=Developer ID Application:" <<<"$SIGN_DETAILS"; then
     echo "Developer ID export unavailable; falling back to local signing because LLATSER_ALLOW_LOCAL_SIGNING=1."
     SIGNING_MODE="local signing"
     xcodebuild -quiet \
-        -project "$PROJECT_DIR/LlatserListen.xcodeproj" \
-        -scheme "LlatserListen" \
+        -project "$PROJECT_DIR/Beers.xcodeproj" \
+        -scheme "Beers" \
         -configuration Release \
         -derivedDataPath "$BUILD_DIR" \
         -destination "generic/platform=macOS" \
@@ -127,7 +127,7 @@ if ! grep -Fq "Authority=Developer ID Application:" <<<"$SIGN_DETAILS"; then
 
     if [ -n "$SIGN_IDENTITY" ] && security find-identity -v -p codesigning | grep -Fq "$SIGN_IDENTITY"; then
         codesign --force --deep --timestamp=none --options runtime \
-            --entitlements "$PROJECT_DIR/LlatserListen/LlatserListen.entitlements" \
+            --entitlements "$PROJECT_DIR/Beers/Beers.entitlements" \
             --sign "$SIGN_IDENTITY" "$BUILT_APP"
     else
         echo "Missing local signing identity."

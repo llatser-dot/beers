@@ -6,11 +6,11 @@ BUILD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/beers-app-recipes-smoke.XXXXXX")"
 trap 'rm -rf "$BUILD_DIR"' EXIT
 
 xcrun swiftc \
-    "$PROJECT_DIR/LlatserListen/WritingMode.swift" \
-    "$PROJECT_DIR/LlatserListen/ActiveAppContext.swift" \
-    "$PROJECT_DIR/LlatserListen/AppRecipe.swift" \
-    "$PROJECT_DIR/LlatserListen/AppRecipeSettings.swift" \
-    "$PROJECT_DIR/LlatserListen/AppRecipeStore.swift" \
+    "$PROJECT_DIR/Beers/WritingMode.swift" \
+    "$PROJECT_DIR/Beers/ActiveAppContext.swift" \
+    "$PROJECT_DIR/Beers/AppRecipe.swift" \
+    "$PROJECT_DIR/Beers/AppRecipeSettings.swift" \
+    "$PROJECT_DIR/Beers/AppRecipeStore.swift" \
     "$PROJECT_DIR/scripts/app-recipes-smoke.swift" \
     -o "$BUILD_DIR/app-recipes-smoke"
 

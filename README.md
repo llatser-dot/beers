@@ -72,7 +72,7 @@ promise printed right on it: Beers never uploads those learning records.
 
 | Feature | What it does |
 |---|---|
-| **Push-to-talk** | Hold the pour key (Left Command ⌘ by default, configurable), speak, release. Text pastes at the cursor. |
+| **Push-to-talk** | Hold the pour key (Right Option ⌥ by default, configurable), speak, release. Text pastes at the cursor. |
 | **Command Mode** | On supported Macs, hold **Shift + pour key** over selected text and say the edit ("make this a bullet list"); Apple's system-managed on-device model rewrites the selection in place. |
 | **Optional legacy polish** | Off by default. Enables the former rule-based writing modes for controlled comparison against Fast Parakeet. |
 | **The Taproom** | Searchable history of every pour, grouped by day and app, with Keepers (starred), the drip tray (trash), and your daily streak. |
@@ -85,12 +85,10 @@ promise printed right on it: Beers never uploads those learning records.
 Grab the latest release from **[Releases](https://github.com/llatser-dot/beers/releases/latest)**
 — no Xcode, no build step:
 
-1. Download `Beers.app.zip` and unzip it.
-2. Drag **Beers.app** into **Applications** and open it.
-3. macOS blocks the first launch (not notarized yet — see
-   [Gatekeeper](#a-note-on-gatekeeper) below): System Settings →
-   Privacy & Security → **Open Anyway**, then open Beers again. One-time step.
-4. Grant **Microphone**, **Accessibility** and **Input Monitoring** when asked,
+1. Download `Beers-<version>.app.zip` and unzip it.
+2. Drag **Beers.app** into **Applications** and open it. The release is signed
+   and notarised by Apple, so it opens without any Gatekeeper detour.
+3. Grant **Microphone**, **Accessibility** and **Input Monitoring** when asked,
    then hold **Right Option** and speak.
 
 Prefer a guided install? `Beers.AirDrop.zip` on the same page bundles an
@@ -165,9 +163,11 @@ identity, future rebuilds keep the grants — you shouldn't have to do this agai
 
 A self-built copy is **self-signed** with your local identity. It runs fine on your
 own machine; the first launch may need a right-click → **Open** to get past
-Gatekeeper. It is **not** notarized, so you can't hand the `.app` to someone else and
-have it open cleanly — notarized releases are planned, and until then, building from
-source is the way in.
+Gatekeeper. A copy you build yourself is **not** notarised, so you can't hand that
+`.app` to someone else and have it open cleanly. The published
+[releases](https://github.com/llatser-dot/beers/releases/latest) are signed and
+notarised, so those open normally — build from source for hacking on it, download a
+release to just use it.
 
 ### First-run models
 
@@ -249,7 +249,7 @@ v2 English on identical audio and reports WER, faulty-sentence rate and latency.
 
 ## Architecture
 
-- [`PROJECT.md`](PROJECT.md) — the canonical map: repo layout, the cleanup pipeline,
+- [`docs/PROJECT.md`](docs/PROJECT.md) — the canonical map: repo layout, the cleanup pipeline,
   Bouncer/flywheel status, and key commands.
 - [`ml/DESIGN.md`](ml/DESIGN.md) — the Bouncer's design: the label scheme, data
   contract, metrics, and the ship gate.
@@ -259,7 +259,7 @@ v2 English on identical audio and reports WER, faulty-sentence rate and latency.
 ## Contributing
 
 Pull up a stool. Issues and PRs are welcome — bug fixes, new writing modes, better
-polish, model work, all of it. Read `PROJECT.md` and `AGENTS.md` first for the lay
+polish, model work, all of it. Read `docs/PROJECT.md` and `AGENTS.md` first for the lay
 of the land and the house rules (chiefly: the Bouncer only ever deletes, and flywheel
 data never gets an upload path).
 

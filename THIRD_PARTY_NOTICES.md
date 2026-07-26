@@ -39,7 +39,7 @@ FluidInference team on Hugging Face under the upstream terms.
 ## distilbert-base-cased (Apache-2.0)
 
 The Bouncer's on-device disfluency tagger
-(`LlatserListen/Resources/Bouncer/Bouncer.mlpackage`) is a **fine-tune** built
+(`Beers/Resources/Bouncer/Bouncer.mlpackage`) is a **fine-tune** built
 on [distilbert-base-cased](https://huggingface.co/distilbert/distilbert-base-cased)
 (Hugging Face), which is licensed under the Apache License 2.0. The bundled
 weights are our fine-tuned derivative, not the original checkpoint; the base
