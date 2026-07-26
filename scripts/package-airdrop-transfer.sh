@@ -30,11 +30,11 @@ if [ -z "$SOURCE_APP" ]; then
     mkdir -p "$BUILD_DIR"
 
     if [ -n "$TEAM_ID" ] && xcodebuild -quiet \
-        -project "$PROJECT_DIR/LlatserListen.xcodeproj" \
-        -scheme LlatserListen \
+        -project "$PROJECT_DIR/Beers.xcodeproj" \
+        -scheme Beers \
         -configuration Release \
         -destination "generic/platform=macOS" \
-        -archivePath "$BUILD_DIR/LlatserListen.xcarchive" \
+        -archivePath "$BUILD_DIR/Beers.xcarchive" \
         archive \
         -allowProvisioningUpdates \
         DEVELOPMENT_TEAM="$TEAM_ID" \
@@ -49,7 +49,7 @@ if [ -z "$SOURCE_APP" ]; then
         plutil -insert stripSwiftSymbols -bool YES "$BUILD_DIR/ExportOptions.plist"
 
         if xcodebuild -exportArchive \
-            -archivePath "$BUILD_DIR/LlatserListen.xcarchive" \
+            -archivePath "$BUILD_DIR/Beers.xcarchive" \
             -exportPath "$BUILD_DIR/export" \
             -exportOptionsPlist "$BUILD_DIR/ExportOptions.plist" \
             -allowProvisioningUpdates >/dev/null; then
@@ -68,8 +68,8 @@ if [ -z "$SOURCE_APP" ]; then
 
         echo "[build] Developer ID export unavailable; creating development-signed Apple Silicon app..."
         xcodebuild -quiet \
-            -project "$PROJECT_DIR/LlatserListen.xcodeproj" \
-            -scheme LlatserListen \
+            -project "$PROJECT_DIR/Beers.xcodeproj" \
+            -scheme Beers \
             -configuration Release \
             -derivedDataPath "$BUILD_DIR" \
             -destination "generic/platform=macOS" \
@@ -84,7 +84,7 @@ if [ -z "$SOURCE_APP" ]; then
 
         # Hardened runtime without the audio-input entitlement silently kills
         # the microphone on the receiving Mac — always sign with entitlements.
-        ENTITLEMENTS="$PROJECT_DIR/LlatserListen/LlatserListen.entitlements"
+        ENTITLEMENTS="$PROJECT_DIR/Beers/Beers.entitlements"
         if [ -n "$SIGN_IDENTITY" ] && security find-identity -v -p codesigning | grep -Fq "$SIGN_IDENTITY"; then
             codesign --force --deep --timestamp=none --options runtime \
                 --entitlements "$ENTITLEMENTS" --sign "$SIGN_IDENTITY" "$SOURCE_APP"

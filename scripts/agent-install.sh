@@ -51,8 +51,8 @@ xcodegen generate
 
 echo "Building $CONFIGURATION..."
 xcodebuild -quiet \
-    -project "$PROJECT_DIR/LlatserListen.xcodeproj" \
-    -scheme "LlatserListen" \
+    -project "$PROJECT_DIR/Beers.xcodeproj" \
+    -scheme "Beers" \
     -configuration "$CONFIGURATION" \
     -derivedDataPath "$DERIVED_DATA" \
     -destination "platform=macOS,arch=arm64" \
@@ -70,7 +70,7 @@ fi
 
 echo "Signing with stable identity..."
 codesign --force --deep --timestamp=none --options runtime \
-    --entitlements "$PROJECT_DIR/LlatserListen/LlatserListen.entitlements" \
+    --entitlements "$PROJECT_DIR/Beers/Beers.entitlements" \
     --sign "$IDENTITY" \
     "$BUILT_APP"
 

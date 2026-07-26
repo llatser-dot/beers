@@ -14,7 +14,7 @@ the cursor. **Terminology: a "pour" = one dictation. Pints are *pulled*
 ## Repo layout
 
 ```
-LlatserListen/            Swift app source (xcodegen; project.yml is truth, .xcodeproj generated)
+Beers/            Swift app source (xcodegen; project.yml is truth, .xcodeproj generated)
   AppState.swift          Central state; pour lifecycle lives in stopRecordingAndTranscribe
   ASRBenchmark.swift      Opt-in local WAV capture + same-audio v3/v2 benchmark runner
   OrderKitchen.swift      Apple-on-device Command Mode + legacy diagnostic tiers
@@ -37,9 +37,10 @@ ml/                       Everything machine-learning (Python; ml/.venv and ALL 
   standing-loop/          Weekly launchd retrain loop: check-and-train.sh + RETRAIN-PROMPT.md + reports
 scripts/agent-install.sh  THE build+install command (stable signing, TCC preserved)
 scripts/export-brand-assets.py  Rebuild the true-SVG + longest-edge 4096px logo pack
-site/                     Tracked public website source (source-build CTA; no deploy pipeline yet)
-Beers-Brand-Assets/source-raster-v2/  Approved clean Imagen badge + square application-icon masters
-Beers-Brand-Assets/exports-v1/  Current clean v2 SVG/4K PNG logo pack + compatibility mark
+index.html                Public website, served at the repo root by GitHub Pages
+web/                      Website assets (brand marks, screenshots) for index.html
+brand/source-raster-v2/   Approved clean Imagen badge + square application-icon masters
+brand/exports-v1/         Current clean v2 SVG/4K PNG logo pack + compatibility mark
 ```
 
 ## The production dictation pipeline
@@ -148,11 +149,11 @@ tail -f /tmp/llatser-listen.log                                # live app log
 
 ## Related (outside this repo)
 
-- Tracked public site: `site/index.html` (NOT deployed; source-build CTA until notarisation).
+- Public site: `index.html` at the repo root, assets in `web/`, live via GitHub Pages at https://llatser-dot.github.io/beers/
 - Earlier loose site draft: `~/Projects/beers-wireframes/site.html` (reference only).
-- Brand assets: `~/Projects/beers-wireframes/brand/`, `Beers-Brand-Assets/` here.
-- Current raster masters: `Beers-Brand-Assets/source-raster-v2/` (clean
+- Brand assets: `brand/` here (concept boards in `brand/concept/`).
+- Current raster masters: `brand/source-raster-v2/` (clean
   transparent menu badge and opaque square application icon).
-- Current logo exports: `Beers-Brand-Assets/exports-v1/` (clean v2 SVG masters,
+- Current logo exports: `brand/exports-v1/` (clean v2 SVG masters,
   4K PNG pairs, preview, usage guide; rebuild with
   `python3 scripts/export-brand-assets.py`).

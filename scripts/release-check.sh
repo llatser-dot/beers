@@ -6,7 +6,7 @@ TMP_ROOT="${TMPDIR:-/tmp}"
 BUILD_DIR="$(mktemp -d "${TMP_ROOT%/}/beers-release-check.XXXXXX")"
 APP="$BUILD_DIR/Build/Products/Release/Beers.app"
 BINARY="$APP/Contents/MacOS/Beers"
-BOUNCER_DIR="$PROJECT_DIR/LlatserListen/Resources/Bouncer"
+BOUNCER_DIR="$PROJECT_DIR/Beers/Resources/Bouncer"
 
 cleanup() {
     rm -rf "$BUILD_DIR"
@@ -73,9 +73,9 @@ PY
 
 POLISH_SMOKE_BINARY="$BUILD_DIR/polish-smoke"
 xcrun swiftc \
-    "$PROJECT_DIR/LlatserListen/WritingMode.swift" \
-    "$PROJECT_DIR/LlatserListen/ActiveAppContext.swift" \
-    "$PROJECT_DIR/LlatserListen/TranscriptPolisher.swift" \
+    "$PROJECT_DIR/Beers/WritingMode.swift" \
+    "$PROJECT_DIR/Beers/ActiveAppContext.swift" \
+    "$PROJECT_DIR/Beers/TranscriptPolisher.swift" \
     "$PROJECT_DIR/scripts/polish-smoke.swift" \
     -o "$POLISH_SMOKE_BINARY"
 POLISH_RESULT="$("$POLISH_SMOKE_BINARY" "visit example dot com.")"
@@ -85,29 +85,29 @@ echo "Transcript polish smoke passed."
 
 SANITIZER_SMOKE_BINARY="$BUILD_DIR/transcript-sanitizer-smoke"
 xcrun swiftc \
-    "$PROJECT_DIR/LlatserListen/TranscriptSanitizer.swift" \
+    "$PROJECT_DIR/Beers/TranscriptSanitizer.swift" \
     "$PROJECT_DIR/scripts/transcript-sanitizer-smoke.swift" \
     -o "$SANITIZER_SMOKE_BINARY"
 "$SANITIZER_SMOKE_BINARY"
 
 # Ordinary pours must remain structurally incapable of calling a generative
 # rewrite. Command Mode is Apple-on-device only.
-if grep -q 'OrderKitchen\.polish(' "$PROJECT_DIR/LlatserListen/AppState.swift"; then
+if grep -q 'OrderKitchen\.polish(' "$PROJECT_DIR/Beers/AppState.swift"; then
     fail "ordinary AppState pours call OrderKitchen.polish; Parakeet-first boundary regressed."
 fi
-grep -q 'case parakeetFast = "parakeet-fast"' "$PROJECT_DIR/LlatserListen/OrderKitchen.swift" || \
+grep -q 'case parakeetFast = "parakeet-fast"' "$PROJECT_DIR/Beers/OrderKitchen.swift" || \
     fail "Parakeet fast serving tier is missing."
-grep -q 'return text' "$PROJECT_DIR/LlatserListen/TranscriptionEngine.swift" || \
+grep -q 'return text' "$PROJECT_DIR/Beers/TranscriptionEngine.swift" || \
     fail "TranscriptionEngine no longer exposes raw Parakeet output."
 for retired_source in AIEndpointTrust.swift AITranscriptRewriter.swift; do
     grep -q -- "- \"$retired_source\"" "$PROJECT_DIR/project.yml" || \
         fail "$retired_source is no longer excluded from the production app target."
 done
 if grep -Eq 'AITranscriptRewriter|aiRewriteEndpoint|aiRewriteModel' \
-    "$PROJECT_DIR/LlatserListen/AppState.swift" \
-    "$PROJECT_DIR/LlatserListen/BrewControlsView.swift" \
-    "$PROJECT_DIR/LlatserListen/OrderKitchen.swift" \
-    "$PROJECT_DIR/LlatserListen/BeersSnapshot.swift"; then
+    "$PROJECT_DIR/Beers/AppState.swift" \
+    "$PROJECT_DIR/Beers/BrewControlsView.swift" \
+    "$PROJECT_DIR/Beers/OrderKitchen.swift" \
+    "$PROJECT_DIR/Beers/BeersSnapshot.swift"; then
     fail "production code still references the retired external rewrite client."
 fi
 echo "Parakeet-first boundary smoke passed."
@@ -115,13 +115,13 @@ echo "Parakeet-first boundary smoke passed."
 # The public download should open with the same proven daily profile as the
 # maintainer's installation. Keep these assertions close to the release gate so
 # a future refactor cannot silently drift the new-user experience.
-grep -q 'mode: \.clean' "$PROJECT_DIR/LlatserListen/WritingPreferences.swift" || \
+grep -q 'mode: \.clean' "$PROJECT_DIR/Beers/WritingPreferences.swift" || \
     fail "standard writing mode is no longer Clean."
-grep -q 'addSpaceAfterPaste: true' "$PROJECT_DIR/LlatserListen/WritingPreferences.swift" || \
+grep -q 'addSpaceAfterPaste: true' "$PROJECT_DIR/Beers/WritingPreferences.swift" || \
     fail "standard trailing-space setting is no longer enabled."
-grep -q '?? \.rightOption' "$PROJECT_DIR/LlatserListen/HotkeyOption.swift" || \
+grep -q '?? \.rightOption' "$PROJECT_DIR/Beers/HotkeyOption.swift" || \
     fail "standard pour key is no longer Right Option."
-grep -q 'self.polishBeforePaste = Self.boolDefaultTrue' "$PROJECT_DIR/LlatserListen/AppState.swift" || \
+grep -q 'self.polishBeforePaste = Self.boolDefaultTrue' "$PROJECT_DIR/Beers/AppState.swift" || \
     fail "standard legacy rule polish is no longer enabled."
 echo "Standard new-install configuration gate passed."
 
@@ -130,8 +130,8 @@ python3 "$PROJECT_DIR/scripts/score-asr-benchmark.py" --self-test
 (cd "$PROJECT_DIR" && xcodegen generate)
 
 xcodebuild -quiet \
-    -project "$PROJECT_DIR/LlatserListen.xcodeproj" \
-    -scheme LlatserListen \
+    -project "$PROJECT_DIR/Beers.xcodeproj" \
+    -scheme Beers \
     -configuration Release \
     -derivedDataPath "$BUILD_DIR" \
     -destination "generic/platform=macOS" \
