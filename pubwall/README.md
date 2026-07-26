@@ -1,7 +1,7 @@
 # Beers — Pub Wall API
 
 The opt-in community leaderboard for [Beers](https://github.com/llatser-dot/beers),
-the free, open-source macOS dictation app. A *pour* is one dictation; every
+the open-source macOS dictation app. A *pour* is one dictation; every
 **1,000 words pulls a pint**. Opt in from the app and your pints climb the wall.
 
 **This code lives in the open-source repo on purpose.** You can read exactly what

@@ -4,7 +4,7 @@
 Behavioral rules live in AGENTS.md; this file is the map of what exists, where,
 and what the current state is. Keep it updated when the state changes.
 
-Beers is a free, open-source push-to-talk dictation app for macOS
+Beers is an open-source push-to-talk dictation app for macOS
 (`/Applications/Beers.app`, bundle `com.llatser.listen`, log
 `/tmp/llatser-listen.log`). Hold the hotkey, speak, release — text pastes at
 the cursor. **Terminology: a "pour" = one dictation. Pints are *pulled*

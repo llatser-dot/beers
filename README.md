@@ -2,7 +2,7 @@
 
 # 🍺 Beers
 
-**Free, open-source push-to-talk dictation for macOS.**
+**Open-source push-to-talk dictation for macOS.**
 
 Hold a key, say the thing, let go — the words land wherever your cursor is.
 On-device speech recognition. No cloud, account or subscription required.

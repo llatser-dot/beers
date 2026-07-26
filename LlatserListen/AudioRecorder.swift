@@ -91,6 +91,10 @@ final class AudioRecorder {
 
         SystemAudioDucker.restoreIfNeeded()
 
+        // Never discard portions of a real pour here. Energy-only trimming
+        // cannot reliably distinguish quiet syllables from room noise and was
+        // cutting dictations short. Keep the full capture; AppState's existing
+        // duration/RMS guard still rejects truly silent recordings.
         let boosted = Self.normalizeForSpeech(captured)
         let duration = Float(boosted.count) / Float(targetSampleRate)
         let rms = sqrt(boosted.map { $0 * $0 }.reduce(0, +) / Float(max(1, boosted.count)))

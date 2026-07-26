@@ -401,7 +401,7 @@ struct BrewControlsView: View {
     private var footer: some View {
         VStack(spacing: 6) {
             BeersMenuBadge(size: 26)
-            Text("There’s nothing better than a free Beer.")
+            Text("There’s nothing better than an open-source Beer.")
                 .font(Beers.display(12))
                 .foregroundStyle(Beers.ink.opacity(0.55))
         }
