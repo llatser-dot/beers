@@ -9,6 +9,7 @@ final class HotkeyManager {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var isKeyHeld = false
+    private var heldSince: CFAbsoluteTime?
     private var option: HotkeyOption = .leftCommand
 
     var isRegistered: Bool { eventTap != nil }
@@ -103,12 +104,30 @@ final class HotkeyManager {
 
         if pressed && !isKeyHeld {
             isKeyHeld = true
+            heldSince = CFAbsoluteTimeGetCurrent()
             let shiftHeld = event.flags.contains(.maskShift)
             DispatchQueue.main.async { [weak self] in
                 self?.onKeyDown?(shiftHeld)
             }
         } else if !pressed && isKeyHeld {
             isKeyHeld = false
+            // Pours intermittently end while the key is still physically held,
+            // truncating the last words. Capture is provably continuous to the
+            // final sample, so the end comes from this release event. Record
+            // what the event actually said — a modifier release is inferred
+            // from a shared flag bit (both Option keys set .maskAlternate), so
+            // the raw flags and the source distinguish a real release from a
+            // stray or synthesised one. Only fires for the hotkey's own
+            // keycode, so this stays quiet.
+            let held = heldSince.map { CFAbsoluteTimeGetCurrent() - $0 } ?? -1
+            let source = event.getIntegerValueField(.eventSourceStateID)
+            let isSynthetic = source != 1  // 1 == kCGEventSourceStateHIDSystemState (real hardware)
+            llog(
+                "Hotkey: release keyCode=\(keyCode) held=\(String(format: "%.3f", held))s "
+                    + "flags=0x\(String(event.flags.rawValue, radix: 16)) sourceStateID=\(source)"
+                    + (isSynthetic ? " SYNTHETIC(not-hardware)" : " hardware")
+            )
+            heldSince = nil
             DispatchQueue.main.async { [weak self] in
                 self?.onKeyUp?()
             }
