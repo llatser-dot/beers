@@ -110,6 +110,18 @@ final class HotkeyManager {
                 self?.onKeyDown?(shiftHeld)
             }
         } else if !pressed && isKeyHeld {
+            // A modifier release is inferred from a shared flag bit — both
+            // Option keys set .maskAlternate — so a stray or synthesised
+            // flagsChanged reads exactly like a real release, ends the pour
+            // mid-sentence and drops the rest of what was being said. Ask the
+            // HID layer whether the key is physically up before believing it.
+            // A genuine release always agrees, so this costs a real pour
+            // nothing; only a release the hardware contradicts is ignored, and
+            // the next honest flagsChanged still ends the pour.
+            if CGEventSource.keyState(.hidSystemState, key: CGKeyCode(option.keyCode)) {
+                llog("Hotkey: ignored release for keyCode=\(keyCode) — HID says still held")
+                return
+            }
             isKeyHeld = false
             // Pours intermittently end while the key is still physically held,
             // truncating the last words. Capture is provably continuous to the
