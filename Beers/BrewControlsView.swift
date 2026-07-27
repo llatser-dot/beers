@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Brew Controls: settings as labelled crates, not a grey table.
+/// Brew Settings: settings as labelled crates, not a grey table.
 struct BrewControlsView: View {
     @EnvironmentObject var appState: AppState
     @State private var showSmashSheet = false

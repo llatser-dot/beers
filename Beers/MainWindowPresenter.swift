@@ -38,8 +38,13 @@ final class MainWindowPresenter {
         )
         let newWindow = NSWindow(contentViewController: host)
         newWindow.title = "Beers"
-        newWindow.styleMask = [.titled, .closable, .miniaturizable]
+        // .fullSizeContentView lets the navy sidebar run all the way to the top
+        // of the window. Without it the transparent titlebar still reserved a
+        // strip, so the sidebar started below a band of window background —
+        // a pale gap across the top of a dark sidebar.
+        newWindow.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
         newWindow.titlebarAppearsTransparent = true
+        newWindow.titleVisibility = .hidden
         newWindow.backgroundColor = NSColor(
             red: 0xFD / 255, green: 0xF4 / 255, blue: 0xE0 / 255, alpha: 1
         )

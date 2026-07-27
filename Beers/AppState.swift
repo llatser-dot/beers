@@ -119,7 +119,7 @@ final class AppState: ObservableObject {
         }
     }
     /// One-tap vocabulary suggestions mined from the user's own keyboard fixes.
-    /// Populated by `refreshVocabularySuggestions()` when Brew Controls opens.
+    /// Populated by `refreshVocabularySuggestions()` when Brew Settings opens.
     @Published var vocabularySuggestions: [VocabularySuggestion] = []
 
     /// Set to open the Taproom on a specific section. The window may already
@@ -138,7 +138,7 @@ final class AppState: ObservableObject {
     }
     /// Flywheel learning opt-out (absent key == enabled). Read directly from
     /// UserDefaults by FlywheelLog/OrderKitchen; these mirror the same keys so
-    /// the Brew Controls / First Round toggles have a single source of truth.
+    /// the Brew Settings / First Round toggles have a single source of truth.
     @Published var flywheelLoggingEnabled: Bool {
         didSet {
             UserDefaults.standard.set(flywheelLoggingEnabled, forKey: "flywheelLoggingEnabled")
@@ -167,7 +167,7 @@ final class AppState: ObservableObject {
     let pourStore = PourStore()
     let pubWall = PubWallController()
     let appRecipeStore = AppRecipeStore()
-    /// The last non-Beers app where a real pour began. Brew Controls only
+    /// The last non-Beers app where a real pour began. Brew Settings only
     /// offers this explicit target; opening settings cannot target Beers.
     @Published private(set) var recipeTargetContext: ActiveAppContext?
 
@@ -263,7 +263,7 @@ final class AppState: ObservableObject {
         self.hudPosition = HUDPosition.current
         self.hotkeyChoice = HotkeyOption.savedValue(UserDefaults.standard.string(forKey: "hotkeyChoice"))
 
-        // Launch at login is opt-in from Brew Controls; first launch must not
+        // Launch at login is opt-in from Brew Settings; first launch must not
         // silently add a persistent login item.
         self.launchAtLogin = SMAppService.mainApp.status == .enabled
         self.vocabularyCorrections = VocabularyCorrections.load()
@@ -420,11 +420,11 @@ final class AppState: ObservableObject {
     /// the manual bar — recurred >= 2x, reads as a brand/name (not grammar or
     /// casing), phonetically/orthographically related — straight into the live
     /// dictionary, automatically. This is the same conservative filter the manual
-    /// Brew Controls suggestions use (VocabularySuggestions.suggestions), just
+    /// Brew Settings suggestions use (VocabularySuggestions.suggestions), just
     /// applied without waiting for a tap the user never makes.
     ///
     /// Fully reversible and local: each learned word lands in the normal
-    /// dictionary (removable in Brew Controls) and nothing leaves the Mac. A brief
+    /// dictionary (removable in Brew Settings) and nothing leaves the Mac. A brief
     /// HUD flash tells the user what was learned, but only when idle so it never
     /// competes with a live pour.
     func autoLearnVocabulary() {

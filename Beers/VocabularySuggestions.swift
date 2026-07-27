@@ -16,7 +16,7 @@ struct VocabularySuggestion: Identifiable, Equatable {
 
 /// Scans the local flywheel correction log for recurring word-level fixes that
 /// read as VOCABULARY the user should teach Beers, and surfaces them as one-tap
-/// suggestions in Brew Controls. Read-only over the flywheel; it never writes to
+/// suggestions in Brew Settings. Read-only over the flywheel; it never writes to
 /// it, never adds vocabulary on its own, and — like everything flywheel — never
 /// leaves the Mac.
 ///

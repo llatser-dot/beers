@@ -204,7 +204,7 @@ enum AITranscriptRewriter {
         return (url, model)
     }
 
-    /// The specific remote origin the user approved via Brew Controls.
+    /// The specific remote origin the user approved via Brew Settings.
     private static let remoteEndpointAllowedOriginKey = "remoteEndpointAllowedOrigin"
     private static let remoteEndpointAllowedHostKey = "remoteEndpointAllowedHost"
 
