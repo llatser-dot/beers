@@ -275,6 +275,120 @@ struct BeersChip<Content: View>: View {
     }
 }
 
+/// A dropdown that looks like a dropdown.
+///
+/// SwiftUI's `Menu` cannot be used here. With `.menuStyle(.borderlessButton)`
+/// AppKit discards the custom label's fill, border and caret and draws the
+/// bare text, so "Where the pill pours" rendered as the plain word "Top right"
+/// with nothing to suggest it could be changed at all. It also drops a system
+/// menu on screen, which the four laws forbid.
+///
+/// This is the whole control instead: a chip that presses like every other
+/// Beers button, a caret that flips when open, and a paper sheet of options
+/// with the current one badged in lager.
+struct BeersDropdown<Option: Identifiable & Equatable>: View {
+    let options: [Option]
+    let title: (Option) -> String
+    @Binding var selection: Option
+    /// Rendered on the chip. Defaults to the selected option's title.
+    var display: ((Option) -> String)? = nil
+
+    @State private var open = false
+    @State private var pressed = false
+
+    var body: some View {
+        Button {
+            open.toggle()
+        } label: {
+            HStack(spacing: 8) {
+                Text((display ?? title)(selection))
+                    .font(Beers.ui(13, .semibold))
+                    .foregroundStyle(Beers.ink)
+                Text("▾")
+                    .font(Beers.ui(12, .bold))
+                    .foregroundStyle(Beers.amber)
+                    .rotationEffect(.degrees(open ? 180 : 0))
+                    .animation(Beers.springTight, value: open)
+            }
+            .padding(.horizontal, 13)
+            .padding(.vertical, 6)
+            .background(Beers.cream2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(Beers.ink, lineWidth: 2)
+            )
+            // Hard shadow, same idiom as BeersButtonStyle.
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Beers.ink)
+                    .offset(y: pressed ? 1 : 3)
+            )
+            .offset(y: pressed ? 2 : 0)
+            .animation(Beers.springTight, value: pressed)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { _ in }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in pressed = true }
+                .onEnded { _ in pressed = false }
+        )
+        .popover(isPresented: $open, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(options) { option in
+                    BeersDropdownRow(
+                        label: title(option),
+                        selected: option == selection
+                    ) {
+                        selection = option
+                        open = false
+                    }
+                    if option.id != options.last?.id {
+                        Rectangle()
+                            .fill(Beers.ink.opacity(0.12))
+                            .frame(height: 1)
+                            .padding(.horizontal, 10)
+                    }
+                }
+            }
+            .padding(.vertical, 6)
+            .frame(minWidth: 190)
+            .background(Beers.paper)
+        }
+    }
+}
+
+/// One option inside a `BeersDropdown`. Hover fills hops, selection badges lager.
+private struct BeersDropdownRow: View {
+    let label: String
+    let selected: Bool
+    let action: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                Circle()
+                    .fill(selected ? Beers.lager : .clear)
+                    .overlay(Circle().strokeBorder(Beers.ink, lineWidth: selected ? 2 : 1.5))
+                    .frame(width: 13, height: 13)
+                Text(label)
+                    .font(Beers.ui(13, selected ? .bold : .semibold))
+                    .foregroundStyle(Beers.ink)
+                Spacer(minLength: 12)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(hovering ? Beers.hops.opacity(0.45) : .clear)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+    }
+}
+
 /// Keycap for hotkeys.
 struct BeersKeycap: View {
     let label: String
