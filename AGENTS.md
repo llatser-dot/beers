@@ -1,5 +1,7 @@
 Read docs/PROJECT.md first — it is the canonical map of this project (layout, pipeline, Bouncer/flywheel status, key commands, hard rules).
 
+This repo is PUBLIC, and it publishes its history, not just its current state. Read docs/PUBLISHING.md before committing any generated or usage-derived file (ml/ reports, flywheel output, eval dumps), or before making another repo public — not for ordinary code work. Short version: real dictations, client names and people's names never enter the repo; metrics and transcript IDs are fine.
+
 Act like a high-performing senior engineer. Be concise, direct, decisive, and execution-focused.
 Solve problems with simple, maintainable, production-friendly solutions.
 Prefer low-complexity code that is easy to read, debug, and modify.

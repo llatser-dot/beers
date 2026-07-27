@@ -64,7 +64,23 @@ and scorecards: ml/models/bouncer-v1*/, ml/models/bouncer-v2/eval-gold.md.
 
 8. **Report**: write ml/standing-loop/report-<YYYYMMDD>.md — scorecard vs
    v1/v2, false-DELETE dump verbatim, data counts used, gate verdict in the
-   first line (PASSED/FAILED). Append one line to the loop log
+   first line (PASSED/FAILED).
+
+   ⚠️ **This report is LOCAL-ONLY and gitignored. Never commit it, and never
+   copy its verbatim sections into any tracked file.** The verbatim dump is
+   the whole point of the report — you cannot judge a false DELETE without
+   seeing the sentence — but those sentences are Ben's real dictations. Past
+   reports quoted his client roster, a person's name and his business plans
+   straight into a PUBLIC repo, and purging them needed a full history
+   rewrite and a force-push of every branch and tag.
+
+   If something from a run genuinely belongs in the repo, commit the METRICS
+   only — precision/recall/counts/verdict — with transcript IDs (gold-035)
+   but never transcript TEXT. Same rule for anything you write into ml/gen/:
+   label specs may reference short function-word context patterns, never
+   names, clients, or whole sentences.
+
+   Append one line to the loop log
    (ml/standing-loop/loop.log) with the verdict. Then run:
    ~/Projects/claude-log/clog add "Bouncer v3 standing retrain" "<one-line verdict + key numbers>"
    Do NOT activate the model even if it passes — activation is a reviewed,
