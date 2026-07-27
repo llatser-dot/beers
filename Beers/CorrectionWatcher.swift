@@ -28,7 +28,7 @@ final class CorrectionWatcher {
     /// Fired on the main thread immediately after a correction/rejection record
     /// is appended to the flywheel. AppState uses this to run the fast
     /// vocabulary learning loop (auto-teach recurring brand/name fixes) without
-    /// waiting for Brew Controls to be opened.
+    /// waiting for Brew Settings to be opened.
     var onCorrectionRecorded: (() -> Void)?
 
     // Tunables.

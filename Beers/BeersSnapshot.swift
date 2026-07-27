@@ -306,7 +306,7 @@ enum BeersSnapshot {
                  size: CGSize(width: 560, height: 720), name: "brew-controls", in: dir)
 
             // Focused capture of the Brewer's Dictionary crate — the suggestions
-            // section lives below the scroll fold in the full Brew Controls shot.
+            // section lives below the scroll fold in the full Brew Settings shot.
             let vocabCrate = BeersCrate(
                 title: "Brewer’s Dictionary", emoji: "📖", headerColor: Beers.cream2
             ) {
@@ -323,7 +323,7 @@ enum BeersSnapshot {
                  size: CGSize(width: 560, height: 620), name: "brew-vocab", in: dir)
 
             // Focused capture of the privacy/learning crate — it lives below the
-            // scroll fold in the full Brew Controls shot. Mirrors the live
+            // scroll fold in the full Brew Settings shot. Mirrors the live
             // blackBookCrate; benchmark audio remains explicitly OFF.
             let blackBook = BeersCrate(
                 title: "The Little Black Book", emoji: "📓", headerColor: Beers.hopsDeep

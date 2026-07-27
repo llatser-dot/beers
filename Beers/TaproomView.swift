@@ -93,6 +93,9 @@ struct TaproomView: View {
             streakCard
         }
         .padding(16)
+        // The sidebar now runs under the titlebar, so its first row has to
+        // clear the traffic lights rather than sit behind them.
+        .padding(.top, 26)
         .frame(width: 200)
         .frame(maxHeight: .infinity)
         .background(Beers.ink)

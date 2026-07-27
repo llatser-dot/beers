@@ -11,7 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = UpdateController.shared
 
         // A menu-bar app starts windowless: macOS restoration otherwise
-        // brings back whatever was open at quit (Brew Controls included)
+        // brings back whatever was open at quit (Brew Settings included)
         // on every relaunch.
         UserDefaults.standard.set(false, forKey: "NSQuitAlwaysKeepsWindows")
         closeRestoredWindows()

@@ -76,6 +76,9 @@ struct FirstRoundView: View {
             footerControls
         }
         .padding(26)
+        // Same reason as the Taproom sidebar: the window draws under its
+        // titlebar now, so the step badge must clear the traffic lights.
+        .padding(.top, 18)
         .frame(width: 380, height: 540)
         .background(Beers.paper)
         .overlay(
@@ -386,7 +389,7 @@ struct FirstRoundView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 10)
 
-            Text("Nothing ever leaves the machine. Turn it off or pour it away any time in Brew Controls.")
+            Text("Nothing ever leaves the machine. Turn it off or pour it away any time in Brew Settings.")
                 .font(Beers.ui(12, .semibold))
                 .foregroundStyle(Beers.hopsDeep)
                 .multilineTextAlignment(.center)

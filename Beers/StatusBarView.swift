@@ -181,6 +181,15 @@ struct StatusBarView: View {
 
             popRow {
                 dismiss()
+                MainWindowPresenter.shared.show(section: .slurs)
+            } content: {
+                Text("Drunk slurs").font(Beers.ui(13, .semibold))
+                Spacer()
+                Text("🗣").font(.system(size: 12))
+            }
+
+            popRow {
+                dismiss()
                 openSettings()
                 NSApp.activate(ignoringOtherApps: true)
             } content: {

@@ -10,7 +10,7 @@ if [[ ! -x "$APP" ]]; then
 fi
 if [[ ! -f "$BENCHMARK_DIR/manifest.jsonl" ]]; then
     echo "No benchmark manifest at: $BENCHMARK_DIR/manifest.jsonl" >&2
-    echo "Enable 'Capture ASR benchmark audio' in Brew Controls and collect some pours first." >&2
+    echo "Enable 'Capture ASR benchmark audio' in Brew Settings and collect some pours first." >&2
     exit 1
 fi
 
