@@ -43,7 +43,11 @@ struct VocabularyEditorView: View {
             }
 
             if appState.vocabularyCorrections.isEmpty {
-                Text("No custom words yet — “Llatser”, “cmux”, “PlanWatch”…")
+                // Only the user's own words live here now. Spoken punctuation
+                // ("dot com" -> ".com") still works but is built in, so it is
+                // deliberately not listed — otherwise the dictionary looks
+                // pre-filled with words nobody taught it.
+                Text("Nothing taught yet — add a name Beers keeps mishearing")
                     .font(Beers.ui(12, .medium))
                     .foregroundStyle(Beers.ink.opacity(0.5))
             } else if compact {

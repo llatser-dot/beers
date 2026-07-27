@@ -6,6 +6,7 @@ struct BrewControlsView: View {
     @EnvironmentObject var appState: AppState
     @State private var showSmashSheet = false
     @State private var showWipeSheet = false
+    @State private var inputDeviceName = AudioRecorder.currentInputDisplayName()
 
     var body: some View {
         ScrollView {
@@ -118,9 +119,18 @@ struct BrewControlsView: View {
         BeersCrate(title: "The Tap", emoji: "🎙", headerColor: Beers.hops) {
             BeersSettingRow(
                 label: "Microphone",
-                hint: "Pinned — Bluetooth mics are never captured, so AirPods never lag"
+                hint: "What Beers is listening through"
             ) {
-                BeersChip { Text("Built-in, auto") }
+                // The real capture device, not a fixed label — an external mic
+                // used to be reported as "Built-in, auto", which was simply
+                // untrue. Refreshes when devices come and go.
+                BeersChip { Text(inputDeviceName) }
+                    .onAppear { inputDeviceName = AudioRecorder.currentInputDisplayName() }
+                    .onReceive(
+                        NotificationCenter.default.publisher(for: .beersInputDeviceChanged)
+                    ) { _ in
+                        inputDeviceName = AudioRecorder.currentInputDisplayName()
+                    }
             }
 
             BeersSettingRow(label: "Brew engine", hint: "Local Parakeet — nothing leaves the Mac") {

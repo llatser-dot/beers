@@ -500,6 +500,15 @@ final class AudioRecorder {
         return nil
     }
 
+    /// Display name of the device a pour would actually capture from right now.
+    ///
+    /// This is the real device, not a label: with AirPods connected it returns
+    /// the built-in microphone, because that is genuinely what gets recorded.
+    /// Settings shows this so an external mic is never misreported as built-in.
+    static func currentInputDisplayName() -> String {
+        captureDevice()?.name ?? "No microphone"
+    }
+
     private static func isBluetoothTransport(_ transport: UInt32) -> Bool {
         transport == kAudioDeviceTransportTypeBluetooth
             || transport == kAudioDeviceTransportTypeBluetoothLE
@@ -509,6 +518,9 @@ final class AudioRecorder {
         let listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
             DispatchQueue.main.async {
                 self?.handleRouteChange(reason: "audio devices changed")
+                // Settings shows the live capture device; plugging in a mic or
+                // connecting AirPods has to move that label.
+                NotificationCenter.default.post(name: .beersInputDeviceChanged, object: nil)
             }
         }
         deviceChangeListener = listener
@@ -808,4 +820,10 @@ final class LiveMicLevel {
         value = 0
         lock.unlock()
     }
+}
+
+extension Notification.Name {
+    /// Posted on the main queue when the system's audio devices change, so
+    /// Settings can refresh the microphone it reports.
+    static let beersInputDeviceChanged = Notification.Name("beers.inputDeviceChanged")
 }
