@@ -57,6 +57,27 @@ struct StatusBarView: View {
         .padding(.horizontal, 18)
         .frame(maxWidth: .infinity)
         .background(ScallopEdge(scallopRadius: 7).fill(Beers.stout))
+        // Settings is also a row further down, but that row sits below the
+        // fold of attention — the cap and the mic get looked at first. A gear
+        // in the corner is where people reach for settings without reading.
+        .overlay(alignment: .topTrailing) {
+            Button {
+                dismiss()
+                openSettings()
+                NSApp.activate(ignoringOtherApps: true)
+            } label: {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Beers.lager)
+                    .padding(7)
+                    .background(Beers.paper.opacity(0.14), in: Circle())
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .help("Brew Settings")
+            .padding(.top, 11)
+            .padding(.trailing, 12)
+        }
     }
 
     private var statusLine: String {
@@ -163,7 +184,7 @@ struct StatusBarView: View {
                 openSettings()
                 NSApp.activate(ignoringOtherApps: true)
             } content: {
-                Text("Brew Controls").font(Beers.ui(13, .semibold))
+                Text("Brew Settings").font(Beers.ui(13, .semibold))
                 Spacer()
                 Text("⚙️").font(.system(size: 12))
             }

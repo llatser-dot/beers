@@ -98,7 +98,7 @@ held-out real data. False deletions are the cardinal sin; when unsure, KEEP.
 
 ## ASR benchmark capture (explicit opt-in; local only)
 
-- Brew Controls → **Capture ASR benchmark audio** is off by default.
+- Brew Settings → **Capture ASR benchmark audio** is off by default.
 - When enabled, each pour adds a 16 kHz mono WAV plus its raw production
   transcript under `~/Library/Application Support/Beers/ASR Benchmarks/`.
 - Fill the `gold` fields in `manifest.jsonl`, then run

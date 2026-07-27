@@ -58,10 +58,10 @@ streak and Keepers (the pours worth saving).
 
 ![Beers Taproom — searchable dictation history](docs/screenshots/taproom.png)
 
-**Brew Controls** — one screen, everything on tap: pour key, where the words land,
+**Brew Settings** — one screen, everything on tap: pour key, where the words land,
 sounds, the listening pill's position, and your local brew engine.
 
-![Beers Brew Controls settings](docs/screenshots/brew-controls.png)
+![Beers Brew Settings](docs/screenshots/brew-controls.png)
 
 **The Little Black Book** — every learning feature on one switchboard, with the
 promise printed right on it: Beers never uploads those learning records.
