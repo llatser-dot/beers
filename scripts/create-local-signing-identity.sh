@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-IDENTITY_NAME="${LLATSER_LISTEN_SIGN_IDENTITY:-Llatser Listen Local Code Signing}"
+IDENTITY_NAME="${BEERS_SIGN_IDENTITY:-Beers Local Code Signing}"
 KEYCHAIN="${HOME}/Library/Keychains/login.keychain-db"
 
 if security find-identity -v -p codesigning | grep -Fq "$IDENTITY_NAME"; then
@@ -44,7 +44,7 @@ EOF
     -config "$CONFIG_FILE"
 
 # Modern OpenSSL + macOS reject empty PKCS12 passwords. Use a fixed local passphrase.
-P12_PASS="llatser-local-codesign"
+P12_PASS="beers-local-codesign"
 /usr/bin/openssl pkcs12 \
     -export \
     -out "$P12_FILE" \

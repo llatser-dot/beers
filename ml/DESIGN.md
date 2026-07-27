@@ -72,7 +72,7 @@ models/              checkpoints and exported artifacts (gitignored)
 - Training on Apple Silicon MPS. Keep runs under ~2h.
 
 ## Real material available
-- `/tmp/llatser-listen.log` — 69 `polished transcription='...'` lines =
+- `/tmp/beers.log` — 69 `polished transcription='...'` lines =
   near-verbatim real dictations (rule-polished, fillers largely intact).
   Ben's actual voice: UK English, SEO/planning/dev vocabulary, informal.
 - `~/Library/Application Support/Beers/pours.json` — 226 final (cleaned)

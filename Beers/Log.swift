@@ -13,7 +13,7 @@ private let beersLogRealPath: String = {
 /// The legacy path every existing tool, doc and test tails. We keep it working
 /// by making it a symlink to the real (owner-only) file — same content, but the
 /// bytes are never readable by other users on the machine.
-private let beersLogTmpPath = "/tmp/llatser-listen.log"
+private let beersLogTmpPath = "/tmp/beers.log"
 
 /// Rotate at ~10 MB so the transcript log can't grow without bound.
 private let beersLogMaxBytes: UInt64 = 10 * 1024 * 1024
@@ -69,11 +69,20 @@ private func rotateBeersLogIfNeeded(path: String, fm: FileManager) {
     fm.createFile(atPath: path, contents: nil, attributes: [.posixPermissions: 0o600])
 }
 
-/// Point /tmp/llatser-listen.log at the real owner-only file. Handles the
+/// Point /tmp/beers.log at the real owner-only file. Handles the
 /// legacy case where /tmp holds a plain (world-readable) regular file: replace
 /// it with the symlink once.
 private func ensureBeersTmpSymlink(realPath: String, fm: FileManager) {
     let tmp = beersLogTmpPath
+
+    // The convenience symlink used to live at /tmp/llatser-listen.log. Remove
+    // that leftover so the old product name stops showing up in /tmp — but only
+    // if it is ours (a symlink into our own log file), never an unrelated file.
+    let legacyTmp = "/tmp/llatser-listen.log"
+    if let legacyDest = try? fm.destinationOfSymbolicLink(atPath: legacyTmp),
+       legacyDest == realPath {
+        try? fm.removeItem(atPath: legacyTmp)
+    }
     if let dest = try? fm.destinationOfSymbolicLink(atPath: tmp) {
         if dest == realPath { return }   // already the correct symlink
         try? fm.removeItem(atPath: tmp)  // stale/wrong symlink — replace

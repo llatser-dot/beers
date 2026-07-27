@@ -6,10 +6,16 @@ and what the current state is. Keep it updated when the state changes.
 
 Beers is an open-source push-to-talk dictation app for macOS
 (`/Applications/Beers.app`, bundle `com.llatser.listen`, log
-`/tmp/llatser-listen.log`). Hold the hotkey, speak, release — text pastes at
+`/tmp/beers.log`). Hold the hotkey, speak, release — text pastes at
 the cursor. **Terminology: a "pour" = one dictation. Pints are *pulled*
 (1,000 words = 1 pint), never "poured".** Repo: github.com/llatser-dot/beers
-(renamed from llatser-listen 2026-07-14; old URL redirects). Local checkout: `~/Projects/beers`.
+Local checkout: `~/Projects/beers`.
+
+> The bundle identifier is `com.llatser.listen` and is deliberately frozen.
+> It predates the Beers name and is load-bearing for TCC: macOS keys every
+> Microphone / Input Monitoring / Accessibility grant to it, so changing it
+> would silently revoke permissions and reset saved settings for every
+> existing user. It is never shown in the UI — macOS displays "Beers".
 
 ## Repo layout
 
@@ -123,7 +129,7 @@ bash scripts/agent-install.sh                                  # build + install
 /Applications/Beers.app/Contents/MacOS/Beers --beers-snapshot               # UI PNGs to /tmp/beers-snapshots
 ml/.venv/bin/python ml/gen/flywheel_ingest.py                  # flywheel counts + correction stats
 scripts/run-asr-benchmark.sh                                   # same-audio Parakeet comparison
-tail -f /tmp/llatser-listen.log                                # live app log
+tail -f /tmp/beers.log                                # live app log
 ```
 
 ## Hard rules

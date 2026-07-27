@@ -5,13 +5,17 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="$PROJECT_DIR/build"
 APP_NAME="Beers"
 APP_DEST="/Applications/$APP_NAME.app"
+# One-time migration: removes the app bundle left behind by installs that
+# predate the Beers rename. The literal old path is required here — this is the
+# only remaining reference to that name, and it exists solely to delete it.
+# Safe to drop once no machine still has a pre-1.1 install.
 LEGACY_APP_DEST="/Applications/Llatser Listen.app"
-LOG_FILE="/tmp/llatser-listen.log"
-SIGN_IDENTITY="${LLATSER_LISTEN_SIGN_IDENTITY:-}"
-TEAM_ID="${LLATSER_LISTEN_TEAM_ID:-}"
-ALLOW_LOCAL_SIGNING="${LLATSER_ALLOW_LOCAL_SIGNING:-0}"
+LOG_FILE="/tmp/beers.log"
+SIGN_IDENTITY="${BEERS_SIGN_IDENTITY:-}"
+TEAM_ID="${BEERS_TEAM_ID:-}"
+ALLOW_LOCAL_SIGNING="${BEERS_ALLOW_LOCAL_SIGNING:-0}"
 DEVELOPER_IDENTITY="$(security find-identity -v -p codesigning | awk -F '"' '/Developer ID Application:/ { print $2; exit }')"
-STABLE_LOCAL_IDENTITY="$(security find-identity -v -p codesigning | awk -F '"' '/Llatser Listen Local Code Signing/ { print $2; exit }')"
+STABLE_LOCAL_IDENTITY="$(security find-identity -v -p codesigning | awk -F '"' '/Beers Local Code Signing/ { print $2; exit }')"
 APPLE_DEV_IDENTITY="$(security find-identity -v -p codesigning | awk -F '"' '/Apple Development:/ { print $2; exit }')"
 
 if [ -z "$SIGN_IDENTITY" ]; then
@@ -66,19 +70,19 @@ if [ -n "$TEAM_ID" ] && xcodebuild -quiet \
         -allowProvisioningUpdates >/dev/null; then
         echo "Developer ID export failed (Xcode account or certificate unavailable)."
         if [ "$ALLOW_LOCAL_SIGNING" != "1" ]; then
-            echo "Sign in to Xcode (Settings > Accounts, team $TEAM_ID), or rerun with LLATSER_ALLOW_LOCAL_SIGNING=1 to install with a stable local identity."
+            echo "Sign in to Xcode (Settings > Accounts, team $TEAM_ID), or rerun with BEERS_ALLOW_LOCAL_SIGNING=1 to install with a stable local identity."
             exit 1
         fi
     fi
 else
     if [ -z "$TEAM_ID" ]; then
-        echo "Skipping Developer ID archive (LLATSER_LISTEN_TEAM_ID is not set)."
+        echo "Skipping Developer ID archive (BEERS_TEAM_ID is not set)."
     else
         echo "Developer ID archive failed."
     fi
     if [ "$ALLOW_LOCAL_SIGNING" != "1" ]; then
         echo "Refusing local signing because it changes the macOS privacy identity and forces re-granting Microphone/Input Monitoring/Accessibility."
-        echo "Set LLATSER_LISTEN_TEAM_ID for your Developer ID team, or rerun with LLATSER_ALLOW_LOCAL_SIGNING=1 for a local-only install."
+        echo "Set BEERS_TEAM_ID for your Developer ID team, or rerun with BEERS_ALLOW_LOCAL_SIGNING=1 for a local-only install."
         exit 1
     fi
 fi
@@ -97,11 +101,11 @@ fi
 if ! grep -Fq "Authority=Developer ID Application:" <<<"$SIGN_DETAILS"; then
     if [ "$ALLOW_LOCAL_SIGNING" != "1" ]; then
         echo "Refusing to install a non-Developer-ID build because it will break macOS privacy permissions again."
-        echo "Set LLATSER_ALLOW_LOCAL_SIGNING=1 for a stable local-only install."
+        echo "Set BEERS_ALLOW_LOCAL_SIGNING=1 for a stable local-only install."
         exit 1
     fi
 
-    echo "Developer ID export unavailable; falling back to local signing because LLATSER_ALLOW_LOCAL_SIGNING=1."
+    echo "Developer ID export unavailable; falling back to local signing because BEERS_ALLOW_LOCAL_SIGNING=1."
     SIGNING_MODE="local signing"
     xcodebuild -quiet \
         -project "$PROJECT_DIR/Beers.xcodeproj" \
@@ -122,7 +126,7 @@ if ! grep -Fq "Authority=Developer ID Application:" <<<"$SIGN_DETAILS"; then
     if [ -z "$SIGN_IDENTITY" ]; then
         echo "No code-signing identity found; creating a stable local identity..."
         bash "$PROJECT_DIR/scripts/create-local-signing-identity.sh"
-        SIGN_IDENTITY="$(security find-identity -v -p codesigning | awk -F '"' '/Llatser Listen Local Code Signing/ { print $2; exit }')"
+        SIGN_IDENTITY="$(security find-identity -v -p codesigning | awk -F '"' '/Beers Local Code Signing/ { print $2; exit }')"
     fi
 
     if [ -n "$SIGN_IDENTITY" ] && security find-identity -v -p codesigning | grep -Fq "$SIGN_IDENTITY"; then
@@ -162,7 +166,7 @@ echo "[6/6] Resetting app log..."
 > "$LOG_FILE"
 
 TCC_NOTE="Privacy permissions preserved (signing identity unchanged)."
-if [ "${LLATSER_RESET_TCC:-0}" = "1" ] || [ -z "$OLD_REQ" ] || [ "$OLD_REQ" != "$NEW_REQ" ]; then
+if [ "${BEERS_RESET_TCC:-0}" = "1" ] || [ -z "$OLD_REQ" ] || [ "$OLD_REQ" != "$NEW_REQ" ]; then
     if [ -n "$OLD_REQ" ] && [ "$OLD_REQ" != "$NEW_REQ" ]; then
         echo "Signing identity changed since last install; resetting stale privacy grants..."
     else

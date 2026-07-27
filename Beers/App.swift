@@ -58,7 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 @main
-struct LlatserListenApp: App {
+struct BeersApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var appState = AppState()
 
