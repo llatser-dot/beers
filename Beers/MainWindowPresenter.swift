@@ -11,6 +11,13 @@ final class MainWindowPresenter {
     var appStateProvider: (() -> AppState?)?
     private var window: NSWindow?
 
+    /// Open the window on a specific Taproom section (e.g. Drunk Slurs from
+    /// Brew Settings). Works whether or not the window is already up.
+    func show(section: TaproomView.TapFilter) {
+        appStateProvider?()?.requestedTaproomSection = section
+        show()
+    }
+
     func show() {
         guard let appState = appStateProvider?() ?? nil else {
             // App body hasn't run yet — retry shortly.

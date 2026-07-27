@@ -384,6 +384,11 @@ enum BeersSnapshot {
             let store = seededStore()
             snap(TaproomView(store: store).environmentObject(appState),
                  size: CGSize(width: 940, height: 620), name: "taproom", in: dir)
+
+            // Drunk Slurs: the corrections editor in its new home, reached the
+            // same way Brew Settings reaches it.
+            snap(TaproomView(store: store, initialSection: .slurs).environmentObject(appState),
+                 size: CGSize(width: 940, height: 620), name: "taproom-slurs", in: dir)
             // Pub Wall uses only its live public response. Never seed invented
             // members or totals into this snapshot.
             snap(PubWallView().environmentObject(appState),

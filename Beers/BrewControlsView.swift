@@ -184,11 +184,20 @@ struct BrewControlsView: View {
 
     // MARK: 📖 Brewer's dictionary
 
+    /// The corrections editor itself now lives in the Taproom, next to the
+    /// pours that produced it. This is a signpost, not a second copy — two
+    /// editable copies of the same dictionary is how they drift.
     private var dictionaryCrate: some View {
-        BeersCrate(title: "Brewer’s Dictionary", emoji: "📖", headerColor: Beers.cream2) {
-            VStack(alignment: .leading, spacing: 0) {
-                VocabularyEditorView(compact: true, showsTitle: false)
-                    .padding(16)
+        BeersCrate(title: "Drunk Slurs", emoji: "🗣", headerColor: Beers.cream2) {
+            BeersSettingRow(
+                label: "Teach Beers a word",
+                hint: "What it heard, and what you actually meant",
+                showDivider: false
+            ) {
+                Button("Open in the Taproom") {
+                    MainWindowPresenter.shared.show(section: .slurs)
+                }
+                .buttonStyle(BeersButtonStyle(kind: .ghost, small: true))
             }
         }
     }

@@ -121,6 +121,11 @@ final class AppState: ObservableObject {
     /// One-tap vocabulary suggestions mined from the user's own keyboard fixes.
     /// Populated by `refreshVocabularySuggestions()` when Brew Controls opens.
     @Published var vocabularySuggestions: [VocabularySuggestion] = []
+
+    /// Set to open the Taproom on a specific section. The window may already
+    /// be on screen, so this is a published request the Taproom consumes
+    /// rather than an argument to the window's initialiser.
+    @Published var requestedTaproomSection: TaproomView.TapFilter?
     @Published var clinkOnServe: Bool {
         didSet {
             UserDefaults.standard.set(clinkOnServe, forKey: "clinkOnServe")
