@@ -8,7 +8,15 @@ APP="$BUILD_DIR/Build/Products/Release/Beers.app"
 BINARY="$APP/Contents/MacOS/Beers"
 BOUNCER_DIR="$PROJECT_DIR/Beers/Resources/Bouncer"
 
+# shellcheck source=lib/lsregister.sh
+source "$PROJECT_DIR/scripts/lib/lsregister.sh"
+
 cleanup() {
+    # Drop the LaunchServices record BEFORE deleting the build. Deleting the
+    # directory alone leaves an orphan registration for com.llatser.listen that
+    # never expires, and those accumulate into duplicate Beers rows in System
+    # Settings > Privacy & Security.
+    unregister_apps_under "$BUILD_DIR"
     rm -rf "$BUILD_DIR"
 }
 trap cleanup EXIT

@@ -5,16 +5,29 @@ APP_NAME="Beers"
 BUNDLE_ID="com.llatser.listen"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$PROJECT_DIR/build-airdrop"
-SOURCE_APP="${LLATSER_LISTEN_APP_SOURCE:-}"
-OUT_DIR="${LLATSER_AIRDROP_DIR:-$HOME/Desktop/$APP_NAME AirDrop}"
-ZIP_PATH="${LLATSER_AIRDROP_ZIP:-$HOME/Desktop/$APP_NAME AirDrop.zip}"
-SIGN_IDENTITY="${LLATSER_LISTEN_SIGN_IDENTITY:-}"
-TEAM_ID="${LLATSER_LISTEN_TEAM_ID:-}"
+SOURCE_APP="${BEERS_APP_SOURCE:-}"
+OUT_DIR="${BEERS_AIRDROP_DIR:-$HOME/Desktop/$APP_NAME AirDrop}"
+ZIP_PATH="${BEERS_AIRDROP_ZIP:-$HOME/Desktop/$APP_NAME AirDrop.zip}"
+SIGN_IDENTITY="${BEERS_SIGN_IDENTITY:-}"
+TEAM_ID="${BEERS_TEAM_ID:-}"
 SIGNING_NOTE="provided app"
-ALLOW_LOCAL_SIGNING="${LLATSER_ALLOW_LOCAL_SIGNING:-0}"
+ALLOW_LOCAL_SIGNING="${BEERS_ALLOW_LOCAL_SIGNING:-0}"
 
+# shellcheck source=lib/lsregister.sh
+source "$PROJECT_DIR/scripts/lib/lsregister.sh"
+
+# Prefer Developer ID. An Apple Development certificate is re-issued roughly
+# once a year, and each re-issue changes the app's designated requirement —
+# which silently invalidates every TCC grant the recipient has made. Developer
+# ID is stable for the life of the certificate and is the only identity that
+# can be notarized.
+if [ -z "$SIGN_IDENTITY" ]; then
+    SIGN_IDENTITY="$(security find-identity -v -p codesigning | awk -F '"' '/Developer ID Application:/ { print $2; exit }')"
+fi
 if [ -z "$SIGN_IDENTITY" ]; then
     SIGN_IDENTITY="$(security find-identity -v -p codesigning | awk -F '"' '/Apple Development:/ { print $2; exit }')"
+    [ -n "$SIGN_IDENTITY" ] && echo "[warn] No Developer ID cert; falling back to Apple Development." \
+        && echo "[warn] Recipients will need to re-grant permissions when that cert is renewed."
 fi
 
 echo "=== Beers AirDrop Package ==="
@@ -26,6 +39,9 @@ if [ -z "$SOURCE_APP" ]; then
         xcodegen generate
     fi
 
+    # Unregister the previous run's bundles before wiping them, or LaunchServices
+    # keeps an orphan com.llatser.listen record pointing at the deleted path.
+    unregister_apps_under "$BUILD_DIR"
     rm -rf "$BUILD_DIR"
     mkdir -p "$BUILD_DIR"
 
@@ -62,7 +78,7 @@ if [ -z "$SOURCE_APP" ]; then
         if [ "$ALLOW_LOCAL_SIGNING" != "1" ]; then
             echo "Developer ID export unavailable."
             echo "Refusing to package a locally signed build because it will break macOS privacy permissions again."
-            echo "Set LLATSER_LISTEN_TEAM_ID for your Developer ID team, or use LLATSER_ALLOW_LOCAL_SIGNING=1 for a local-only development package."
+            echo "Set BEERS_TEAM_ID for your Developer ID team, or use BEERS_ALLOW_LOCAL_SIGNING=1 for a local-only development package."
             exit 1
         fi
 
@@ -145,7 +161,7 @@ BUNDLE_ID="com.llatser.listen"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_APP="$SCRIPT_DIR/Payload/$APP_NAME.app"
 DEST_APP="/Applications/$APP_NAME.app"
-LOG_FILE="/tmp/llatser-listen.log"
+LOG_FILE="/tmp/beers.log"
 
 if [ ! -d "$SOURCE_APP" ]; then
     echo "Cannot find $APP_NAME.app next to this installer."
