@@ -339,15 +339,26 @@ struct BrewControlsView: View {
                     ? Permissions.openMicrophoneSettings()
                     : appState.requestMicrophonePermission()
             }
+            // Not-yet-granted opens System Settings AND raises the floating
+            // coach. Without it this button dropped the user in front of a
+            // list that does not contain Beers, with nothing explaining that
+            // the app has to be dragged in before there is a switch to flip.
             permissionRow("Input Monitoring", granted: appState.inputMonitoringGranted) {
-                appState.inputMonitoringGranted
-                    ? Permissions.openInputMonitoringSettings()
-                    : appState.requestInputMonitoringPermission()
+                if appState.inputMonitoringGranted {
+                    Permissions.openInputMonitoringSettings()
+                } else {
+                    appState.requestInputMonitoringPermission()
+                    Permissions.openInputMonitoringSettings()
+                    GrantCoach.shared.show(.inputMonitoring, appState: appState)
+                }
             }
             permissionRow("Accessibility", granted: appState.accessibilityGranted) {
-                appState.accessibilityGranted
-                    ? Permissions.openAccessibilitySettings()
-                    : appState.requestAccessibilityPermission()
+                if appState.accessibilityGranted {
+                    Permissions.openAccessibilitySettings()
+                } else {
+                    appState.requestAccessibilityPermission()
+                    GrantCoach.shared.show(.accessibility, appState: appState)
+                }
             }
 
             BeersSettingRow(

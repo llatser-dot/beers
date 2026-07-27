@@ -286,6 +286,11 @@ enum BeersSnapshot {
             snap(FirstRoundView(initialStep: 0, initialGuide: .accessibility).environmentObject(appState),
                  size: CGSize(width: 380, height: 540), name: "first-round-doorman", in: dir)
 
+            // The floating coach that outlives System Settings taking focus.
+            snap(GrantCoachView(grant: .accessibility, forceUngrantedForSnapshot: true)
+                    .environmentObject(appState),
+                 size: CGSize(width: 320, height: 400), name: "grant-coach", in: dir)
+
             snap(StatusBarView().environmentObject(appState),
                  size: nil, name: "bar-tap", in: dir)
 

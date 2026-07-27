@@ -172,13 +172,19 @@ struct FirstRoundView: View {
                 grantRow("Microphone", granted: appState.microphoneGranted, highlighted: false) {
                     appState.requestMicrophonePermission()
                 }
+                // The in-window guide below still explains the drag, but System
+                // Settings covers this window the moment it opens. GrantCoach
+                // floats above it so the badge and steps are actually readable
+                // while the user is standing in the list.
                 grantRow("Accessibility", granted: appState.accessibilityGranted, highlighted: guiding == .accessibility) {
                     appState.requestAccessibilityPermission()
+                    GrantCoach.shared.show(.accessibility, appState: appState)
                     withAnimation(Beers.spring) { guiding = .accessibility }
                 }
                 grantRow("Input Monitoring", granted: appState.inputMonitoringGranted, highlighted: guiding == .inputMonitoring) {
                     appState.requestInputMonitoringPermission()
                     Permissions.openInputMonitoringSettings()
+                    GrantCoach.shared.show(.inputMonitoring, appState: appState)
                     withAnimation(Beers.spring) { guiding = .inputMonitoring }
                 }
             }
@@ -526,7 +532,7 @@ private struct WatchingDots: View {
 /// System Settings permission list, ChatGPT-style. The drag payload is the
 /// app bundle's file URL, which the TCC lists accept as a drop — no + button,
 /// no file picker.
-private struct DraggableAppBadge: View {
+struct DraggableAppBadge: View {
     @State private var wiggle = false
 
     var body: some View {
@@ -562,7 +568,7 @@ private struct DraggableAppBadge: View {
 /// Transparent AppKit layer that turns the badge into a real Finder-grade
 /// drag source for the app bundle. SwiftUI's onDrag can't reliably feed the
 /// System Settings TCC lists; an NSDraggingSession with the bundle URL can.
-private struct AppBundleDragSource: NSViewRepresentable {
+struct AppBundleDragSource: NSViewRepresentable {
     func makeNSView(context: Context) -> AppBundleDragView {
         AppBundleDragView()
     }
