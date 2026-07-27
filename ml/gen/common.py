@@ -249,7 +249,7 @@ def load_pours():
 
 def load_real_log():
     """Return the polished-transcription lines (deduped) from the log."""
-    path = "/tmp/llatser-listen.log"
+    path = "/tmp/beers.log"
     if not os.path.exists(path):
         return []
     lines = open(path, encoding="utf-8", errors="replace").read().splitlines()

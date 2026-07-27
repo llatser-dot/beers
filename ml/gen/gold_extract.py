@@ -15,7 +15,7 @@ Usage: python gold_extract.py [LOGFILE]  -> prints one dictation per line.
 import re
 import sys
 
-LOG = sys.argv[1] if len(sys.argv) > 1 else "/tmp/llatser-listen.log"
+LOG = sys.argv[1] if len(sys.argv) > 1 else "/tmp/beers.log"
 # Rule-polished only: a space before "polished" excludes "AI-polished".
 PAT = re.compile(r"AppState: polished transcription='(.*)'\s*$")
 

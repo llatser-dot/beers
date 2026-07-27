@@ -127,12 +127,12 @@ Prefer to build it yourself? It's a one-command build once you have the tools.
 git clone https://github.com/llatser-dot/beers.git
 cd beers
 git lfs pull                      # if you didn't `git lfs install` before cloning
-LLATSER_ALLOW_LOCAL_SIGNING=1 ./install.sh
+BEERS_ALLOW_LOCAL_SIGNING=1 ./install.sh
 ```
 
 `install.sh` first tries a proper Developer ID build (for maintainers who have the
-certificate and set `LLATSER_LISTEN_TEAM_ID`). Without that configuration,
-`LLATSER_ALLOW_LOCAL_SIGNING=1` tells it to build and
+certificate and set `BEERS_TEAM_ID`). Without that configuration,
+`BEERS_ALLOW_LOCAL_SIGNING=1` tells it to build and
 sign with a **stable local identity** instead — the installer creates that identity
 automatically on a fresh machine, so you don't need any Apple certificate to get
 running. It builds a Release binary, installs to `/Applications/Beers.app`, cleans
@@ -142,7 +142,7 @@ up stray build copies, and launches the app.
 > stable across rebuilds. Ad-hoc signing (`codesign -s -`) would re-key permissions
 > on every build and force you to re-grant them constantly — Beers never does that.
 > On a Mac with no usable signing identity, the installer creates a ten-year
-> `Llatser Listen Local Code Signing` certificate and private key in your login
+> `Beers Local Code Signing` certificate and private key in your login
 > keychain and trusts that certificate for code signing on this Mac only.
 
 ### Permissions it will ask for
@@ -191,12 +191,13 @@ Deleting the app alone leaves your data and models behind; to remove everything:
   downloaded Parakeet models cache, a few hundred MB).
 - **Login item** — if you enabled "Open bar at login," remove Beers under
   **System Settings → General → Login Items**.
-- **Local signing identity** — only if the installer created `Llatser Listen Local
-  Code Signing`, remove that certificate and its private key in Keychain Access.
+- **Local signing identity** — only if the installer created `Beers Local Code
+  Signing`, remove that certificate and its private key in Keychain Access.
   Do not remove an Apple Development or Developer ID identity you already had.
 - **Preferences** — `defaults delete com.llatser.listen` (clears saved settings
-  from UserDefaults).
-- **Log symlink** — `/tmp/llatser-listen.log` (a symlink to the owner-only
+  from UserDefaults). That identifier predates the Beers name and is frozen
+  because macOS keys your privacy permissions to it.
+- **Log symlink** — `/tmp/beers.log` (a symlink to the owner-only
   `beers.log` above; harmless, but tidy it if you like).
 
 Privacy permissions (Microphone, Input Monitoring, Accessibility) can be revoked
