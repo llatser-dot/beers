@@ -594,15 +594,31 @@ final class AppState: ObservableObject {
         }
 
         // Input Monitoring / Accessibility flips often only take effect after
-        // relaunch. If the user just enabled one in System Settings, bounce
-        // the process so the grant actually applies to this binary.
+        // relaunch. Both live in System Settings > Privacy & Security and both
+        // are required before Beers can do anything, so wait until the user has
+        // finished toggling BOTH and bounce once.
+        //
+        // Relaunching on the first flip meant the app disappeared out from
+        // under someone who was halfway through the list, then disappeared a
+        // second time when they granted the other one. macOS gives no way to
+        // grant these without a trip to System Settings; the least we can do is
+        // make it one trip and one restart.
         let inputJustGranted = inputMonitoringGranted && !previousInput
         let accessibilityJustGranted = accessibilityGranted && !previousAccessibility
-        if (inputJustGranted || accessibilityJustGranted) && !didSchedulePermissionRelaunch {
+        let bothNowGranted = inputMonitoringGranted && accessibilityGranted
+        if (inputJustGranted || accessibilityJustGranted)
+            && bothNowGranted
+            && !didSchedulePermissionRelaunch {
             didSchedulePermissionRelaunch = true
-            llog("Permissions: grant detected — relaunching so TCC applies to this process")
+            llog("Permissions: both grants present — relaunching once so TCC applies to this process")
             Permissions.relaunchApp()
             return
+        }
+        if inputJustGranted || accessibilityJustGranted {
+            llog(
+                "Permissions: partial grant (inputMonitoring=\(inputMonitoringGranted) "
+                + "accessibility=\(accessibilityGranted)) — holding the relaunch until both are on"
+            )
         }
 
         if inputMonitoringGranted && !hotkeyManager.isRegistered {
