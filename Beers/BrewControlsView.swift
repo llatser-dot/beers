@@ -63,24 +63,12 @@ struct BrewControlsView: View {
     private var pourCrate: some View {
         BeersCrate(title: "The Pour", emoji: "🍺", headerColor: Beers.lager) {
             BeersSettingRow(label: "Pour key", hint: "Hold to talk, release to serve") {
-                Menu {
-                    ForEach(HotkeyOption.allCases) { option in
-                        Button(option.displayName) { appState.hotkeyChoice = option }
-                    }
-                } label: {
-                    BeersChip(fill: Beers.cream) {
-                        HStack(spacing: 7) {
-                            Text(appState.hotkeyChoice.keycapLabel)
-                                .font(Beers.ui(13, .bold))
-                            Text("▾")
-                                .font(Beers.ui(12, .semibold))
-                                .foregroundStyle(Beers.amber)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
+                BeersDropdown(
+                    options: HotkeyOption.allCases,
+                    title: \.displayName,
+                    selection: $appState.hotkeyChoice,
+                    display: { $0.keycapLabel }
+                )
                 .fixedSize()
             }
 
@@ -89,24 +77,11 @@ struct BrewControlsView: View {
             }
 
             BeersSettingRow(label: "Where the pill pours", hint: "The listening pill's spot on screen") {
-                Menu {
-                    ForEach(HUDPosition.allCases) { position in
-                        Button(position.displayName) { appState.hudPosition = position }
-                    }
-                } label: {
-                    BeersChip(fill: Beers.cream) {
-                        HStack(spacing: 7) {
-                            Text(appState.hudPosition.displayName)
-                                .font(Beers.ui(13, .semibold))
-                            Text("▾")
-                                .font(Beers.ui(12, .semibold))
-                                .foregroundStyle(Beers.amber)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
+                BeersDropdown(
+                    options: HUDPosition.allCases,
+                    title: \.displayName,
+                    selection: $appState.hudPosition
+                )
                 .fixedSize()
             }
 
