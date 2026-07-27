@@ -114,6 +114,16 @@ struct FirstRoundView: View {
         }
     }
 
+    /// True when the grant being guided is the only one still missing, i.e.
+    /// finishing it triggers the single relaunch.
+    private var isLastGuidedGrant: Bool {
+        switch guiding {
+        case .accessibility: return appState.inputMonitoringGranted
+        case .inputMonitoring: return appState.accessibilityGranted
+        case nil: return true
+        }
+    }
+
     private func advanceGuide() {
         if !appState.accessibilityGranted {
             guiding = .accessibility
@@ -174,6 +184,18 @@ struct FirstRoundView: View {
             }
             .padding(.top, guiding == nil ? 6 : 2)
 
+            // Beers restarts itself once both System Settings grants are on,
+            // because neither applies to an already-running process. If someone
+            // walks away after granting only one, nothing would restart them —
+            // this is the way out of that state.
+            if (appState.accessibilityGranted || appState.inputMonitoringGranted)
+                && !(appState.accessibilityGranted && appState.inputMonitoringGranted) {
+                Button("Restart Beers to apply") {
+                    appState.relaunchToApplyPermissions()
+                }
+                .buttonStyle(BeersButtonStyle(kind: .ghost, small: true))
+            }
+
             if let guiding, forceGuideForSnapshot || !isGranted(guiding) {
                 guidePanel(for: guiding)
                     .transition(.scale(scale: 0.9).combined(with: .opacity))
@@ -212,7 +234,12 @@ struct FirstRoundView: View {
                 VStack(alignment: .leading, spacing: 7) {
                     guideLine("1", "Beers not in the list? Drag this bottle straight in.")
                     guideLine("2", "Flip the Beers switch on.")
-                    guideLine("3", "Beers restarts itself and lands right back here.")
+                    // Beers now holds the restart until BOTH System Settings
+                    // grants are on, so promising a restart here would be a lie
+                    // on the first of the two.
+                    guideLine("3", isLastGuidedGrant
+                        ? "Beers restarts itself and lands right back here."
+                        : "Then one more, and Beers restarts itself once.")
                 }
             }
             .padding(.top, 2)
