@@ -7,8 +7,16 @@ struct TaproomView: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject var store: PourStore
     @ObservedObject private var updater = UpdateController.shared
-    @State private var filter: TapFilter = .all
+    @State private var filter: TapFilter
     @State private var search = ""
+
+    /// `initialSection` is for the snapshot harness, which renders without a
+    /// live view lifecycle — `.onAppear` never fires, so the deep-link path
+    /// cannot be used to capture a specific section.
+    init(store: PourStore, initialSection: TapFilter = .all) {
+        self.store = store
+        _filter = State(initialValue: initialSection)
+    }
 
     enum TapFilter: Hashable {
         case all
@@ -16,6 +24,11 @@ struct TaproomView: View {
         case keepers
         case app(String)
         case dripTray
+        /// The words Beers mishears and what you meant instead. Lives here
+        /// rather than buried in settings: it is a record of your pours, same
+        /// as the rest of this window, and it is where you notice a word being
+        /// got wrong in the first place.
+        case slurs
 
         var title: String {
             switch self {
@@ -24,6 +37,7 @@ struct TaproomView: View {
             case .keepers: return "Keepers"
             case .app(let name): return name
             case .dripTray: return "The drip tray"
+            case .slurs: return "Drunk slurs"
             }
         }
     }
@@ -37,6 +51,18 @@ struct TaproomView: View {
         .frame(minWidth: 880, minHeight: 560)
         .background(Beers.cream)
         .environment(\.colorScheme, .light)
+        // Consume-and-clear, so returning to the window later does not snap
+        // the user back to whichever section was last deep-linked.
+        .onAppear { consumeRequestedSection() }
+        .onChange(of: appState.requestedTaproomSection) { _, _ in
+            consumeRequestedSection()
+        }
+    }
+
+    private func consumeRequestedSection() {
+        guard let requested = appState.requestedTaproomSection else { return }
+        withAnimation(Beers.spring) { filter = requested }
+        appState.requestedTaproomSection = nil
     }
 
     // MARK: Sidebar
@@ -59,6 +85,7 @@ struct TaproomView: View {
                 navItem(.app(app), emoji: "→")
             }
             navItem(.dripTray, emoji: "🗑")
+            navItem(.slurs, emoji: "🗣")
 
             Spacer()
 
@@ -154,6 +181,8 @@ struct TaproomView: View {
         Group {
             if filter == .pubWall {
                 PubWallView()
+            } else if filter == .slurs {
+                slursSection
             } else {
                 VStack(spacing: 0) {
                     toolbar
@@ -185,6 +214,29 @@ struct TaproomView: View {
                 }
             }
         }
+    }
+
+    /// Speech corrections, sitting alongside the pours they came from. The
+    /// same editor Brew Settings used to hold — it moved here rather than
+    /// being duplicated, so there is one place to teach Beers a word.
+    private var slursSection: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Drunk slurs")
+                        .font(Beers.display(22))
+                        .foregroundStyle(Beers.stout)
+                    Text("What Beers heard, and what you actually meant.")
+                        .font(Beers.ui(12, .medium))
+                        .foregroundStyle(Beers.ink.opacity(0.6))
+                }
+
+                VocabularyEditorView(compact: false, showsTitle: false)
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .onAppear { appState.refreshVocabularySuggestions() }
     }
 
     private var toolbar: some View {
@@ -253,6 +305,7 @@ struct TaproomView: View {
         case .keepers: pours = store.keepers
         case .app(let name): pours = store.active.filter { $0.appName == name }
         case .dripTray: pours = store.dripTray
+        case .slurs: pours = []
         }
         let query = search.trimmingCharacters(in: .whitespaces)
         if !query.isEmpty {
