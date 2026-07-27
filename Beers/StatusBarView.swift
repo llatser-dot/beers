@@ -8,6 +8,7 @@ struct StatusBarView: View {
     @ObservedObject private var updater = UpdateController.shared
     @Environment(\.openSettings) private var openSettings
     @Environment(\.dismiss) private var dismiss
+    @State private var inputDeviceName = AudioRecorder.currentInputDisplayName()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -18,7 +19,15 @@ struct StatusBarView: View {
         .frame(width: 308)
         .background(Beers.paper)
         .environment(\.colorScheme, .light)
-        .onAppear { appState.refreshPermissions() }
+        .onAppear {
+            appState.refreshPermissions()
+            // The popover is rebuilt each time it opens, but a device can
+            // change while it is on screen.
+            inputDeviceName = AudioRecorder.currentInputDisplayName()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .beersInputDeviceChanged)) { _ in
+            inputDeviceName = AudioRecorder.currentInputDisplayName()
+        }
     }
 
     // MARK: Header — stout with a bottle-cap scallop cut into its bottom edge
@@ -109,15 +118,18 @@ struct StatusBarView: View {
                 openSettings()
                 NSApp.activate(ignoringOtherApps: true)
             } content: {
+                // The real capture device. This row used to read
+                // "built-in · pinned … no AirPods lag" no matter what was
+                // plugged in, which was wrong for anyone on a USB mic and
+                // meaningless to anyone who never had the AirPods problem.
                 Text("🎙 Mic")
                     .font(Beers.ui(13, .semibold))
-                Text("built-in · pinned")
+                Spacer()
+                Text(inputDeviceName)
                     .font(Beers.ui(12, .medium))
                     .foregroundStyle(Beers.ink.opacity(0.6))
-                Spacer()
-                Text("no AirPods lag")
-                    .font(Beers.ui(11, .semibold))
-                    .foregroundStyle(Beers.hopsDeep)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
 
             popRow {
