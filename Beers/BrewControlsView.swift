@@ -47,7 +47,7 @@ struct BrewControlsView: View {
         HStack(spacing: 12) {
             BeersMenuBadge(size: 44)
             VStack(alignment: .leading, spacing: 1) {
-                Text("Brew Controls")
+                Text("Brew Settings")
                     .font(Beers.display(22))
                     .foregroundStyle(Beers.stout)
                 Text("One screen, no grey, everything on tap.")

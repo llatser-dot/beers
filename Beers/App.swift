@@ -40,7 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let id = window.identifier?.rawValue ?? ""
                 let isAppWindow = id.contains("main")
                     || id.contains("Settings")
-                    || window.title == "Brew Controls"
+                    || window.title == "Brew Settings"
                     || window.title == "Beers"
                 if isAppWindow {
                     window.isRestorable = false
