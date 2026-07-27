@@ -10,3 +10,11 @@ standing-loop/retrain-*.log
 
 # Real-speech + derived training data — LOCAL ONLY, never public
 data/
+
+# Retrain reports quote real dictations verbatim (you cannot review a false
+# DELETE without reading the sentence it fired on). report-20260715.md was
+# committed by mistake and had to be scrubbed from every branch and tag with
+# a history rewrite. The loop writes a new one every Monday, so this rule has
+# to live here rather than in anyone's memory. Metrics-only summaries are
+# fine to commit; the reports themselves are not.
+standing-loop/report-*.md
