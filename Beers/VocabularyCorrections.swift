@@ -15,9 +15,34 @@ struct VocabularyCorrection: Identifiable, Codable, Equatable {
 enum VocabularyCorrections {
     private static let correctionsKey = "vocabularyCorrections"
     private static let seedVersionKey = "vocabularyCorrectionsSeedVersion"
-    private static let currentSeedVersion = 4
+    private static let currentSeedVersion = 5
 
-    private static let seededCorrections = [
+    /// Spoken-punctuation rules that apply to everyone. These are NOT part of
+    /// the Brewer's Dictionary: they are always on, never listed and never
+    /// editable, because the dictionary is meant to show what *you* taught
+    /// Beers. A user entry with the same `heard` always wins.
+    private static let builtInCorrections = [
+        VocabularyCorrection(heard: "dot co dot uk", replacement: ".co.uk"),
+        VocabularyCorrection(heard: "dot gov dot uk", replacement: ".gov.uk"),
+        VocabularyCorrection(heard: "dot ac dot uk", replacement: ".ac.uk"),
+        VocabularyCorrection(heard: "dot com", replacement: ".com"),
+        VocabularyCorrection(heard: "dot info", replacement: ".info"),
+        VocabularyCorrection(heard: "dot org", replacement: ".org"),
+        VocabularyCorrection(heard: "dot net", replacement: ".net"),
+        VocabularyCorrection(heard: "dot ai", replacement: ".ai"),
+        VocabularyCorrection(heard: "dot io", replacement: ".io"),
+        VocabularyCorrection(heard: "dot dev", replacement: ".dev"),
+        VocabularyCorrection(heard: "dot co", replacement: ".co"),
+        VocabularyCorrection(heard: "dot uk", replacement: ".uk"),
+        VocabularyCorrection(heard: "dot", replacement: ".")
+    ]
+
+    /// Entries earlier versions injected into the user's own list on first run.
+    /// They made the dictionary look pre-filled with words the user never
+    /// taught it — including brand names that mean nothing to anyone else.
+    /// Removed on upgrade unless the user has since edited the replacement,
+    /// in which case it is genuinely theirs and is kept.
+    private static let retiredSeeds = [
         VocabularyCorrection(heard: "dot co dot uk", replacement: ".co.uk"),
         VocabularyCorrection(heard: "dot gov dot uk", replacement: ".gov.uk"),
         VocabularyCorrection(heard: "dot ac dot uk", replacement: ".ac.uk"),
@@ -38,16 +63,21 @@ enum VocabularyCorrections {
         VocabularyCorrection(heard: "Ladser", replacement: "Llatser")
     ]
 
+    /// Strip the old injected seeds out of the user's list so the dictionary
+    /// shows only what they added themselves. The spoken-punctuation rules
+    /// keep working — they moved to `builtInCorrections`.
     static func ensureSeeded() {
         let defaults = UserDefaults.standard
         guard defaults.integer(forKey: seedVersionKey) < currentSeedVersion else { return }
 
-        var corrections = load()
-        for seed in seededCorrections where !contains(corrections, heard: seed.heard) {
-            corrections.append(seed)
+        let cleaned = load().filter { entry in
+            !retiredSeeds.contains { seed in
+                seed.heard.trimmed.caseInsensitiveCompare(entry.heard.trimmed) == .orderedSame
+                    && seed.replacement.trimmed == entry.replacement.trimmed
+            }
         }
 
-        save(corrections)
+        save(cleaned)
         defaults.set(currentSeedVersion, forKey: seedVersionKey)
     }
 
@@ -65,7 +95,10 @@ enum VocabularyCorrections {
     }
 
     static func apply(to text: String) -> String {
-        let corrections = load()
+        let user = load()
+        // Built-ins first, then the user's own, so a user entry with the same
+        // `heard` overrides the built-in rather than fighting it.
+        let corrections = (builtInCorrections.filter { !contains(user, heard: $0.heard) } + user)
             .filter { !$0.heard.trimmed.isEmpty && !$0.replacement.trimmed.isEmpty }
             .sorted { $0.heard.count > $1.heard.count }
 
