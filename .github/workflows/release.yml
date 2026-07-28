@@ -36,7 +36,41 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Without this gate the release job runs on every v* tag, gets an empty
+  # DEVELOPER_ID_CERT_P12, and fails red at the signing step — which is exactly
+  # what happened on v1.3.2. A tag pushed before the secrets exist should skip
+  # quietly and leave the manual path (docs/RELEASING.md) to do the work.
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - id: check
+        shell: bash
+        env:
+          CERT_P12: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          missing=""
+          for name in CERT_P12 CERT_PASSWORD SPARKLE_ED_PRIVATE_KEY \
+                      ASC_API_KEY_P8 ASC_API_KEY_ID ASC_API_ISSUER_ID; do
+            [ -n "${!name:-}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Automated release skipped — missing secrets:$missing. Release manually per docs/RELEASING.md."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
   release:
+    needs: preflight
+    if: needs.preflight.outputs.ready == 'true'
     runs-on: macos-15
     timeout-minutes: 90
     env:
