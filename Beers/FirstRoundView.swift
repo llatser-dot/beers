@@ -117,16 +117,6 @@ struct FirstRoundView: View {
         }
     }
 
-    /// True when the grant being guided is the only one still missing, i.e.
-    /// finishing it triggers the single relaunch.
-    private var isLastGuidedGrant: Bool {
-        switch guiding {
-        case .accessibility: return appState.inputMonitoringGranted
-        case .inputMonitoring: return appState.accessibilityGranted
-        case nil: return true
-        }
-    }
-
     private func advanceGuide() {
         if !appState.accessibilityGranted {
             guiding = .accessibility
@@ -192,10 +182,8 @@ struct FirstRoundView: View {
             }
             .padding(.top, guiding == nil ? 6 : 2)
 
-            // Beers restarts itself once both System Settings grants are on,
-            // because neither applies to an already-running process. If someone
-            // walks away after granting only one, nothing would restart them —
-            // this is the way out of that state.
+            // Manual fallback for a grant that is already visible to TCC but
+            // did not trigger the normal automatic reopen.
             if (appState.accessibilityGranted || appState.inputMonitoringGranted)
                 && !(appState.accessibilityGranted && appState.inputMonitoringGranted) {
                 Button("Restart Beers to apply") {
@@ -242,13 +230,8 @@ struct FirstRoundView: View {
 
                 VStack(alignment: .leading, spacing: 7) {
                     guideLine("1", "Press and drag the Beers logo into the \(grant.listName) app list.")
-                    guideLine("2", "When Beers appears, turn its switch on.")
-                    // Beers now holds the restart until BOTH System Settings
-                    // grants are on, so promising a restart here would be a lie
-                    // on the first of the two.
-                    guideLine("3", isLastGuidedGrant
-                        ? "Beers restarts itself and lands right back here."
-                        : "Then one more, and Beers restarts itself once.")
+                    guideLine("2", "Drop it into the app list.")
+                    guideLine("3", "Turn the switch on. Beers reopens itself right back here.")
                 }
             }
             .padding(.top, 2)

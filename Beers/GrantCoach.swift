@@ -268,7 +268,7 @@ struct GrantCoachView: View {
             }
 
             if granted {
-                Text("\(grant.listName) is on. You can close this.")
+                Text("\(grant.listName) is on. Reopening Beers…")
                     .font(Beers.ui(12, .medium))
                     .foregroundStyle(Beers.ink.opacity(0.7))
                     .multilineTextAlignment(.center)
@@ -308,7 +308,7 @@ struct GrantCoachView: View {
                 VStack(alignment: .leading, spacing: 7) {
                     line("1", "Press and hold the Beers logo.")
                     line("2", "Drag it into the \(grant.listName) app list.")
-                    line("3", "When Beers appears, turn its switch on.")
+                    line("3", "Turn its switch on. Beers reopens itself.")
                 }
 
                 HStack(spacing: 6) {
