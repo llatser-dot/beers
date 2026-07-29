@@ -209,7 +209,7 @@ struct FirstRoundView: View {
                 guidePanel(for: guiding)
                     .transition(.scale(scale: 0.9).combined(with: .opacity))
             } else if !allPermissionsGranted {
-                Text("Tap a grant and Beers walks you through it — no hunting through System Settings.")
+            Text("Tap a grant and Beers opens the right System Settings page.")
                     .font(Beers.ui(11, .medium))
                     .foregroundStyle(Beers.ink.opacity(0.5))
                     .multilineTextAlignment(.center)
