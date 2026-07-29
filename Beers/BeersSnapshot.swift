@@ -6,6 +6,25 @@ import SwiftUI
 /// `--beers-snapshot` and every surface renders to /tmp/beers-snapshots
 /// as PNGs, then the app exits. No screen recording required.
 enum BeersSnapshot {
+    static var isRunning: Bool {
+        CommandLine.arguments.contains("--beers-snapshot")
+    }
+
+    /// Synthetic, in-memory-only examples for public screenshots. The snapshot
+    /// path must never render or mutate the user's real Brewer's Dictionary.
+    static let demoCorrections = [
+        VocabularyCorrection(heard: "git hub", replacement: "GitHub"),
+        VocabularyCorrection(heard: "type script", replacement: "TypeScript"),
+        VocabularyCorrection(heard: "post grass", replacement: "Postgres"),
+        VocabularyCorrection(heard: "core ml", replacement: "Core ML"),
+    ]
+
+    private static let demoSuggestions = [
+        VocabularySuggestion(heard: "web kit", replacement: "WebKit", count: 4),
+        VocabularySuggestion(heard: "swift you eye", replacement: "SwiftUI", count: 3),
+        VocabularySuggestion(heard: "app kit", replacement: "AppKit", count: 2),
+    ]
+
     /// Route-change resilience test: `--beers-route-test` records ~6s of
     /// audio while firing the same route-change path an AirPods/headphone
     /// connect fires mid-pour, then asserts the capture survived. Before the
@@ -130,21 +149,21 @@ enum BeersSnapshot {
 
         // Synthetic correction records mirroring FlywheelLog.recordCorrection's
         // wire format. Cases exercised:
-        //  A. Substitution "Latzra"->"Llatser", seen twice (should surface).
-        //  B. Merge "plan watch"->"PlanWatch" via [del,sub], seen twice (surface).
+        //  A. Substitution "Kubernettes"->"Kubernetes", seen twice (surface).
+        //  B. Merge "type script"->"TypeScript" via [del,sub], seen twice (surface).
         //  C. Grammar "i"->"I" pure casing (should NOT surface).
         //  D. Homophone "there"->"their" both lowercase (should NOT surface).
-        //  E. Single occurrence "Kubernettes"->"Kubernetes" (below >=2, no surface).
+        //  E. Single occurrence "Postgress"->"Postgres" (below >=2, no surface).
         let records = [
-            #"{"ts":"t1","type":"correction","pourTs":"p1","app":"Notes","served":"ship the Latzra build","corrected":"ship the Llatser build","changedWords":[[2,"Latzra","Llatser"]]}"#,
-            #"{"ts":"t2","type":"correction","pourTs":"p2","app":"Slack","served":"tell Latzra team","corrected":"tell Llatser team","changedWords":[[1,"Latzra","Llatser"]]}"#,
-            #"{"ts":"t3","type":"correction","pourTs":"p3","app":"Mail","served":"open plan watch now","corrected":"open PlanWatch now","changedWords":[[1,"plan",null],[2,"watch","PlanWatch"]]}"#,
-            #"{"ts":"t4","type":"correction","pourTs":"p4","app":"Notes","served":"the plan watch report","corrected":"the PlanWatch report","changedWords":[[1,"plan",null],[2,"watch","PlanWatch"]]}"#,
+            #"{"ts":"t1","type":"correction","pourTs":"p1","app":"Notes","served":"deploy to Kubernettes","corrected":"deploy to Kubernetes","changedWords":[[2,"Kubernettes","Kubernetes"]]}"#,
+            #"{"ts":"t2","type":"correction","pourTs":"p2","app":"Slack","served":"check the Kubernettes cluster","corrected":"check the Kubernetes cluster","changedWords":[[2,"Kubernettes","Kubernetes"]]}"#,
+            #"{"ts":"t3","type":"correction","pourTs":"p3","app":"Mail","served":"open the type script file","corrected":"open the TypeScript file","changedWords":[[2,"type",null],[3,"script","TypeScript"]]}"#,
+            #"{"ts":"t4","type":"correction","pourTs":"p4","app":"Notes","served":"the type script build","corrected":"the TypeScript build","changedWords":[[1,"type",null],[2,"script","TypeScript"]]}"#,
             #"{"ts":"t5","type":"correction","pourTs":"p5","app":"Notes","served":"i think so","corrected":"I think so","changedWords":[[0,"i","I"]]}"#,
             #"{"ts":"t6","type":"correction","pourTs":"p6","app":"Notes","served":"i think so","corrected":"I think so","changedWords":[[0,"i","I"]]}"#,
             #"{"ts":"t7","type":"correction","pourTs":"p7","app":"Notes","served":"put there bags down","corrected":"put their bags down","changedWords":[[1,"there","their"]]}"#,
             #"{"ts":"t8","type":"correction","pourTs":"p8","app":"Notes","served":"put there bags down","corrected":"put their bags down","changedWords":[[1,"there","their"]]}"#,
-            #"{"ts":"t9","type":"correction","pourTs":"p9","app":"Notes","served":"deploy to Kubernettes","corrected":"deploy to Kubernetes","changedWords":[[2,"Kubernettes","Kubernetes"]]}"#,
+            #"{"ts":"t9","type":"correction","pourTs":"p9","app":"Notes","served":"check Postgress locally","corrected":"check Postgres locally","changedWords":[[1,"Postgress","Postgres"]]}"#,
         ]
         let result = VocabularySuggestions.runScan(onRecords: records, existing: [])
         llog("BeersSnapshot: VOCAB SUGGEST TEST — \(result.count) suggestion(s)")
@@ -297,12 +316,8 @@ enum BeersSnapshot {
             // Seed correction-driven vocabulary suggestions so the Brewer's
             // Dictionary crate renders its "Suggestions from your fixes" section
             // (mirrors how seededStore() seeds the Taproom's pours).
-            appState.vocabularySuggestions = [
-                VocabularySuggestion(heard: "plan watch", replacement: "PlanWatch", count: 4),
-                VocabularySuggestion(heard: "Latzra", replacement: "Llatser", count: 3),
-                VocabularySuggestion(heard: "track forge", replacement: "TrackForge", count: 2),
-            ]
-            snap(BrewControlsView().environmentObject(appState),
+            appState.vocabularySuggestions = demoSuggestions
+            snap(BrewControlsView(snapshotInputDeviceName: "MacBook Microphone").environmentObject(appState),
                  size: CGSize(width: 560, height: 720), name: "brew-controls", in: dir)
 
             // Focused capture of the Brewer's Dictionary crate — the suggestions
@@ -330,27 +345,27 @@ enum BeersSnapshot {
             ) {
                 BeersSettingRow(
                     label: "Learn from my pours",
-                    hint: "Logs each pour to a local file so your own cleanup model can train"
+                    hint: "Private local learning record"
                 ) {
                     Toggle("", isOn: .constant(true))
                         .labelsHidden().toggleStyle(BeersToggleStyle())
                 }
                 BeersSettingRow(
                     label: "Watch my fixes",
-                    hint: "Also logs the keyboard corrections you make just after a pour"
+                    hint: "Finds dictionary entries in your fixes"
                 ) {
                     Toggle("", isOn: .constant(true))
                         .labelsHidden().toggleStyle(BeersToggleStyle())
                 }
                 BeersSettingRow(
                     label: "Bouncer on the door",
-                    hint: "Research paused after failing the real-speech precision gate"
+                    hint: "On-device cleanup research is parked until it meets the accuracy gate"
                 ) {
                     BeersChip { Text("Parked") }
                 }
                 BeersSettingRow(
                     label: "Capture ASR benchmark audio",
-                    hint: "Opt in to local audio + raw transcripts for same-audio engine tests"
+                    hint: "Optional local audio capture for comparing speech engines"
                 ) {
                     Toggle("", isOn: .constant(false))
                         .labelsHidden().toggleStyle(BeersToggleStyle())
@@ -424,9 +439,9 @@ enum BeersSnapshot {
         // (a taproom screenshot of real dictations is a privacy leak).
         let store = PourStore(inMemory: true)
         let samples: [(String, String, TimeInterval)] = [
-            ("Send the invoice over to Dave and cc the accountant, tell him it's the March one.", "Mail", 19),
-            ("Standup notes — shipped the tunnel fix, blocked on the cert, next up the retry queue.", "Slack", 12),
-            ("Idea: the onboarding should literally pour the first beer for you.", "Notes", 48),
+            ("Please move Thursday’s workshop to 2 pm and add the updated brief to the invite.", "Mail", 18),
+            ("Today: finish the release notes, review the pull request, then test the new onboarding flow.", "Slack", 14),
+            ("Draft the launch note: Beers runs on your Mac and never sends audio to a server.", "Notes", 17),
         ]
         for (text, app, duration) in samples {
             store.add(Pour(text: text, appName: app, duration: duration))

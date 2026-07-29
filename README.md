@@ -1,271 +1,202 @@
 <div align="center">
+  <img src="web/brand/logo-framed.png" alt="Beers" width="180">
 
-# 🍺 Beers
+  <h1>Push-to-talk dictation for macOS</h1>
 
-**Open-source push-to-talk dictation for macOS.**
+  <p>
+    Hold a key. Speak. Release. Your words land at the cursor.<br>
+    Fast, private and open source — with no cloud, account or subscription.
+  </p>
 
-Hold a key, say the thing, let go — the words land wherever your cursor is.
-On-device speech recognition. No cloud, account or subscription required.
+  <p>
+    <a href="https://github.com/llatser-dot/beers/releases/latest"><strong>Download Beers</strong></a>
+    ·
+    <a href="https://llatser-dot.github.io/beers/">Website</a>
+    ·
+    <a href="#build-from-source">Build from source</a>
+  </p>
 
+  <p>
+    <a href="https://github.com/llatser-dot/beers/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/llatser-dot/beers?style=flat-square&color=F05E1C"></a>
+    <a href="https://github.com/llatser-dot/beers/actions/workflows/release-readiness.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/llatser-dot/beers/release-readiness.yml?branch=main&style=flat-square&label=build"></a>
+    <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-1B2142?style=flat-square">
+    <img alt="Apple silicon" src="https://img.shields.io/badge/Apple%20silicon-required-1B2142?style=flat-square">
+    <a href="LICENSE"><img alt="Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-F8AE21?style=flat-square"></a>
+  </p>
 </div>
 
----
+![The Beers Taproom showing searchable dictation history](docs/screenshots/taproom.png)
 
-Beers turns your voice into text in any app on your Mac. Hold your pour key, talk,
-release — the transcript pastes straight at the cursor, whether that's Mail, Slack,
-a terminal, or your editor. In Beers-speak, one dictation is a **pour**, and every
-1,000 words you pour **pulls a pint**.
+Beers is a native menu-bar app for Apple silicon Macs. It runs
+[Parakeet](https://github.com/FluidInference/FluidAudio) locally through Core ML,
+then pastes the result into whichever app you are using. A dictation is a
+**pour**; every 1,000 words **pulls a pint**.
 
-Everything that matters runs **on your machine**. Transcription is
-[Parakeet v3](https://github.com/FluidInference/FluidAudio) (multilingual) or v2
-(English) via FluidAudio, executed locally through Core ML. Your voice
-never touches a server.
+## Install
 
-## Why Beers
+1. Download `Beers-<version>.app.zip` from the
+   [latest release](https://github.com/llatser-dot/beers/releases/latest).
+2. Unzip it and drag **Beers.app** into **Applications**.
+3. Open Beers, grant Microphone, Input Monitoring and Accessibility, then hold
+   **Right Option** to talk.
 
-- **On-device by default.** Speech-to-text is local. There is no API to call, no
-  key to paste, nothing to sign up for. Beers keeps its data in a couple of
-  folders under your home Library (pours, the flywheel log, downloaded models);
-  removing it is a short checklist — see [Uninstall](#uninstall).
-- **Parakeet-first by design.** Ordinary pours now take the shortest trustworthy
-  path: Parakeet → minimal artefact cleanup → your explicit vocabulary corrections → paste. There is no
-  automatic generative rewrite, deletion model or ramble gate in the default path.
-  The former deterministic cleanup rules remain available as an off-by-default
-  comparison mode.
-- **No Ollama tax.** Beers cannot launch, prewarm or call Ollama, and it has no
-  external text-model endpoint in the production app. Optional Command Mode uses
-  only Apple's system-managed on-device model when the Mac supports it; otherwise
-  it fails closed without starting another process.
-- **The Bouncer is parked research.** The bundled disfluency tagger can only
-  delete words, never invent them, but three versions failed the real-speech
-  precision gate. The latest reached 0.222 DELETE precision against a required
-  0.98, so it does not run in the production path. Its local flywheel and frozen
-  evaluation harness remain for future evidence-led work; activation can happen
-  only after a reviewed model passes both gold and held-out real exams. The full
-  story is in [`ml/DESIGN.md`](ml/DESIGN.md).
-- **It learns your words.** Beers watches the keyboard corrections you make in the
-  couple of minutes after a paste and turns them into vocabulary suggestions — so
-  "plan watch" becomes "PlanWatch" next time, without you teaching it by hand.
-- **Private, actually.** Dictation stays on your Mac and there is no telemetry or
-  remote transcript-rewrite endpoint. The training-data directory is
-  gitignored — even the author's own dictation isn't in this repo — and Beers
-  itself has no upload path for the flywheel records.
+Published builds are Developer ID signed, Apple-notarised and Sparkle-signed.
+Beers checks for updates from the signed [`appcast.xml`](appcast.xml).
 
-## Screenshots
+**Requirements:** Apple silicon and macOS 14 Sonoma or later.
 
-**The Taproom** — every pour you've served, searchable, grouped by app, with your
-streak and Keepers (the pours worth saving).
+## What makes it different
 
-![Beers Taproom — searchable dictation history](docs/screenshots/taproom.png)
+- **Local speech recognition.** Audio is transcribed on your Mac. Ordinary pours
+  have no server call and no API key.
+- **The shortest trustworthy path.** Parakeet → minimal transcript sanitation →
+  optional legacy rule polish → your dictionary → paste.
+- **Learns the words that matter.** Drunk Slurs turns repeated keyboard
+  corrections into one-tap dictionary suggestions.
+- **Works wherever the cursor works.** Mail, Messages, Notes, browsers, editors,
+  terminals and most native Mac apps.
+- **Useful history without a data account.** The Taproom keeps searchable pours,
+  Keepers, app filters and streaks locally.
+- **Optional on-device commands.** On supported Macs, Shift + pour key can apply
+  a spoken edit to selected text using Apple’s system-managed on-device model.
+- **A personality, not another grey settings panel.** Beers counts words, pulls
+  pints and can opt into the public Pub Wall without turning dictation into a
+  social account.
 
-**Brew Settings** — one screen, everything on tap: pour key, where the words land,
-sounds, the listening pill's position, and your local brew engine.
+## Inside Beers
 
-![Beers Brew Settings](docs/screenshots/brew-controls.png)
+<table>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/drunk-slurs.png" alt="Drunk Slurs dictionary and correction editor">
+      <br><strong>Drunk Slurs</strong><br>
+      Teach Beers what it heard and what you meant.
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/brew-controls.png" alt="Beers Brew Settings">
+      <br><strong>Brew Settings</strong><br>
+      Hotkey, microphone, engine, paste behaviour and local learning controls.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/little-black-book.png" alt="Beers local learning and privacy controls">
+      <br><strong>The Little Black Book</strong><br>
+      Local learning is visible, optional and deletable.
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/first-round.png" alt="Beers first-run permissions guide">
+      <br><strong>First Round</strong><br>
+      A guided, plain-English permissions setup.
+    </td>
+  </tr>
+</table>
 
-**The Little Black Book** — every learning feature on one switchboard, with the
-promise printed right on it: Beers never uploads those learning records.
+Every image above comes from the real SwiftUI views through the repository’s
+off-screen snapshot harness. It uses synthetic, in-memory data and never reads
+the maintainer’s pour history or personal dictionary.
 
-![Beers privacy controls — The Little Black Book](docs/screenshots/little-black-book.png)
+## How a pour moves
 
-## Features
+```mermaid
+flowchart LR
+    A["Hold Right Option"] --> B["16 kHz audio"]
+    B --> C["Parakeet on Core ML"]
+    C --> D["Minimal sanitation"]
+    D --> E["Optional rule polish"]
+    E --> F["Your dictionary"]
+    F --> G["Paste at the cursor"]
+```
 
-| Feature | What it does |
-|---|---|
-| **Push-to-talk** | Hold the pour key (Right Option ⌥ by default, configurable), speak, release. Text pastes at the cursor. |
-| **Command Mode** | On supported Macs, hold **Shift + pour key** over selected text and say the edit ("make this a bullet list"); Apple's system-managed on-device model rewrites the selection in place. |
-| **Optional legacy polish** | Off by default. Enables the former rule-based writing modes for controlled comparison against Fast Parakeet. |
-| **The Taproom** | Searchable history of every pour, grouped by day and app, with Keepers (starred), the drip tray (trash), and your daily streak. |
-| **Listening HUD** | A compact "pour" pill (position configurable, notch-friendly) shows the live state — taking order → pouring → settling → served — plus your running pint count. |
-| **Drunk Slurs** | Lives in the Taproom, next to the pours it came from: maps what Beers *heard* to what you *meant*, and auto-suggests fixes harvested from your keyboard corrections. |
-| **Pint leaderboard** | Opt in from the Taproom with a verified private email and unique public `@handle`; 1,000 words = 1 pint on the live community Pub Wall. The service receives aggregate word/pour counts, never transcripts or audio. The [complete boundary is public](pubwall/README.md). |
+Parakeet v3 is the default multilingual engine; v2 remains available for
+English. The optional legacy rule polish is user-controlled and currently
+enabled in the standard new-install profile. There is no production Ollama or
+remote rewrite path.
 
-## Download
+## Privacy
 
-Grab the latest release from **[Releases](https://github.com/llatser-dot/beers/releases/latest)**
-— no Xcode, no build step:
+Beers is deliberately explicit about its boundaries:
 
-1. Download `Beers-<version>.app.zip` and unzip it.
-2. Drag **Beers.app** into **Applications** and open it. The release is signed
-   and notarised by Apple, so it opens without any Gatekeeper detour.
-3. Grant **Microphone**, **Accessibility** and **Input Monitoring** when asked,
-   then hold **Right Option** and speak.
+- Microphone audio is used for local transcription and is not uploaded.
+- Pour history, local learning records and keyboard corrections stay under
+  `~/Library/Application Support/Beers/`.
+- ASR benchmark audio capture is separate, local-only and **off by default**.
+- The app has no telemetry and no remote transcript-rewrite endpoint.
+- The optional Pub Wall sends a public handle and aggregate word/pour counts.
+  It never receives transcripts or audio; its complete boundary is documented in
+  [`pubwall/README.md`](pubwall/README.md).
+- The separate reference retraining loop under `ml/standing-loop/` is not
+  installed or run by the app. If an operator chooses to run it, its own
+  documentation makes the external model boundary explicit.
 
-Prefer a guided install? `Beers.AirDrop.zip` on the same page bundles an
-installer script that copies the app to /Applications for you.
+Use **Pour it away** to remove local learning and benchmark records. Use
+**Smash the glasses** to clear Taproom history.
 
-Apple Silicon only. Everything runs on-device.
+## Build from source
 
-## Install from source
-
-Prefer to build it yourself? It's a one-command build once you have the tools.
-
-### Requirements
-
-- **macOS 14.0 or later** (Sonoma+).
-- **Apple Silicon** (M1 or newer). This is the only supported public target;
-  Parakeet runs locally through Core ML. Intel runtime behaviour has not been
-  validated.
-- **Full Xcode** (not just the Command Line Tools). `install.sh` runs
-  `xcodebuild … archive`, which needs a complete Xcode install — install Xcode
-  from the App Store, launch it once, and make sure `xcode-select -p` points at
-  `…/Xcode.app/Contents/Developer` (if it still points at
-  `/Library/Developer/CommandLineTools`, run
-  `sudo xcode-select -s /Applications/Xcode.app`). You need a working toolchain
-  with a team signed in, *or* let the installer mint a stable local code-signing
-  certificate for you.
-- **XcodeGen** — `brew install xcodegen`. The Xcode project is generated from
-  `project.yml`, not committed.
-- **Git LFS** — `brew install git-lfs && git lfs install`. The Bouncer Core ML model
-  (`Bouncer.mlpackage`) is stored via Git LFS. If you clone without LFS you'll get a
-  pointer file instead of the model and the build will fail — run `git lfs install`
-  **before** cloning, or `git lfs pull` inside the checkout afterward.
-
-### Build & install
+You need full Xcode, [XcodeGen](https://github.com/yonaskolb/XcodeGen) and
+[Git LFS](https://git-lfs.com/).
 
 ```sh
+brew install xcodegen git-lfs
+git lfs install
 git clone https://github.com/llatser-dot/beers.git
 cd beers
-git lfs pull                      # if you didn't `git lfs install` before cloning
+git lfs pull
 BEERS_ALLOW_LOCAL_SIGNING=1 ./install.sh
 ```
 
-`install.sh` first tries a proper Developer ID build (for maintainers who have the
-certificate and set `BEERS_TEAM_ID`). Without that configuration,
-`BEERS_ALLOW_LOCAL_SIGNING=1` tells it to build and
-sign with a **stable local identity** instead — the installer creates that identity
-automatically on a fresh machine, so you don't need any Apple certificate to get
-running. It builds a Release binary, installs to `/Applications/Beers.app`, cleans
-up stray build copies, and launches the app.
+The installer generates the Xcode project from [`project.yml`](project.yml),
+builds the app and uses a stable local signing identity so macOS privacy grants
+survive rebuilds. Maintainers with Developer ID configured can set
+`BEERS_TEAM_ID`.
 
-> The local signing identity is deliberate: it keeps your macOS privacy grants
-> stable across rebuilds. Ad-hoc signing (`codesign -s -`) would re-key permissions
-> on every build and force you to re-grant them constantly — Beers never does that.
-> On a Mac with no usable signing identity, the installer creates a ten-year
-> `Beers Local Code Signing` certificate and private key in your login
-> keychain and trusts that certificate for code signing on this Mac only.
-
-### Permissions it will ask for
-
-On first launch, Beers requests three macOS privacy permissions. Each maps to one
-job, and it won't work without them:
-
-| Permission | Why |
-|---|---|
-| **Microphone** | To hear you. The mic is only live while the pour key is held. |
-| **Input Monitoring** | To detect your global pour-key hold from any app. |
-| **Accessibility** | To paste the transcript at your cursor, and to read the current selection for Command Mode. |
-
-Grant all three once when prompted. Because the build is signed with a stable
-identity, future rebuilds keep the grants — you shouldn't have to do this again.
-
-### A note on Gatekeeper
-
-A self-built copy is **self-signed** with your local identity. It runs fine on your
-own machine; the first launch may need a right-click → **Open** to get past
-Gatekeeper. A copy you build yourself is **not** notarised, so you can't hand that
-`.app` to someone else and have it open cleanly. The published
-[releases](https://github.com/llatser-dot/beers/releases/latest) are signed and
-notarised, so those open normally — build from source for hacking on it, download a
-release to just use it.
-
-### First-run models
-
-The Parakeet speech models download automatically on first use (a few hundred MB,
-once) to:
-
-```
-~/Library/Application Support/FluidAudio/Models/
-```
-
-### Uninstall
-
-Beers is honest about where it puts things, so a full removal is a short list.
-Deleting the app alone leaves your data and models behind; to remove everything:
-
-- **The app** — delete `/Applications/Beers.app`.
-- **App data** — `~/Library/Application Support/Beers/` (your pours, the
-  `flywheel.jsonl` training log, the `beers.log` app log, and any explicitly
-  opted-in `ASR Benchmarks/` audio).
-- **Speech models** — `~/Library/Application Support/FluidAudio/Models/` (the
-  downloaded Parakeet models cache, a few hundred MB).
-- **Login item** — if you enabled "Open bar at login," remove Beers under
-  **System Settings → General → Login Items**.
-- **Local signing identity** — only if the installer created `Beers Local Code
-  Signing`, remove that certificate and its private key in Keychain Access.
-  Do not remove an Apple Development or Developer ID identity you already had.
-- **Preferences** — `defaults delete com.llatser.listen` (clears saved settings
-  from UserDefaults). That identifier predates the Beers name and is frozen
-  because macOS keys your privacy permissions to it.
-- **Log symlink** — `/tmp/beers.log` (a symlink to the owner-only
-  `beers.log` above; harmless, but tidy it if you like).
-
-Privacy permissions (Microphone, Input Monitoring, Accessibility) can be revoked
-in **System Settings → Privacy & Security** if you want them gone too.
-
-## Verify without installing
-
-Contributors and CI can run the same non-installing release-readiness gate:
+Run the same non-installing readiness gate used by CI:
 
 ```sh
 ./scripts/release-check.sh
 ```
 
-It requires a clean checkout, full Xcode, XcodeGen, Git LFS and Python 3. The
-gate verifies every current LFS object is materialised, exercises transcript
-polish and sanitation, proves the binary contains no Ollama client, and builds an **unsigned arm64**
-Release app in a temporary directory, and checks its bundle metadata and Bouncer
-resources. It never launches or installs the app, touches TCC, signs with a local
-identity, notarises, uploads, deploys or publishes anything.
+## Project map
 
-Passing this gate is necessary, but it is not a public release. A distributable
-build still needs an authorised maintainer to archive with a Developer ID
-Application identity, submit it to Apple for notarisation, staple the accepted
-ticket, verify Gatekeeper on the final artefact, and publish that exact artefact.
+| Area | Purpose |
+|---|---|
+| [`Beers/`](Beers/) | Swift, SwiftUI and Core ML macOS app |
+| [`project.yml`](project.yml) | XcodeGen source of truth |
+| [`ml/`](ml/) | Bouncer research, evaluation and Core ML export |
+| [`pubwall/`](pubwall/) | Optional aggregate leaderboard worker |
+| [`web/`](web/) + [`index.html`](index.html) | GitHub Pages site |
+| [`docs/PROJECT.md`](docs/PROJECT.md) | Canonical architecture and current engineering status |
+| [`docs/RELEASING.md`](docs/RELEASING.md) | Signed, notarised release procedure |
 
-## The flywheel — how the Bouncer learns
-
-Every pour and every keyboard correction is logged **locally only**, to
-`~/Library/Application Support/Beers/flywheel.jsonl` (outside this repo; the app
-never uploads it). A `launchd` standing loop periodically checks whether enough real data
-has accumulated and, if so, retrains the Bouncer on *your* speech, scores it against
-the frozen gold exam plus held-out real dictation, and writes a report. The latest
-v3 run failed and the production path is parked. One honest
-caveat: the committed reference loop (`ml/standing-loop/`) is the author's personal
-automation and uses a cloud LLM agent (Claude) to label the training data — so
-running *that* loop sends flywheel text to Anthropic and requires your own Claude
-access, which may cost money. The app neither installs nor runs the loop;
-nothing retrains unless you set it up yourself, and a fully on-device trainer is
-the roadmap item that closes this gap. It **never**
-activates the model and **never** commits anything — going live is a manual,
-reviewed step. Flywheel logging and correction-watching remain controllable and
-default on; Bouncer execution is parked rather than exposed as a live toggle.
-
-If you'd rather not participate at all, switch off flywheel logging in the app —
-dictation still works exactly the same. Same-audio benchmark capture is a separate
-switch, is off by default, and stores 16 kHz mono WAVs locally until you use the
-confirmed **Pour it away** action. After filling the `gold` fields in its local
-manifest, `scripts/run-asr-benchmark.sh` compares Parakeet v3 auto, v3 English and
-v2 English on identical audio and reports WER, faulty-sentence rate and latency.
-
-## Architecture
-
-- [`docs/PROJECT.md`](docs/PROJECT.md) — the canonical map: repo layout, the cleanup pipeline,
-  Bouncer/flywheel status, and key commands.
-- [`ml/DESIGN.md`](ml/DESIGN.md) — the Bouncer's design: the label scheme, data
-  contract, metrics, and the ship gate.
-- The app is Swift + SwiftUI (macOS), built with XcodeGen; the ML side is Python
-  under `ml/`.
+The experimental Bouncer deletion model is intentionally parked: its real-speech
+precision did not meet the 0.98 ship gate, so it does not run in the production
+dictation path. The research contract and results live in
+[`ml/DESIGN.md`](ml/DESIGN.md).
 
 ## Contributing
 
-Pull up a stool. Issues and PRs are welcome — bug fixes, new writing modes, better
-polish, model work, all of it. Read `docs/PROJECT.md` and `AGENTS.md` first for the lay
-of the land and the house rules (chiefly: the Bouncer only ever deletes, and flywheel
-data never gets an upload path).
+Issues and focused pull requests are welcome. Start with
+[`CONTRIBUTING.md`](CONTRIBUTING.md) for the build, test and privacy rules. If
+you believe you have found a security or privacy issue, use
+[GitHub’s private vulnerability reporting](https://github.com/llatser-dot/beers/security/advisories/new)
+instead of opening a public issue.
 
-## License
+## Uninstall completely
 
-[Apache-2.0](LICENSE). Third-party dependencies, bundled fonts, and downloaded
-models follow their own upstream licenses — see
-[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for the full attributions.
+Remove:
+
+- `/Applications/Beers.app`
+- `~/Library/Application Support/Beers/`
+- `~/Library/Application Support/FluidAudio/Models/`
+- Beers from **System Settings → General → Login Items**, if enabled
+- Beers grants from **System Settings → Privacy & Security**
+- preferences with `defaults delete com.llatser.listen`
+
+The bundle identifier predates the Beers name and is intentionally frozen
+because macOS attaches privacy grants and saved settings to it.
+
+## Licence
+
+Beers is released under the [Apache License 2.0](LICENSE). Third-party licences
+and model notices are listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

@@ -115,6 +115,10 @@ final class AppState: ObservableObject {
     }
     @Published var vocabularyCorrections: [VocabularyCorrection] {
         didSet {
+            // Public screenshot builds use a fixed, synthetic dictionary. Never
+            // let rendering a marketing image overwrite the maintainer's real
+            // vocabulary, and never load that private vocabulary into the view.
+            guard !BeersSnapshot.isRunning else { return }
             VocabularyCorrections.save(vocabularyCorrections)
         }
     }
@@ -164,9 +168,9 @@ final class AppState: ObservableObject {
             UserDefaults.standard.set(hudPosition.rawValue, forKey: "hudPosition")
         }
     }
-    let pourStore = PourStore()
-    let pubWall = PubWallController()
-    let appRecipeStore = AppRecipeStore()
+    let pourStore: PourStore
+    let pubWall: PubWallController
+    let appRecipeStore: AppRecipeStore
     /// The last non-Beers app where a real pour began. Brew Settings only
     /// offers this explicit target; opening settings cannot target Beers.
     @Published private(set) var recipeTargetContext: ActiveAppContext?
@@ -238,42 +242,61 @@ final class AppState: ObservableObject {
     }
 
     init() {
-        VocabularyCorrections.ensureSeeded()
-        Self.applyParakeetFirstMigrationIfNeeded()
+        let snapshotRun = BeersSnapshot.isRunning
+
+        self.pourStore = snapshotRun ? PourStore(inMemory: true) : PourStore()
+        self.pubWall = PubWallController(loadStoredToken: !snapshotRun)
+        self.appRecipeStore = snapshotRun
+            ? AppRecipeStore(
+                defaults: UserDefaults(suiteName: "com.llatser.listen.snapshot")!,
+                storageKey: "appRecipesEnvelope"
+            )
+            : AppRecipeStore()
+
+        if !snapshotRun {
+            VocabularyCorrections.ensureSeeded()
+            Self.applyParakeetFirstMigrationIfNeeded()
+        }
 
         let savedEngine = UserDefaults.standard.string(forKey: "engineChoice")
-        self.engineChoice = DictationEngine.savedValue(savedEngine)
-        self.polishBeforePaste = Self.boolDefaultTrue(forKey: "polishBeforePaste")
+        self.engineChoice = snapshotRun ? .parakeetV3 : DictationEngine.savedValue(savedEngine)
+        self.polishBeforePaste = snapshotRun ? true : Self.boolDefaultTrue(forKey: "polishBeforePaste")
         let savedWritingMode = UserDefaults.standard.string(forKey: "writingMode")
-        self.writingMode = WritingMode(rawValue: savedWritingMode ?? "") ?? WritingPreferences.defaults.mode
-        self.cleanSpeechScaffolding = UserDefaults.standard.bool(forKey: "cleanSpeechScaffolding")
-        self.collapseRepeats = UserDefaults.standard.bool(forKey: "collapseRepeats")
-        self.smartCapitalization = Self.boolDefaultTrue(forKey: "smartCapitalization")
-        self.normalizeLinks = Self.boolDefaultTrue(forKey: "normalizeLinks")
-        self.removeTrailingFullStop = Self.boolDefaultTrue(forKey: "removeTrailingFullStop")
-        self.adaptiveTone = UserDefaults.standard.bool(forKey: "adaptiveTone")
-        self.addSpaceAfterPaste = Self.boolDefaultTrue(forKey: "addSpaceAfterPaste")
-        self.suppressComputerAudio = Self.boolDefaultTrue(forKey: "suppressComputerAudio")
-        self.clinkOnServe = Self.boolDefaultTrue(forKey: "clinkOnServe")
-        self.commandModeEnabled = Self.boolDefaultTrue(forKey: "commandModeEnabled")
-        self.flywheelLoggingEnabled = Self.boolDefaultTrue(forKey: "flywheelLoggingEnabled")
-        self.correctionWatcherEnabled = Self.boolDefaultTrue(forKey: "correctionWatcherEnabled")
-        self.bouncerShadowEnabled = UserDefaults.standard.bool(forKey: "bouncerShadowEnabled")
-        self.asrBenchmarkCaptureEnabled = UserDefaults.standard.bool(forKey: "asrBenchmarkCaptureEnabled")
-        self.hudPosition = HUDPosition.current
-        self.hotkeyChoice = HotkeyOption.savedValue(UserDefaults.standard.string(forKey: "hotkeyChoice"))
+        self.writingMode = snapshotRun
+            ? .clean
+            : (WritingMode(rawValue: savedWritingMode ?? "") ?? WritingPreferences.defaults.mode)
+        self.cleanSpeechScaffolding = snapshotRun ? false : UserDefaults.standard.bool(forKey: "cleanSpeechScaffolding")
+        self.collapseRepeats = snapshotRun ? false : UserDefaults.standard.bool(forKey: "collapseRepeats")
+        self.smartCapitalization = snapshotRun ? true : Self.boolDefaultTrue(forKey: "smartCapitalization")
+        self.normalizeLinks = snapshotRun ? true : Self.boolDefaultTrue(forKey: "normalizeLinks")
+        self.removeTrailingFullStop = snapshotRun ? true : Self.boolDefaultTrue(forKey: "removeTrailingFullStop")
+        self.adaptiveTone = snapshotRun ? false : UserDefaults.standard.bool(forKey: "adaptiveTone")
+        self.addSpaceAfterPaste = snapshotRun ? true : Self.boolDefaultTrue(forKey: "addSpaceAfterPaste")
+        self.suppressComputerAudio = snapshotRun ? true : Self.boolDefaultTrue(forKey: "suppressComputerAudio")
+        self.clinkOnServe = snapshotRun ? true : Self.boolDefaultTrue(forKey: "clinkOnServe")
+        self.commandModeEnabled = snapshotRun ? true : Self.boolDefaultTrue(forKey: "commandModeEnabled")
+        self.flywheelLoggingEnabled = snapshotRun ? true : Self.boolDefaultTrue(forKey: "flywheelLoggingEnabled")
+        self.correctionWatcherEnabled = snapshotRun ? true : Self.boolDefaultTrue(forKey: "correctionWatcherEnabled")
+        self.bouncerShadowEnabled = snapshotRun ? false : UserDefaults.standard.bool(forKey: "bouncerShadowEnabled")
+        self.asrBenchmarkCaptureEnabled = snapshotRun ? false : UserDefaults.standard.bool(forKey: "asrBenchmarkCaptureEnabled")
+        self.hudPosition = snapshotRun ? .topRight : HUDPosition.current
+        self.hotkeyChoice = snapshotRun
+            ? .rightOption
+            : HotkeyOption.savedValue(UserDefaults.standard.string(forKey: "hotkeyChoice"))
 
         // Launch at login is opt-in from Brew Settings; first launch must not
         // silently add a persistent login item.
-        self.launchAtLogin = SMAppService.mainApp.status == .enabled
-        self.vocabularyCorrections = VocabularyCorrections.load()
-        self.microphoneGranted = Permissions.isMicrophoneGranted()
-        self.inputMonitoringGranted = Permissions.isInputMonitoringGranted()
-        self.accessibilityGranted = Permissions.isAccessibilityGranted()
+        self.launchAtLogin = snapshotRun ? false : SMAppService.mainApp.status == .enabled
+        self.vocabularyCorrections = snapshotRun
+            ? BeersSnapshot.demoCorrections
+            : VocabularyCorrections.load()
+        self.microphoneGranted = snapshotRun ? false : Permissions.isMicrophoneGranted()
+        self.inputMonitoringGranted = snapshotRun ? false : Permissions.isInputMonitoringGranted()
+        self.accessibilityGranted = snapshotRun ? false : Permissions.isAccessibilityGranted()
         self.recipeTargetContext = nil
 
         let benchmarkRun = ASRBenchmarkRunner.isRequested
-        if !benchmarkRun {
+        if !benchmarkRun && !snapshotRun {
             audioRecorder.setSuppressComputerAudio(suppressComputerAudio)
             setupHotkey()
             startPermissionMonitor()

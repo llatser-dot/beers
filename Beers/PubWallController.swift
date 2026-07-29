@@ -32,9 +32,9 @@ final class PubWallController: ObservableObject {
     private var initialWords = 0
     private var initialPours = 0
 
-    init(api: PubWallAPI = .live) {
+    init(api: PubWallAPI = .live, loadStoredToken: Bool = true) {
         self.api = api
-        token = PubWallKeychain.token()
+        token = loadStoredToken ? PubWallKeychain.token() : nil
     }
 
     var hasCredential: Bool { token != nil }
