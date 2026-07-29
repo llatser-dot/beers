@@ -19,17 +19,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let allGranted = Permissions.isMicrophoneGranted()
             && Permissions.isInputMonitoringGranted()
             && Permissions.isAccessibilityGranted()
+        let reopenedAfterPermission = CommandLine.arguments.contains("--beers-permission-relaunch")
 
         // Installs that already have every grant never need onboarding.
         if allGranted && !UserDefaults.standard.bool(forKey: "firstRoundDone") {
             UserDefaults.standard.set(true, forKey: "firstRoundDone")
         }
 
-        if !UserDefaults.standard.bool(forKey: "firstRoundDone") {
-            // First run / reset grants: show First Round.
+        if reopenedAfterPermission || !UserDefaults.standard.bool(forKey: "firstRoundDone") {
+            // First run / reset grants: show First Round. A permission-triggered
+            // relaunch must also be visible; a windowless menu-bar restart still
+            // looks like the app failed to come back.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 MainWindowPresenter.shared.show()
-                llog("App: First Round window shown")
+                llog(
+                    reopenedAfterPermission
+                        ? "App: reopened visibly after permission grant"
+                        : "App: First Round window shown"
+                )
             }
         }
     }

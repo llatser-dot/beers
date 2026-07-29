@@ -5,6 +5,7 @@ import IOKit.hid
 
 enum Permissions {
     private struct SystemGrantSnapshot {
+        let microphone: Bool
         let inputMonitoring: Bool
         let accessibility: Bool
     }
@@ -85,14 +86,17 @@ enum Permissions {
     }
 
     /// Remember the grants in place before sending someone to System Settings.
-    /// If macOS later terminates Beers as part of "Quit & Reopen", the app
-    /// delegate can distinguish that from an ordinary user-initiated quit.
+    /// The relaunch helper must be alive before macOS offers "Quit & Reopen":
+    /// that termination can bypass both our permission poll and app delegate.
     static func beginSystemGrantFlow() {
-        guard systemGrantBaseline == nil else { return }
-        systemGrantBaseline = SystemGrantSnapshot(
-            inputMonitoring: isInputMonitoringGranted(),
-            accessibility: isAccessibilityGranted()
-        )
+        if systemGrantBaseline == nil {
+            systemGrantBaseline = SystemGrantSnapshot(
+                microphone: isMicrophoneGranted(),
+                inputMonitoring: isInputMonitoringGranted(),
+                accessibility: isAccessibilityGranted()
+            )
+        }
+        startRelaunchHelper()
     }
 
     /// Called from the app-termination callback. System Settings can terminate
@@ -100,15 +104,18 @@ enum Permissions {
     /// so arm the relaunch here when a grant changed during the guided flow.
     static func prepareRelaunchAfterSystemGrantIfNeeded() {
         guard let baseline = systemGrantBaseline else { return }
+        let microphone = isMicrophoneGranted()
         let inputMonitoring = isInputMonitoringGranted()
         let accessibility = isAccessibilityGranted()
+        let gainedMicrophone = microphone && !baseline.microphone
         let gainedInputMonitoring = inputMonitoring && !baseline.inputMonitoring
         let gainedAccessibility = accessibility && !baseline.accessibility
 
-        guard gainedInputMonitoring || gainedAccessibility else { return }
+        guard gainedMicrophone || gainedInputMonitoring || gainedAccessibility else { return }
         llog(
             "Permissions: terminating after system grant "
-                + "(inputMonitoring=\(gainedInputMonitoring) accessibility=\(gainedAccessibility)); "
+                + "(microphone=\(gainedMicrophone) "
+                + "inputMonitoring=\(gainedInputMonitoring) accessibility=\(gainedAccessibility)); "
                 + "arming relaunch"
         )
         startRelaunchHelper()
@@ -121,10 +128,12 @@ enum Permissions {
         NSApp.terminate(nil)
     }
 
-    /// Launch Services may treat an open request made while Beers is running
-    /// as a request for that same process. A small child process survives our
-    /// termination, waits for this PID to disappear, then opens the bundle.
-    /// Paths are passed as shell arguments rather than interpolated.
+    /// A small child process survives our termination, waits for this PID to
+    /// disappear, then asks Launch Services to open the bundle. Without `-n`,
+    /// this also raises the copy macOS may already have reopened instead of
+    /// creating a duplicate.
+    /// It expires after ten minutes so abandoning a grant flow cannot cause a
+    /// surprise reopen much later. Paths are shell arguments, not interpolated.
     @discardableResult
     private static func startRelaunchHelper() -> Bool {
         guard !relaunchHelperStarted else { return true }
@@ -134,8 +143,13 @@ enum Permissions {
         helper.arguments = [
             "-c",
             """
-            while /bin/kill -0 "$1" 2>/dev/null; do /bin/sleep 0.1; done
-            exec /usr/bin/open -n "$2"
+            attempt=0
+            while /bin/kill -0 "$1" 2>/dev/null; do
+                [ "$attempt" -ge 6000 ] && exit 0
+                /bin/sleep 0.1
+                attempt=$((attempt + 1))
+            done
+            exec /usr/bin/open "$2" --args --beers-permission-relaunch
             """,
             "beers-permission-relaunch",
             String(ProcessInfo.processInfo.processIdentifier),

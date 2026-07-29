@@ -25,14 +25,15 @@ enum BeersSnapshot {
         VocabularySuggestion(heard: "app kit", replacement: "AppKit", count: 2),
     ]
 
-    /// Relaunch smoke test: the test process should disappear and a normal
-    /// Beers process should replace it. The relaunched copy receives no test
-    /// flag, so this cannot loop.
+    /// Relaunch smoke test: arm the helper as the real System Settings flow
+    /// does, then exit without app-delegate callbacks. A normal Beers process
+    /// must replace this one, without inheriting the test flag.
     @MainActor
     static func runRelaunchTestIfRequested() {
         guard CommandLine.arguments.contains("--beers-relaunch-test") else { return }
-        llog("BeersSnapshot: RELAUNCH TEST starting")
-        Permissions.relaunchApp()
+        llog("BeersSnapshot: RELAUNCH TEST starting with simulated system termination")
+        Permissions.beginSystemGrantFlow()
+        exit(0)
     }
 
     /// Drag payload smoke test: the permission lists accept the app bundle's
