@@ -318,6 +318,7 @@ final class AppState: ObservableObject {
             ASRBenchmarkRunner.runIfRequested()
             if benchmarkRun { return }
             BeersSnapshot.runRelaunchTestIfRequested()
+            BeersSnapshot.runDragPayloadTestIfRequested()
             BeersSnapshot.runIfRequested(appState: self)
             GrantCoach.runLayeringTestIfRequested(appState: self)
             BeersSnapshot.runPasteTestIfRequested()
