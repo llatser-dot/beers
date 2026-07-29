@@ -29,12 +29,6 @@ final class GrantCoach {
             }
         }
 
-        var why: String {
-            switch self {
-            case .accessibility: return "so Beers can type into the app you're in"
-            case .inputMonitoring: return "so Beers hears your pour key"
-            }
-        }
     }
 
     private var panel: NSPanel?
@@ -50,7 +44,7 @@ final class GrantCoach {
         .environmentObject(appState)
 
         let hosting = NSHostingView(rootView: content)
-        hosting.frame = NSRect(x: 0, y: 0, width: 320, height: 400)
+        hosting.frame = NSRect(x: 0, y: 0, width: 344, height: 430)
 
         // .nonactivatingPanel keeps System Settings frontmost — stealing focus
         // would bounce the user out of the very list they need to be in.
@@ -70,12 +64,21 @@ final class GrantCoach {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
-        panel.isMovableByWindowBackground = true
+        // The content must not act as a window drag region: otherwise AppKit
+        // moves the whole coach before the badge can start its file drag.
+        // The transparent title bar remains available if the coach needs moving.
+        panel.isMovableByWindowBackground = false
         panel.backgroundColor = .clear
+        panel.alphaValue = 0
+        panel.ignoresMouseEvents = true
 
-        positionOnScreen(panel)
         panel.orderFrontRegardless()
         self.panel = panel
+
+        Task { [weak self, weak panel] in
+            guard let self, let panel else { return }
+            await positionBesideSystemSettings(panel)
+        }
     }
 
     func dismiss() {
@@ -128,8 +131,86 @@ final class GrantCoach {
         }
     }
 
-    /// Top-right of the active screen: System Settings opens centred, so this
-    /// sits clear of it rather than on top of the list being pointed at.
+    /// System Settings opens asynchronously. Wait briefly for its real window,
+    /// then place the coach beside it and only reveal the coach once positioned.
+    private func positionBesideSystemSettings(_ panel: NSPanel) async {
+        for _ in 0..<15 {
+            guard self.panel === panel else { return }
+            if let settingsFrame = systemSettingsWindowFrame() {
+                position(panel, beside: settingsFrame)
+                reveal(panel)
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+
+        positionOnScreen(panel)
+        reveal(panel)
+    }
+
+    private func systemSettingsWindowFrame() -> NSRect? {
+        let windows = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
+        ) as? [[String: Any]] ?? []
+        let mainScreenHeight = NSScreen.screens.first?.frame.height ?? 0
+
+        for window in windows {
+            let owner = window[kCGWindowOwnerName as String] as? String ?? ""
+            let layer = window[kCGWindowLayer as String] as? Int ?? -1
+            guard layer == 0,
+                  owner.contains("System Settings") || owner.contains("System Preferences"),
+                  let bounds = window[kCGWindowBounds as String] as? [String: Any],
+                  let x = bounds["X"] as? NSNumber,
+                  let y = bounds["Y"] as? NSNumber,
+                  let width = bounds["Width"] as? NSNumber,
+                  let height = bounds["Height"] as? NSNumber else { continue }
+            let quartzFrame = CGRect(
+                x: x.doubleValue,
+                y: y.doubleValue,
+                width: width.doubleValue,
+                height: height.doubleValue
+            )
+            guard
+                  quartzFrame.width > 400,
+                  quartzFrame.height > 280 else { continue }
+
+            return NSRect(
+                x: quartzFrame.minX,
+                y: mainScreenHeight - quartzFrame.maxY,
+                width: quartzFrame.width,
+                height: quartzFrame.height
+            )
+        }
+        return nil
+    }
+
+    private func position(_ panel: NSPanel, beside settingsFrame: NSRect) {
+        let size = panel.frame.size
+        let centre = NSPoint(x: settingsFrame.midX, y: settingsFrame.midY)
+        let screen = NSScreen.screens.first { $0.frame.contains(centre) } ?? NSScreen.main
+        guard let visible = screen?.visibleFrame else {
+            positionOnScreen(panel)
+            return
+        }
+
+        let gap: CGFloat = 16
+        let rightOrigin = settingsFrame.maxX + gap
+        let leftOrigin = settingsFrame.minX - size.width - gap
+        let x: CGFloat
+        if rightOrigin + size.width <= visible.maxX {
+            x = rightOrigin
+        } else if leftOrigin >= visible.minX {
+            x = leftOrigin
+        } else {
+            x = visible.maxX - size.width - gap
+        }
+        let y = min(
+            max(settingsFrame.maxY - size.height, visible.minY + gap),
+            visible.maxY - size.height - gap
+        )
+        panel.setFrameOrigin(NSPoint(x: x, y: y))
+    }
+
     private func positionOnScreen(_ panel: NSPanel) {
         guard let screen = NSScreen.main else { return }
         let visible = screen.visibleFrame
@@ -139,6 +220,15 @@ final class GrantCoach {
             y: visible.maxY - size.height - 24
         )
         panel.setFrameOrigin(origin)
+    }
+
+    private func reveal(_ panel: NSPanel) {
+        guard self.panel === panel else { return }
+        panel.ignoresMouseEvents = false
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.18
+            panel.animator().alphaValue = 1
+        }
     }
 }
 
@@ -150,6 +240,8 @@ struct GrantCoachView: View {
     var forceUngrantedForSnapshot = false
 
     @EnvironmentObject var appState: AppState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var cueAnimating = false
 
     private var granted: Bool {
         if forceUngrantedForSnapshot { return false }
@@ -162,7 +254,7 @@ struct GrantCoachView: View {
     var body: some View {
         VStack(spacing: 13) {
             HStack {
-                Text(granted ? "Poured!" : "One switch to flip")
+                Text(granted ? "Poured!" : "Drag Beers into \(grant.listName)")
                     .font(Beers.display(15))
                     .foregroundStyle(Beers.stout)
                 Spacer()
@@ -172,6 +264,7 @@ struct GrantCoachView: View {
                         .foregroundStyle(Beers.ink.opacity(0.55))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Close permission guide")
             }
 
             if granted {
@@ -181,19 +274,41 @@ struct GrantCoachView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
             } else {
-                Text("Find the **\(grant.listName)** list in System Settings — \(grant.why).")
+                Text(
+                    "Beers isn’t in the \(grant.listName) list yet. "
+                        + "Drag the Beers logo below into the app list beside this card."
+                )
                     .font(Beers.ui(12, .medium))
                     .foregroundStyle(Beers.ink.opacity(0.75))
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                DraggableAppBadge()
+                HStack(spacing: 8) {
+                    VStack(spacing: 3) {
+                        Image(systemName: "arrow.left")
+                            .font(.system(size: 28, weight: .black))
+                            .foregroundStyle(Beers.amber)
+                            .offset(x: reduceMotion ? 0 : (cueAnimating ? -8 : 5))
+                            .opacity(reduceMotion ? 1 : (cueAnimating ? 1 : 0.45))
+                            .animation(
+                                reduceMotion
+                                    ? nil
+                                    : .easeInOut(duration: 0.65).repeatForever(autoreverses: true),
+                                value: cueAnimating
+                            )
+                        Text("INTO THE LIST")
+                            .font(Beers.display(8))
+                            .foregroundStyle(Beers.stout)
+                    }
+                    DraggableAppBadge()
+                }
+                .frame(maxWidth: .infinity)
 
                 VStack(alignment: .leading, spacing: 7) {
-                    line("1", "Beers won't be in the list yet — drag this bottle straight in.")
-                    line("2", "Flip the Beers switch on.")
-                    line("3", "Come back here; Beers spots it on its own.")
+                    line("1", "Press and hold the Beers logo.")
+                    line("2", "Drag it into the \(grant.listName) app list.")
+                    line("3", "When Beers appears, turn its switch on.")
                 }
 
                 HStack(spacing: 6) {
@@ -201,13 +316,15 @@ struct GrantCoachView: View {
                         Circle()
                             .fill(Beers.amber)
                             .frame(width: 5, height: 5)
-                            .opacity(0.35)
-                            .scaleEffect(1)
+                            .opacity(reduceMotion ? 0.6 : (cueAnimating ? 0.85 : 0.2))
+                            .scaleEffect(reduceMotion ? 1 : (cueAnimating ? 1 : 0.65))
                             .animation(
-                                .easeInOut(duration: 0.7)
-                                    .repeatForever()
-                                    .delay(Double(index) * 0.2),
-                                value: granted
+                                reduceMotion
+                                    ? nil
+                                    : .easeInOut(duration: 0.7)
+                                        .repeatForever()
+                                        .delay(Double(index) * 0.2),
+                                value: cueAnimating
                             )
                     }
                     Text("Watching the door…")
@@ -217,7 +334,7 @@ struct GrantCoachView: View {
             }
         }
         .padding(18)
-        .frame(width: 320)
+        .frame(width: 344)
         .background(Beers.paper)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -225,6 +342,7 @@ struct GrantCoachView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .environment(\.colorScheme, .light)
+        .onAppear { cueAnimating = true }
         // The panel is the only thing on screen while System Settings has
         // focus, so it has to notice the toggle itself.
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in

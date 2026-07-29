@@ -128,6 +128,7 @@ bash scripts/agent-install.sh                                  # build + install
 /Applications/Beers.app/Contents/MacOS/Beers --beers-polish-test "text"     # legacy/model diagnostic only
 /Applications/Beers.app/Contents/MacOS/Beers --beers-bouncer-test "text"    # Bouncer word:prob dump
 /Applications/Beers.app/Contents/MacOS/Beers --beers-relaunch-test          # verify permission restart replaces the process
+/Applications/Beers.app/Contents/MacOS/Beers --beers-drag-payload-test      # verify Finder-compatible permission drag data
 /Applications/Beers.app/Contents/MacOS/Beers --beers-snapshot               # UI PNGs to /tmp/beers-snapshots
 ml/.venv/bin/python ml/gen/flywheel_ingest.py                  # flywheel counts + correction stats
 scripts/run-asr-benchmark.sh                                   # same-audio Parakeet comparison

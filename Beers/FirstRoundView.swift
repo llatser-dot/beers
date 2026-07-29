@@ -186,7 +186,6 @@ struct FirstRoundView: View {
                 }
                 grantRow("Input Monitoring", granted: appState.inputMonitoringGranted, highlighted: guiding == .inputMonitoring) {
                     appState.requestInputMonitoringPermission()
-                    Permissions.openInputMonitoringSettings()
                     GrantCoach.shared.show(.inputMonitoring, appState: appState)
                     withAnimation(Beers.spring) { guiding = .inputMonitoring }
                 }
@@ -231,18 +230,19 @@ struct FirstRoundView: View {
     /// flips the switch, and Beers pours itself back in.
     private func guidePanel(for grant: GuidedGrant) -> some View {
         VStack(spacing: 10) {
-            Text("System Settings just opened — find the \(grant.listName) list.")
+            Text("Drag Beers into \(grant.listName) in System Settings.")
                 .font(Beers.ui(12.5, .semibold))
                 .foregroundStyle(Beers.ink)
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 6)
 
             HStack(spacing: 14) {
                 DraggableAppBadge()
 
                 VStack(alignment: .leading, spacing: 7) {
-                    guideLine("1", "Beers not in the list? Drag this bottle straight in.")
-                    guideLine("2", "Flip the Beers switch on.")
+                    guideLine("1", "Press and drag the Beers logo into the \(grant.listName) app list.")
+                    guideLine("2", "When Beers appears, turn its switch on.")
                     // Beers now holds the restart until BOTH System Settings
                     // grants are on, so promising a restart here would be a lie
                     // on the first of the two.
@@ -533,14 +533,26 @@ private struct WatchingDots: View {
 
 /// The draggable bottle: a Beers badge the user drags straight into the
 /// System Settings permission list, ChatGPT-style. The drag payload is the
-/// app bundle's file URL, which the TCC lists accept as a drop — no + button,
-/// no file picker.
+/// app bundle in both modern file-URL and Finder-compatible file-list formats,
+/// which the TCC lists accept as a drop — no + button, no file picker.
 struct DraggableAppBadge: View {
-    @State private var wiggle = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var animating = false
 
     var body: some View {
         VStack(spacing: 5) {
             ZStack {
+                RoundedRectangle(cornerRadius: 19, style: .continuous)
+                    .stroke(Beers.amber.opacity(0.6), lineWidth: 3)
+                    .frame(width: 84, height: 84)
+                    .scaleEffect(reduceMotion ? 1 : (animating ? 1.12 : 0.94))
+                    .opacity(reduceMotion ? 0.5 : (animating ? 0.05 : 0.75))
+                    .animation(
+                        reduceMotion
+                            ? nil
+                            : .easeOut(duration: 1).repeatForever(autoreverses: false),
+                        value: animating
+                    )
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(Beers.paper)
                     .frame(width: 76, height: 76)
@@ -550,21 +562,29 @@ struct DraggableAppBadge: View {
                     )
                     .shadow(color: Beers.ink.opacity(0.35), radius: 0, x: 3, y: 3)
                 BeersMenuBadge(size: 58)
-                AppBundleDragSource()
-                    .frame(width: 76, height: 76)
             }
-            .rotationEffect(.degrees(wiggle ? -3 : 3))
-            .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: wiggle)
-            .onAppear { wiggle = true }
+            .rotationEffect(.degrees(reduceMotion ? 0 : (animating ? -2.5 : 2.5)))
+            .scaleEffect(reduceMotion ? 1 : (animating ? 1.025 : 0.98))
+            .animation(
+                reduceMotion
+                    ? nil
+                    : .easeInOut(duration: 0.85).repeatForever(autoreverses: true),
+                value: animating
+            )
+            .onAppear { animating = true }
 
-            Text("DRAG ME")
-                .font(Beers.display(10))
+            Text("PRESS, HOLD & DRAG")
+                .font(Beers.display(8))
                 .foregroundStyle(Beers.paper)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 3)
                 .background(Beers.amber, in: Capsule())
                 .overlay(Capsule().strokeBorder(Beers.ink, lineWidth: 1.5))
         }
+        .overlay(AppBundleDragSource())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Beers app logo")
+        .accessibilityHint("Press and drag into the System Settings app list.")
     }
 }
 
@@ -580,24 +600,56 @@ struct AppBundleDragSource: NSViewRepresentable {
 }
 
 final class AppBundleDragView: NSView, NSDraggingSource {
+    private var dragInProgress = false
+
+    static func pasteboardItem(for bundleURL: URL) -> NSPasteboardItem {
+        let item = NSPasteboardItem()
+        item.setString(bundleURL.absoluteString, forType: .fileURL)
+        return item
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .openHand)
+    }
+
     override func mouseDragged(with event: NSEvent) {
+        guard !dragInProgress else { return }
         let bundleURL = Bundle.main.bundleURL
-        let draggingItem = NSDraggingItem(pasteboardWriter: bundleURL as NSURL)
+        let pasteboardItem = Self.pasteboardItem(for: bundleURL)
+        let draggingItem = NSDraggingItem(pasteboardWriter: pasteboardItem)
         let icon = NSWorkspace.shared.icon(forFile: bundleURL.path)
         icon.size = NSSize(width: 64, height: 64)
         draggingItem.setDraggingFrame(
             NSRect(x: bounds.midX - 32, y: bounds.midY - 32, width: 64, height: 64),
             contents: icon
         )
-        beginDraggingSession(with: [draggingItem], event: event, source: self)
-        llog("FirstRound: dragging app bundle out to System Settings")
+        dragInProgress = true
+        let session = beginDraggingSession(with: [draggingItem], event: event, source: self)
+        session.animatesToStartingPositionsOnCancelOrFail = true
+        llog(
+            "FirstRound: dragging \(bundleURL.path) with "
+                + "\(pasteboardItem.types.map(\.rawValue).joined(separator: ", "))"
+        )
     }
 
     func draggingSession(
         _ session: NSDraggingSession,
         sourceOperationMaskFor context: NSDraggingContext
     ) -> NSDragOperation {
-        context == .outsideApplication ? [.copy, .generic, .link] : []
+        context == .outsideApplication ? .copy : []
+    }
+
+    func draggingSession(
+        _ session: NSDraggingSession,
+        endedAt screenPoint: NSPoint,
+        operation: NSDragOperation
+    ) {
+        dragInProgress = false
+        llog("FirstRound: drag ended operation=\(operation.rawValue)")
     }
 }
 

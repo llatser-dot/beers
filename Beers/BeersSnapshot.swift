@@ -35,6 +35,26 @@ enum BeersSnapshot {
         Permissions.relaunchApp()
     }
 
+    /// Drag payload smoke test: the permission lists accept the app bundle's
+    /// standard file URL, matching a Finder drag.
+    @MainActor
+    static func runDragPayloadTestIfRequested() {
+        guard CommandLine.arguments.contains("--beers-drag-payload-test") else { return }
+        let bundleURL = Bundle.main.bundleURL
+        let item = AppBundleDragView.pasteboardItem(for: bundleURL)
+        let modernURL = item.string(forType: .fileURL)
+        let passed = modernURL == bundleURL.absoluteString
+            && item.types.contains(.fileURL)
+        llog(
+            passed
+                ? "BeersSnapshot: DRAG PAYLOAD TEST PASS"
+                : "BeersSnapshot: DRAG PAYLOAD TEST FAIL "
+                    + "modern=\(modernURL ?? "nil") "
+                    + "expected=\(bundleURL.absoluteString)"
+        )
+        exit(passed ? 0 : 1)
+    }
+
     /// Route-change resilience test: `--beers-route-test` records ~6s of
     /// audio while firing the same route-change path an AirPods/headphone
     /// connect fires mid-pour, then asserts the capture survived. Before the
@@ -318,7 +338,10 @@ enum BeersSnapshot {
             // The floating coach that outlives System Settings taking focus.
             snap(GrantCoachView(grant: .accessibility, forceUngrantedForSnapshot: true)
                     .environmentObject(appState),
-                 size: CGSize(width: 320, height: 400), name: "grant-coach", in: dir)
+                 size: CGSize(width: 344, height: 430), name: "grant-coach", in: dir)
+            snap(GrantCoachView(grant: .inputMonitoring, forceUngrantedForSnapshot: true)
+                    .environmentObject(appState),
+                 size: CGSize(width: 344, height: 430), name: "grant-coach-input-monitoring", in: dir)
 
             snap(StatusBarView().environmentObject(appState),
                  size: nil, name: "bar-tap", in: dir)

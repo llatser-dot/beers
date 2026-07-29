@@ -369,7 +369,6 @@ struct BrewControlsView: View {
                     Permissions.openInputMonitoringSettings()
                 } else {
                     appState.requestInputMonitoringPermission()
-                    Permissions.openInputMonitoringSettings()
                     GrantCoach.shared.show(.inputMonitoring, appState: appState)
                 }
             }
