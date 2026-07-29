@@ -532,9 +532,8 @@ private struct WatchingDots: View {
 }
 
 /// The draggable bottle: a Beers badge the user drags straight into the
-/// System Settings permission list, ChatGPT-style. The drag payload is the
-/// app bundle in both modern file-URL and Finder-compatible file-list formats,
-/// which the TCC lists accept as a drop — no + button, no file picker.
+/// System Settings permission list, ChatGPT-style. The drag payload is the app
+/// bundle's standard file URL — no + button, no file picker.
 struct DraggableAppBadge: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var animating = false
