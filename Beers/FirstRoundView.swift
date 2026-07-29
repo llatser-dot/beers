@@ -617,17 +617,28 @@ final class AppBundleDragView: NSView, NSDraggingSource {
 
     override func mouseDragged(with event: NSEvent) {
         guard !dragInProgress else { return }
+        guard let badge = Beers.brandImage("brand-badge") else {
+            llog("FirstRound: brand badge missing; drag not started")
+            return
+        }
+
         let bundleURL = Bundle.main.bundleURL
         let pasteboardItem = Self.pasteboardItem(for: bundleURL)
         let draggingItem = NSDraggingItem(pasteboardWriter: pasteboardItem)
-        let icon = NSWorkspace.shared.icon(forFile: bundleURL.path)
-        icon.size = NSSize(width: 64, height: 64)
+        let pointer = convert(event.locationInWindow, from: nil)
+        let previewSize: CGFloat = 64
         draggingItem.setDraggingFrame(
-            NSRect(x: bounds.midX - 32, y: bounds.midY - 32, width: 64, height: 64),
-            contents: icon
+            NSRect(
+                x: pointer.x - previewSize / 2,
+                y: pointer.y - previewSize / 2,
+                width: previewSize,
+                height: previewSize
+            ),
+            contents: badge
         )
         dragInProgress = true
         let session = beginDraggingSession(with: [draggingItem], event: event, source: self)
+        session.draggingFormation = .none
         session.animatesToStartingPositionsOnCancelOrFail = true
         llog(
             "FirstRound: dragging \(bundleURL.path) with "
