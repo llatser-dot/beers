@@ -6,7 +6,15 @@ struct BrewControlsView: View {
     @EnvironmentObject var appState: AppState
     @State private var showSmashSheet = false
     @State private var showWipeSheet = false
-    @State private var inputDeviceName = AudioRecorder.currentInputDisplayName()
+    @State private var inputDeviceName: String
+    private let snapshotInputDeviceName: String?
+
+    init(snapshotInputDeviceName: String? = nil) {
+        self.snapshotInputDeviceName = snapshotInputDeviceName
+        _inputDeviceName = State(
+            initialValue: snapshotInputDeviceName ?? AudioRecorder.currentInputDisplayName()
+        )
+    }
 
     var body: some View {
         ScrollView {
@@ -103,7 +111,7 @@ struct BrewControlsView: View {
 
             BeersSettingRow(
                 label: "Take orders",
-                hint: "Optional Apple-on-device edits; never launches Ollama or sends text to an endpoint",
+                hint: "Optional edits using Apple’s on-device model",
                 showDivider: false
             ) {
                 Toggle("", isOn: $appState.commandModeEnabled)
@@ -125,10 +133,14 @@ struct BrewControlsView: View {
                 // used to be reported as "Built-in, auto", which was simply
                 // untrue. Refreshes when devices come and go.
                 BeersChip { Text(inputDeviceName) }
-                    .onAppear { inputDeviceName = AudioRecorder.currentInputDisplayName() }
+                    .onAppear {
+                        guard snapshotInputDeviceName == nil else { return }
+                        inputDeviceName = AudioRecorder.currentInputDisplayName()
+                    }
                     .onReceive(
                         NotificationCenter.default.publisher(for: .beersInputDeviceChanged)
                     ) { _ in
+                        guard snapshotInputDeviceName == nil else { return }
                         inputDeviceName = AudioRecorder.currentInputDisplayName()
                     }
             }
@@ -275,7 +287,7 @@ struct BrewControlsView: View {
         BeersCrate(title: "The Little Black Book", emoji: "📓", headerColor: Beers.hopsDeep) {
             BeersSettingRow(
                 label: "Learn from my pours",
-                hint: "Logs each pour to a local file so your own cleanup model can train"
+                hint: "Private local learning record"
             ) {
                 Toggle("", isOn: $appState.flywheelLoggingEnabled)
                     .labelsHidden()
@@ -284,7 +296,7 @@ struct BrewControlsView: View {
 
             BeersSettingRow(
                 label: "Watch my fixes",
-                hint: "Also logs the keyboard corrections you make just after a pour"
+                hint: "Finds dictionary entries in your fixes"
             ) {
                 Toggle("", isOn: $appState.correctionWatcherEnabled)
                     .labelsHidden()
@@ -295,14 +307,14 @@ struct BrewControlsView: View {
 
             BeersSettingRow(
                 label: "Bouncer on the door",
-                hint: "Research paused after failing the real-speech precision gate"
+                hint: "On-device cleanup research is parked until it meets the accuracy gate"
             ) {
                 BeersChip { Text("Parked") }
             }
 
             BeersSettingRow(
                 label: "Capture ASR benchmark audio",
-                hint: "Opt in to local audio + raw transcripts for same-audio engine tests"
+                hint: "Optional local audio capture for comparing speech engines"
             ) {
                 Toggle("", isOn: $appState.asrBenchmarkCaptureEnabled)
                     .labelsHidden()

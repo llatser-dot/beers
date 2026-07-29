@@ -129,9 +129,19 @@ grep -q 'addSpaceAfterPaste: true' "$PROJECT_DIR/Beers/WritingPreferences.swift"
     fail "standard trailing-space setting is no longer enabled."
 grep -q '?? \.rightOption' "$PROJECT_DIR/Beers/HotkeyOption.swift" || \
     fail "standard pour key is no longer Right Option."
-grep -q 'self.polishBeforePaste = Self.boolDefaultTrue' "$PROJECT_DIR/Beers/AppState.swift" || \
+grep -q 'self.polishBeforePaste = snapshotRun ? true : Self.boolDefaultTrue' "$PROJECT_DIR/Beers/AppState.swift" || \
     fail "standard legacy rule polish is no longer enabled."
 echo "Standard new-install configuration gate passed."
+
+# Public screenshots must be deterministic and must never read the maintainer's
+# private history, dictionary, recipes or Pub Wall credential.
+grep -q 'snapshotRun ? PourStore(inMemory: true) : PourStore()' "$PROJECT_DIR/Beers/AppState.swift" || \
+    fail "snapshot mode no longer uses an isolated PourStore."
+grep -q 'PubWallController(loadStoredToken: !snapshotRun)' "$PROJECT_DIR/Beers/AppState.swift" || \
+    fail "snapshot mode can read the stored Pub Wall credential."
+grep -q 'BeersSnapshot.demoCorrections' "$PROJECT_DIR/Beers/AppState.swift" || \
+    fail "snapshot mode can read the personal vocabulary dictionary."
+echo "Public screenshot privacy gate passed."
 
 python3 "$PROJECT_DIR/scripts/score-asr-benchmark.py" --self-test
 

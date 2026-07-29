@@ -22,6 +22,7 @@ Local checkout: `~/Projects/beers`.
 ```
 Beers/            Swift app source (xcodegen; project.yml is truth, .xcodeproj generated)
   AppState.swift          Central state; pour lifecycle lives in stopRecordingAndTranscribe
+  BeersSnapshot.swift     Deterministic off-screen UI capture; synthetic state only, never reads personal pours/dictionary/Pub Wall credentials
   ASRBenchmark.swift      Opt-in local WAV capture + same-audio v3/v2 benchmark runner
   OrderKitchen.swift      Apple-on-device Command Mode + legacy diagnostic tiers
   AITranscriptRewriter.swift  Retired endpoint client; excluded from the app target

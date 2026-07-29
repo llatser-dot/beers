@@ -3,8 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Beers — open-source dictation for macOS. Talk, and the pints stack up.</title>
-<meta name="description" content="Beers is open-source push-to-talk dictation for macOS. On-device speech recognition, Apache-2.0, and every 1,000 words pulls a pint on the Pub Wall.">
+<title>Beers — private, open-source dictation for macOS</title>
+<meta name="description" content="Hold a key, speak and release. Beers is fast, on-device push-to-talk dictation for Apple silicon Macs — no cloud, account or subscription.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Beers — private, open-source dictation for macOS">
+<meta property="og:description" content="Hold a key, speak and release. Your words land at the cursor — on-device, with no account or subscription.">
+<meta property="og:url" content="https://llatser-dot.github.io/beers/">
+<meta property="og:image" content="https://llatser-dot.github.io/beers/web/graphics/taproom.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Beers — private dictation for macOS">
+<meta name="twitter:description" content="Fast, open-source push-to-talk dictation that runs on your Mac.">
+<meta name="twitter:image" content="https://llatser-dot.github.io/beers/web/graphics/taproom.png">
+<link rel="icon" href="web/brand/app-icon.png" type="image/png">
+<link rel="apple-touch-icon" href="web/brand/app-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rammetto+One&family=Fredoka:wght@400;500;600;700&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
@@ -99,7 +110,10 @@
   .topbar .gh-icon svg{width:17px;height:17px;display:block;}
   .topbar .gh-icon:hover{color:var(--ink);background:var(--lager);border-color:var(--lager);}
   .topbar .btn.sm{flex:0 0 auto;}
-  @media (max-width:700px){.topbar nav{display:none;}}
+  @media (max-width:700px){
+    .topbar nav{display:none;}
+    .hero .sparkle{display:none!important;}
+  }
 
   /* ============ hero ============ */
   .hero{
@@ -394,7 +408,7 @@
   .how-card h3{font-family:'Rammetto One',cursive;font-size:clamp(13px,2.8vw,19px);color:var(--stout);margin-top:14px;}
   .how-card p{font-size:clamp(11px,2.2vw,14px);font-weight:500;opacity:.78;margin-top:10px;line-height:1.55;}
 
-  /* ============ product shots (from Codex site) ============ */
+  /* ============ product shots ============ */
   .hero-shot{
     max-width:920px;margin:48px auto 0;position:relative;
   }
@@ -550,12 +564,12 @@
 
   <div class="hero-badge">OPEN SOURCE · macOS</div>
   <h1><span class="line">Go on, spit it out.</span><span class="line">I'm <span class="free">all <span class="beer bwrd"><img src="web/brand/app-icon.png" alt="B">eers</span></span>.</span></h1>
-  <p class="sub">Open-source dictation for macOS. Hold <span class="kbd">fn</span>, say the thing, and it lands wherever your cursor is. Every word counts — literally.</p>
+  <p class="sub">Fast, private dictation for macOS. Hold <span class="kbd">Right ⌥</span>, say the thing, and it lands wherever your cursor is. No cloud, account or subscription.</p>
   <div class="cta-row">
     <a class="btn" href="#signup">⬇&nbsp; Download Beers</a>
     <a class="btn ghost" href="#board">🏆&nbsp; See the leaderboard</a>
   </div>
-  <div class="fineprint">Open source under Apache-2.0. Join the Pub Wall from inside the app.</div>
+  <div class="fineprint">Apple-notarised · Apache-2.0 · Apple silicon · macOS 14+</div>
   <div><span class="hero-rule">every 1,000 words you pour <span class="arrow">→</span> pulls one pint on the wall 🍺</span></div>
 
   <div class="hero-shot" aria-label="Beers Taproom preview">
@@ -622,7 +636,7 @@
     <div class="how-card">
       <div class="how-num">STEP 1</div>
       <span class="emoji">🎙️</span>
-      <h3>Hold fn &amp; talk</h3>
+      <h3>Hold Right Option &amp; talk</h3>
       <p>Anywhere on your Mac — Mail, Slack, your editor. Hold the key, say the thing, let go. The words type themselves at your cursor. That's a pour: one pour, one dictation.</p>
     </div>
     <div class="how-card">
@@ -649,7 +663,7 @@
   </div>
 </section>
 
-<!-- ============ PRODUCT (Codex screenshots) ============ -->
+<!-- ============ PRODUCT ============ -->
 <section id="product">
   <div class="sec-head">
     <div class="sec-kicker">INSIDE THE APP</div>
@@ -659,22 +673,39 @@
   <div class="product-tour">
     <article class="feature-row">
       <div class="screen-frame">
+        <img src="web/graphics/drunk-slurs.png" alt="Drunk Slurs — private vocabulary and correction suggestions">
+        <span class="screen-label">Drunk Slurs</span>
+      </div>
+      <div class="feature-copy">
+        <div class="eyebrow">Your words, your way</div>
+        <h3>Fix it once. <span class="accent">Beers remembers.</span></h3>
+        <p>Teach Beers the names, products and technical terms that ordinary speech recognition gets wrong.</p>
+        <ul class="feature-list">
+          <li>Private dictionary stored on your Mac</li>
+          <li>Suggestions from repeated keyboard corrections</li>
+          <li>One-tap fixes without a cloud account</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="feature-row reverse">
+      <div class="screen-frame">
         <img src="web/graphics/brew-controls.png" alt="Brew Settings — pour key, paste behaviour, sounds and local rewrite engine">
         <span class="screen-label">Brew Settings</span>
       </div>
       <div class="feature-copy">
         <div class="eyebrow">Make it yours</div>
         <h3>One screen. Every control <span class="accent">on tap.</span></h3>
-        <p>Choose the hotkey, where words land, the listening pill position and how much cleanup each pour receives.</p>
+        <p>Choose the hotkey, microphone, local engine, listening pill position and how each pour lands.</p>
         <ul class="feature-list">
-          <li>Clean, Message and Command writing modes</li>
-          <li>Automatic mode follows the active app</li>
-          <li>Local rewrite options with a hard time limit</li>
+          <li>Parakeet v3 multilingual or v2 English</li>
+          <li>Optional Apple-on-device Command Mode</li>
+          <li>User-controlled legacy rule polish</li>
         </ul>
       </div>
     </article>
 
-    <article class="feature-row reverse">
+    <article class="feature-row">
       <div class="screen-frame">
         <img src="web/graphics/little-black-book.png" alt="The Little Black Book — local learning and privacy controls">
         <span class="screen-label">Little Black Book</span>
@@ -682,10 +713,10 @@
       <div class="feature-copy">
         <div class="eyebrow">Privacy first</div>
         <h3>Learns on your Mac. <span class="accent">Leaves never.</span></h3>
-        <p>Optional local learning, correction watching and Bouncer shadow predictions — all on-device, all deletable.</p>
+        <p>Local learning and benchmark capture are visible, optional and deletable. Ordinary dictation has no upload path.</p>
         <ul class="feature-list">
-          <li>Pour logs stay in a local file</li>
-          <li>Watch keyboard fixes to get sharper</li>
+          <li>Learning records stay in a local file</li>
+          <li>Benchmark audio is off by default</li>
           <li>Pour it away whenever you want a clean slate</li>
         </ul>
       </div>
@@ -718,7 +749,8 @@
     <a href="#board">Leaderboard</a>
     <a href="#how">How it works</a>
     <a href="#signup">Download</a>
-    <a href="#">Privacy</a>
+    <a href="https://github.com/llatser-dot/beers#privacy">Privacy</a>
+    <a href="https://github.com/llatser-dot/beers/blob/main/CHANGELOG.md">Changelog</a>
   </div>
   <div class="meta"><span class="bwrd"><img src="web/brand/app-icon.png" alt="B">eers</span> · open-source dictation for macOS · 1,000 words = 1 pint</div>
 </footer>
