@@ -317,6 +317,7 @@ final class AppState: ObservableObject {
             guard let self else { return }
             ASRBenchmarkRunner.runIfRequested()
             if benchmarkRun { return }
+            BeersSnapshot.runRelaunchTestIfRequested()
             BeersSnapshot.runIfRequested(appState: self)
             GrantCoach.runLayeringTestIfRequested(appState: self)
             BeersSnapshot.runPasteTestIfRequested()
@@ -352,6 +353,7 @@ final class AppState: ObservableObject {
     }
 
     func requestInputMonitoringPermission() {
+        Permissions.beginSystemGrantFlow()
         let granted = Permissions.requestInputMonitoring()
         reconcilePermissions()
         if granted || inputMonitoringGranted {
@@ -368,6 +370,7 @@ final class AppState: ObservableObject {
     }
 
     func requestAccessibilityPermission() {
+        Permissions.beginSystemGrantFlow()
         let granted = Permissions.requestAccessibility(prompt: true)
         reconcilePermissions()
         if granted || accessibilityGranted {

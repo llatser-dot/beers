@@ -25,6 +25,16 @@ enum BeersSnapshot {
         VocabularySuggestion(heard: "app kit", replacement: "AppKit", count: 2),
     ]
 
+    /// Relaunch smoke test: the test process should disappear and a normal
+    /// Beers process should replace it. The relaunched copy receives no test
+    /// flag, so this cannot loop.
+    @MainActor
+    static func runRelaunchTestIfRequested() {
+        guard CommandLine.arguments.contains("--beers-relaunch-test") else { return }
+        llog("BeersSnapshot: RELAUNCH TEST starting")
+        Permissions.relaunchApp()
+    }
+
     /// Route-change resilience test: `--beers-route-test` records ~6s of
     /// audio while firing the same route-change path an AirPods/headphone
     /// connect fires mid-pour, then asserts the capture survived. Before the

@@ -55,6 +55,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainWindowPresenter.shared.show()
         return true
     }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        Permissions.prepareRelaunchAfterSystemGrantIfNeeded()
+        return .terminateNow
+    }
 }
 
 @main

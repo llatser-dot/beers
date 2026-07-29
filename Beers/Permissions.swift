@@ -4,6 +4,14 @@ import ApplicationServices
 import IOKit.hid
 
 enum Permissions {
+    private struct SystemGrantSnapshot {
+        let inputMonitoring: Bool
+        let accessibility: Bool
+    }
+
+    private static var systemGrantBaseline: SystemGrantSnapshot?
+    private static var relaunchHelperStarted = false
+
     enum MicrophoneStatus: String {
         case authorized
         case notDetermined
@@ -76,20 +84,72 @@ enum Permissions {
         return axGranted || postGranted
     }
 
+    /// Remember the grants in place before sending someone to System Settings.
+    /// If macOS later terminates Beers as part of "Quit & Reopen", the app
+    /// delegate can distinguish that from an ordinary user-initiated quit.
+    static func beginSystemGrantFlow() {
+        guard systemGrantBaseline == nil else { return }
+        systemGrantBaseline = SystemGrantSnapshot(
+            inputMonitoring: isInputMonitoringGranted(),
+            accessibility: isAccessibilityGranted()
+        )
+    }
+
+    /// Called from the app-termination callback. System Settings can terminate
+    /// Beers before the one-second permission monitor observes the new grant,
+    /// so arm the relaunch here when a grant changed during the guided flow.
+    static func prepareRelaunchAfterSystemGrantIfNeeded() {
+        guard let baseline = systemGrantBaseline else { return }
+        let inputMonitoring = isInputMonitoringGranted()
+        let accessibility = isAccessibilityGranted()
+        let gainedInputMonitoring = inputMonitoring && !baseline.inputMonitoring
+        let gainedAccessibility = accessibility && !baseline.accessibility
+
+        guard gainedInputMonitoring || gainedAccessibility else { return }
+        llog(
+            "Permissions: terminating after system grant "
+                + "(inputMonitoring=\(gainedInputMonitoring) accessibility=\(gainedAccessibility)); "
+                + "arming relaunch"
+        )
+        startRelaunchHelper()
+    }
+
     /// Input Monitoring / Accessibility grants frequently do not apply to the
     /// already-running process. Relaunch so TCC re-evaluates this binary.
     static func relaunchApp() {
-        let url = Bundle.main.bundleURL
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.createsNewApplicationInstance = true
+        guard startRelaunchHelper() else { return }
+        NSApp.terminate(nil)
+    }
 
-        NSWorkspace.shared.openApplication(at: url, configuration: configuration) { _, error in
-            if let error {
-                llog("Permissions: relaunch failed: \(error.localizedDescription)")
-            }
-            DispatchQueue.main.async {
-                NSApp.terminate(nil)
-            }
+    /// Launch Services may treat an open request made while Beers is running
+    /// as a request for that same process. A small child process survives our
+    /// termination, waits for this PID to disappear, then opens the bundle.
+    /// Paths are passed as shell arguments rather than interpolated.
+    @discardableResult
+    private static func startRelaunchHelper() -> Bool {
+        guard !relaunchHelperStarted else { return true }
+
+        let helper = Process()
+        helper.executableURL = URL(fileURLWithPath: "/bin/sh")
+        helper.arguments = [
+            "-c",
+            """
+            while /bin/kill -0 "$1" 2>/dev/null; do /bin/sleep 0.1; done
+            exec /usr/bin/open -n "$2"
+            """,
+            "beers-permission-relaunch",
+            String(ProcessInfo.processInfo.processIdentifier),
+            Bundle.main.bundleURL.path
+        ]
+
+        do {
+            try helper.run()
+            relaunchHelperStarted = true
+            llog("Permissions: relaunch helper armed")
+            return true
+        } catch {
+            llog("Permissions: could not arm relaunch helper: \(error.localizedDescription)")
+            return false
         }
     }
 
