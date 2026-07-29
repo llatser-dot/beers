@@ -127,6 +127,7 @@ flywheel text to Anthropic and requires the operator's own Claude access.
 bash scripts/agent-install.sh                                  # build + install (signing/TCC safe)
 /Applications/Beers.app/Contents/MacOS/Beers --beers-polish-test "text"     # legacy/model diagnostic only
 /Applications/Beers.app/Contents/MacOS/Beers --beers-bouncer-test "text"    # Bouncer word:prob dump
+/Applications/Beers.app/Contents/MacOS/Beers --beers-relaunch-test          # verify permission restart replaces the process
 /Applications/Beers.app/Contents/MacOS/Beers --beers-snapshot               # UI PNGs to /tmp/beers-snapshots
 ml/.venv/bin/python ml/gen/flywheel_ingest.py                  # flywheel counts + correction stats
 scripts/run-asr-benchmark.sh                                   # same-audio Parakeet comparison
