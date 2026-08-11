@@ -179,7 +179,7 @@ The profile already exists and does not need recreating:
 
 ```
 profile:   Beers Notarization 2026      <- note the spaces
-apple-id:  [redacted]  <- the outlook address, not the gmail one
+apple-id:  the Outlook-based Apple ID, not the Gmail one
 team-id:   6U9UFUUR48
 ```
 
