@@ -13,8 +13,8 @@ Four things that have each already cost a release cycle. Do not rediscover them.
    number, so bumping only the marketing string ships nothing.
 
 2. **The notarization credential already exists. Do NOT ask Ben to recreate it.**
-   Profile `Beers Notarization 2026` (spaces are part of the name), Apple ID
-   `[redacted]`, team `6U9UFUUR48`. It is stored under keychain
+   Profile `Beers Notarization 2026` (spaces are part of the name), the
+   Outlook-based Apple ID (not the Gmail one), team `6U9UFUUR48`. It is stored under keychain
    service `com.apple.gke.notary.tool` — so any `grep -v com.apple` filter over a
    keychain dump hides it and makes it look absent. It is not absent. The only
    valid check is
