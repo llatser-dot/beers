@@ -9,7 +9,9 @@ permissions:
 
 jobs:
   send-work-evidence:
-    if: ${{ !contains(github.event.head_commit.message, '[skip dweeb]') }}
+    # Dormant while GitHub Actions billing cannot start runners.
+    # Set DWEEB_CAPTURE_ENABLED=1 after runners are available.
+    if: ${{ vars.DWEEB_CAPTURE_ENABLED == '1' && !contains(github.event.head_commit.message, '[skip dweeb]') }}
     runs-on: ubuntu-latest
     steps:
       - name: Send signed push evidence
