@@ -802,8 +802,8 @@ final class AppState: ObservableObject {
                 let text = try await self.transcriptionEngine.transcribe(audio)
                 self.status = .ready
 
-                guard !text.isEmpty else {
-                    llog("AppState: empty transcription")
+                guard Self.hasSpokenContent(text) else {
+                    llog("AppState: nothing heard (transcript='\(text)') — no pour recorded")
                     self.overlay.hide()
                     self.reconcilePermissions()
                     return
@@ -853,6 +853,16 @@ final class AppState: ObservableObject {
                     outputText = vocabularyFinal
                     llog("AppState: vocabulary corrections re-applied='\(outputText)'")
                 }
+                // Polishing can strip a transcript back down to nothing — a stray
+                // "." from a hiss, punctuation only. Nothing was actually said,
+                // so it must not paste, count as a pour or reach the flywheel.
+                guard Self.hasSpokenContent(outputText) else {
+                    llog("AppState: nothing heard after polish (raw='\(text)') — no pour recorded")
+                    self.overlay.hide()
+                    self.reconcilePermissions()
+                    return
+                }
+
                 if preferences.addSpaceAfterPaste, !outputText.hasSuffix(" ") {
                     outputText += " "
                 }
@@ -934,6 +944,13 @@ final class AppState: ObservableObject {
                 instruction,
                 to: String(selection.prefix(6_000))
             )
+            guard Self.hasSpokenContent(edited) else {
+                llog("AppState: order produced nothing — no pour recorded")
+                overlay.hide()
+                reconcilePermissions()
+                return
+            }
+
             lastTargetApp = context.name
             lastTranscription = edited
 
@@ -974,6 +991,13 @@ final class AppState: ObservableObject {
         if !accessibilityGranted {
             requestAccessibilityPermission()
         }
+    }
+
+    /// A hold only counts as a pour when actual speech came back. Silence,
+    /// whitespace and stray punctuation ("." from a hiss) are not words, so
+    /// they must never be pasted, counted, or recorded.
+    static func hasSpokenContent(_ text: String) -> Bool {
+        text.contains { $0.isLetter || $0.isNumber }
     }
 
     /// Word-set Jaccard overlap of two raw transcripts (lowercased). Used to
