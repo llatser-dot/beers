@@ -62,13 +62,16 @@ final class OverlayWindowController {
             defer: false
         )
 
+        // isFloatingPanel resets the window level to .floating (3), which sits
+        // BELOW the menu bar (24) — that silently hid the whole notch island
+        // behind the menu bar strip. It must be set before the level, never after.
+        panel.isFloatingPanel = true
         // Menu-bar items are separate windows and can be ordered above another
         // status-level panel. The pop-up layer keeps the HUD fully in front of
         // crowded status items while remaining below system screen-saver UI.
         panel.level = .popUpMenu
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
-        panel.isFloatingPanel = true
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hidesOnDeactivate = false
