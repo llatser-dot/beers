@@ -5,7 +5,7 @@
 
   <p>
     Hold a key. Speak. Release. Your words land at the cursor.<br>
-    Fast, private and open source — with no cloud, account or subscription.
+    Fast, private and open source — every line of it, under Apache-2.0.
   </p>
 
   <p>
@@ -198,5 +198,7 @@ because macOS attaches privacy grants and saved settings to it.
 
 ## Licence
 
-Beers is released under the [Apache License 2.0](LICENSE). Third-party licences
+Beers is released under the [Apache License 2.0](LICENSE). Use it, modify it,
+fork it, ship it commercially — the licence asks only that you keep the
+copyright and licence notices and state what you changed. Third-party licences
 and model notices are listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

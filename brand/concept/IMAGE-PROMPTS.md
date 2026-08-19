@@ -1,6 +1,6 @@
 # Beers visual concept prompts
 
-All four boards were generated with the built-in image generation tool. The exact production prompts are retained in the task transcript. The assets cover:
+The four concept boards are the internal reference set for the Beers identity. They cover:
 
 1. `01-beers-logo-brand-board.png` — B-with-ear mark, wordmark, app icon, lockups and exact launch tagline.
 2. `02-beers-design-system-board.png` — palette, typography, iconography and core UI components.
