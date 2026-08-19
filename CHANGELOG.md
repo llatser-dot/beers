@@ -4,6 +4,15 @@ Notable public changes are recorded here. Release artefacts and full commit
 comparisons remain available on the
 [GitHub Releases page](https://github.com/llatser-dot/beers/releases).
 
+## 1.3.3 — 19 August 2026
+
+- Fixed the notch HUD never appearing: the overlay panel was ordered below the
+  menu bar, so the island that draws inside the menu bar strip was invisible.
+- A hold that captured no speech no longer counts as a pour. Silent, whitespace
+  and punctuation-only results are dropped instead of pasted and recorded.
+- Refreshed the public repository and site copy, and updated the Pub Wall
+  development toolchain.
+
 ## 1.3.2 — 28 July 2026
 
 - Moved vocabulary corrections into the Taproom as **Drunk Slurs**.

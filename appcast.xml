@@ -3,6 +3,20 @@
     <channel>
         <title>Beers</title>
         <item>
+            <title>1.3.3</title>
+            <pubDate>Wed, 19 Aug 2026 08:58:56 +0000</pubDate>
+            <link>https://github.com/llatser-dot/beers/releases/tag/v1.3.3</link>
+            <sparkle:version>133</sparkle:version>
+            <sparkle:shortVersionString>1.3.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure
+                url="https://github.com/llatser-dot/beers/releases/download/v1.3.3/Beers-1.3.3.app.zip"
+                sparkle:edSignature="WppEErSRRNym/pnl1jvdUOobfFD98yzkklHQggHrXuE2PSq63Q53zUNh4G0d/d167I0EZ5DnYN07mnPZ7Dl0CA=="
+                length="126010873"
+                type="application/octet-stream" />
+        </item>
+        <item>
             <title>1.3.2</title>
             <pubDate>Tue, 28 Jul 2026 04:21:06 +0000</pubDate>
             <link>https://github.com/llatser-dot/beers/releases/tag/v1.3.2</link>
